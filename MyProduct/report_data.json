@@ -1,0 +1,410 @@
+{
+  "totalCost": 126080.04,
+  "products": [
+    {
+      "product": "Search",
+      "cost": 27224.46,
+      "pctOfTotal": 21.59,
+      "rows": 245,
+      "serviceCount": 6,
+      "services": [
+        {
+          "service": "AmazonEBS",
+          "cost": 10350.07,
+          "pctOfProduct": 38.02,
+          "resourceCount": 39
+        },
+        {
+          "service": "AmazonS3",
+          "cost": 8865.02,
+          "pctOfProduct": 32.56,
+          "resourceCount": 41
+        },
+        {
+          "service": "AmazonVPC",
+          "cost": 3814.74,
+          "pctOfProduct": 14.01,
+          "resourceCount": 33
+        },
+        {
+          "service": "AmazonRDS",
+          "cost": 3248.71,
+          "pctOfProduct": 11.93,
+          "resourceCount": 44
+        },
+        {
+          "service": "AmazonEC2",
+          "cost": 650.26,
+          "pctOfProduct": 2.39,
+          "resourceCount": 41
+        },
+        {
+          "service": "ElasticLoadBalancing",
+          "cost": 295.66,
+          "pctOfProduct": 1.09,
+          "resourceCount": 47
+        }
+      ],
+      "hhi": 0.285
+    },
+    {
+      "product": "InternalTools",
+      "cost": 26767.58,
+      "pctOfTotal": 21.23,
+      "rows": 244,
+      "serviceCount": 6,
+      "services": [
+        {
+          "service": "AmazonS3",
+          "cost": 9741.98,
+          "pctOfProduct": 36.39,
+          "resourceCount": 42
+        },
+        {
+          "service": "AmazonEBS",
+          "cost": 7716.66,
+          "pctOfProduct": 28.83,
+          "resourceCount": 33
+        },
+        {
+          "service": "AmazonVPC",
+          "cost": 4411.8,
+          "pctOfProduct": 16.48,
+          "resourceCount": 38
+        },
+        {
+          "service": "AmazonRDS",
+          "cost": 3998.22,
+          "pctOfProduct": 14.94,
+          "resourceCount": 50
+        },
+        {
+          "service": "AmazonEC2",
+          "cost": 598.39,
+          "pctOfProduct": 2.24,
+          "resourceCount": 39
+        },
+        {
+          "service": "ElasticLoadBalancing",
+          "cost": 300.53,
+          "pctOfProduct": 1.12,
+          "resourceCount": 42
+        }
+      ],
+      "hhi": 0.266
+    },
+    {
+      "product": "Checkout",
+      "cost": 26238.55,
+      "pctOfTotal": 20.81,
+      "rows": 252,
+      "serviceCount": 6,
+      "services": [
+        {
+          "service": "AmazonEBS",
+          "cost": 9921.76,
+          "pctOfProduct": 37.81,
+          "resourceCount": 43
+        },
+        {
+          "service": "AmazonS3",
+          "cost": 8820.98,
+          "pctOfProduct": 33.62,
+          "resourceCount": 41
+        },
+        {
+          "service": "AmazonRDS",
+          "cost": 3602.16,
+          "pctOfProduct": 13.73,
+          "resourceCount": 45
+        },
+        {
+          "service": "AmazonVPC",
+          "cost": 2996.75,
+          "pctOfProduct": 11.42,
+          "resourceCount": 40
+        },
+        {
+          "service": "AmazonEC2",
+          "cost": 626.99,
+          "pctOfProduct": 2.39,
+          "resourceCount": 38
+        },
+        {
+          "service": "ElasticLoadBalancing",
+          "cost": 269.91,
+          "pctOfProduct": 1.03,
+          "resourceCount": 45
+        }
+      ],
+      "hhi": 0.289
+    },
+    {
+      "product": "DataPlatform",
+      "cost": 23319.3,
+      "pctOfTotal": 18.5,
+      "rows": 223,
+      "serviceCount": 6,
+      "services": [
+        {
+          "service": "AmazonS3",
+          "cost": 8952.79,
+          "pctOfProduct": 38.39,
+          "resourceCount": 36
+        },
+        {
+          "service": "AmazonEBS",
+          "cost": 7921.15,
+          "pctOfProduct": 33.97,
+          "resourceCount": 38
+        },
+        {
+          "service": "AmazonVPC",
+          "cost": 2873.42,
+          "pctOfProduct": 12.32,
+          "resourceCount": 37
+        },
+        {
+          "service": "AmazonRDS",
+          "cost": 2666.93,
+          "pctOfProduct": 11.44,
+          "resourceCount": 36
+        },
+        {
+          "service": "AmazonEC2",
+          "cost": 644.46,
+          "pctOfProduct": 2.76,
+          "resourceCount": 39
+        },
+        {
+          "service": "ElasticLoadBalancing",
+          "cost": 260.55,
+          "pctOfProduct": 1.12,
+          "resourceCount": 37
+        }
+      ],
+      "hhi": 0.292
+    },
+    {
+      "product": "MarketingSite",
+      "cost": 22530.14,
+      "pctOfTotal": 17.87,
+      "rows": 236,
+      "serviceCount": 6,
+      "services": [
+        {
+          "service": "AmazonEBS",
+          "cost": 8109.51,
+          "pctOfProduct": 35.99,
+          "resourceCount": 31
+        },
+        {
+          "service": "AmazonS3",
+          "cost": 5618.74,
+          "pctOfProduct": 24.94,
+          "resourceCount": 26
+        },
+        {
+          "service": "AmazonVPC",
+          "cost": 4115.77,
+          "pctOfProduct": 18.27,
+          "resourceCount": 39
+        },
+        {
+          "service": "AmazonRDS",
+          "cost": 3741.87,
+          "pctOfProduct": 16.61,
+          "resourceCount": 47
+        },
+        {
+          "service": "AmazonEC2",
+          "cost": 568.2,
+          "pctOfProduct": 2.52,
+          "resourceCount": 39
+        },
+        {
+          "service": "ElasticLoadBalancing",
+          "cost": 376.04,
+          "pctOfProduct": 1.67,
+          "resourceCount": 54
+        }
+      ],
+      "hhi": 0.254
+    }
+  ],
+  "services": [
+    {
+      "service": "AmazonEBS",
+      "cost": 44019.15,
+      "pctOfTotal": 34.91
+    },
+    {
+      "service": "AmazonS3",
+      "cost": 41999.52,
+      "pctOfTotal": 33.31
+    },
+    {
+      "service": "AmazonVPC",
+      "cost": 18212.48,
+      "pctOfTotal": 14.45
+    },
+    {
+      "service": "AmazonRDS",
+      "cost": 17257.89,
+      "pctOfTotal": 13.69
+    },
+    {
+      "service": "AmazonEC2",
+      "cost": 3088.29,
+      "pctOfTotal": 2.45
+    },
+    {
+      "service": "ElasticLoadBalancing",
+      "cost": 1502.7,
+      "pctOfTotal": 1.19
+    }
+  ],
+  "environments": [
+    {
+      "environment": "dev",
+      "cost": 43930.05,
+      "pctOfTotal": 34.84
+    },
+    {
+      "environment": "prod",
+      "cost": 41785.82,
+      "pctOfTotal": 33.14
+    },
+    {
+      "environment": "staging",
+      "cost": 40364.17,
+      "pctOfTotal": 32.01
+    }
+  ],
+  "coOccurrence": [
+    {
+      "pair": [
+        "AmazonEBS",
+        "AmazonEC2"
+      ],
+      "products": 5
+    },
+    {
+      "pair": [
+        "AmazonEBS",
+        "AmazonRDS"
+      ],
+      "products": 5
+    },
+    {
+      "pair": [
+        "AmazonEBS",
+        "AmazonS3"
+      ],
+      "products": 5
+    },
+    {
+      "pair": [
+        "AmazonEBS",
+        "AmazonVPC"
+      ],
+      "products": 5
+    },
+    {
+      "pair": [
+        "AmazonEBS",
+        "ElasticLoadBalancing"
+      ],
+      "products": 5
+    },
+    {
+      "pair": [
+        "AmazonEC2",
+        "AmazonRDS"
+      ],
+      "products": 5
+    },
+    {
+      "pair": [
+        "AmazonEC2",
+        "AmazonS3"
+      ],
+      "products": 5
+    },
+    {
+      "pair": [
+        "AmazonEC2",
+        "AmazonVPC"
+      ],
+      "products": 5
+    },
+    {
+      "pair": [
+        "AmazonEC2",
+        "ElasticLoadBalancing"
+      ],
+      "products": 5
+    },
+    {
+      "pair": [
+        "AmazonRDS",
+        "AmazonS3"
+      ],
+      "products": 5
+    },
+    {
+      "pair": [
+        "AmazonRDS",
+        "AmazonVPC"
+      ],
+      "products": 5
+    },
+    {
+      "pair": [
+        "AmazonRDS",
+        "ElasticLoadBalancing"
+      ],
+      "products": 5
+    },
+    {
+      "pair": [
+        "AmazonS3",
+        "AmazonVPC"
+      ],
+      "products": 5
+    },
+    {
+      "pair": [
+        "AmazonS3",
+        "ElasticLoadBalancing"
+      ],
+      "products": 5
+    },
+    {
+      "pair": [
+        "AmazonVPC",
+        "ElasticLoadBalancing"
+      ],
+      "products": 5
+    }
+  ],
+  "sharedStacks": [
+    {
+      "products": [
+        "Checkout",
+        "DataPlatform",
+        "InternalTools",
+        "MarketingSite",
+        "Search"
+      ],
+      "services": [
+        "AmazonEBS",
+        "AmazonEC2",
+        "AmazonRDS",
+        "AmazonS3",
+        "AmazonVPC",
+        "ElasticLoadBalancing"
+      ]
+    }
+  ]
+}

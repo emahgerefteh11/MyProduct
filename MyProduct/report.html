@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Cloud Cost Atlas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: linear-gradient(135deg, #0b1021 0%, #0f1e3a 60%, #1c305b 100%);
+      --panel: rgba(255,255,255,0.05);
+      --panel-strong: rgba(255,255,255,0.08);
+      --card: rgba(255,255,255,0.07);
+      --text: #e9eefc;
+      --muted: #9fb3d9;
+      --accent: #88f0ff;
+      --accent-2: #ffc857;
+      --accent-3: #8cff96;
+      --danger: #ff6b6b;
+      --grid: rgba(255,255,255,0.08);
+      --shadow: 0 10px 40px rgba(0,0,0,0.35);
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'DM Sans', 'Space Grotesk', sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      min-height: 100vh;
+      padding: 28px 32px 80px;
+    }
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .title {
+      font-family: 'Space Grotesk', 'DM Sans', sans-serif;
+      font-size: 28px;
+      letter-spacing: 0.5px;
+      font-weight: 700;
+    }
+    .pill {
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 999px;
+      padding: 10px 16px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      letter-spacing: 0.2px;
+    }
+    .big {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+    }
+    .muted { color: var(--muted); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      text-align: left;
+      padding: 8px 0;
+      font-size: 14px;
+    }
+    th {
+      color: var(--muted);
+      font-weight: 500;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .bar {
+      height: 8px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .bar span {
+      display: block;
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent), #6de2ff, #4fb6ff);
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .chip {
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .stack-card {
+      padding: 14px;
+      background: var(--panel-strong);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius);
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .tag {
+      background: rgba(255,255,255,0.08);
+      padding: 4px 8px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--accent-2);
+    }
+    a, a:visited { color: var(--accent); text-decoration: none; }
+    @media (max-width: 720px) {
+      header { flex-direction: column; align-items: flex-start; }
+      body { padding: 18px 18px 60px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div>
+        <div class="pill">FinOps · Product Footprints</div>
+        <div class="title">Cloud Cost Atlas</div>
+      </div>
+      <div class="pill" id="source-info">Loading…</div>
+    </header>
+
+    <div class="grid" id="metrics">
+      <div class="card">
+        <h3>Total Unblended Cost</h3>
+        <div class="big" id="total-cost">—</div>
+        <div class="muted" id="product-count"></div>
+      </div>
+      <div class="card">
+        <h3>Storage Share (EBS + S3)</h3>
+        <div class="big" id="storage-share">—</div>
+        <div class="muted">Primary optimization surface</div>
+      </div>
+      <div class="card">
+        <h3>Environments</h3>
+        <div class="big" id="env-split">—</div>
+        <div class="muted">dev / prod / staging</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Products by Cost</h3>
+        <table id="products-table">
+          <thead>
+            <tr><th>Product</th><th>Cost</th><th>Share</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h3>Services by Cost</h3>
+        <table id="services-table">
+          <thead>
+            <tr><th>Service</th><th>Cost</th><th>Share</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Environments</h3>
+        <table id="env-table">
+          <thead><tr><th>Environment</th><th>Cost</th><th>Share</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h3>Service Co-occurrence</h3>
+        <div class="muted" style="margin-bottom:6px;">Pairs appearing together across products</div>
+        <div id="co-table"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Product Stack Cards</h3>
+      <div class="grid" id="stack-cards"></div>
+    </div>
+
+    <div class="card">
+      <h3>Shared Service Stacks</h3>
+      <div id="shared-stacks"></div>
+    </div>
+  </div>
+
+  <script>
+    const fmtMoney = (n) => `$${n.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    const fmtPct = (n) => `${n.toFixed(2)}%`;
+
+    async function loadData() {
+      const res = await fetch('report_data.json').catch(() => fetch('MyProduct/report_data.json'));
+      if (!res.ok) throw new Error('Cannot load report_data.json');
+      return res.json();
+    }
+
+    function renderBars(rows, tbody) {
+      rows.forEach((row) => {
+        const tr = document.createElement('tr');
+        const nameCell = document.createElement('td');
+        nameCell.textContent = row.name;
+
+        const costCell = document.createElement('td');
+        costCell.textContent = row.cost;
+
+        const shareCell = document.createElement('td');
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        const span = document.createElement('span');
+        span.style.width = Math.min(row.pct, 100) + '%';
+        bar.appendChild(span);
+        const label = document.createElement('div');
+        label.className = 'muted';
+        label.textContent = fmtPct(row.pct);
+        shareCell.append(bar, label);
+
+        tr.append(nameCell, costCell, shareCell);
+        tbody.appendChild(tr);
+      });
+    }
+
+    function render() {
+      loadData().then((data) => {
+        document.getElementById('source-info').textContent = 'Source: CUR slice → report_data.json';
+        document.getElementById('total-cost').textContent = fmtMoney(data.totalCost);
+        document.getElementById('product-count').textContent = `${data.products.length} tagged products • ${data.services.length} services`;
+
+        const storageShare = data.services
+          .filter(s => ['AmazonEBS','AmazonS3'].includes(s.service))
+          .reduce((a,b)=>a+b.pctOfTotal, 0);
+        document.getElementById('storage-share').textContent = fmtPct(storageShare);
+
+        const envSplit = data.environments.map(e => `${e.environment}:${fmtPct(e.pctOfTotal)}`).join(' · ');
+        document.getElementById('env-split').textContent = envSplit;
+
+        const prodRows = data.products.map(p => ({
+          name: p.product,
+          cost: fmtMoney(p.cost),
+          pct: p.pctOfTotal
+        }));
+        renderBars(prodRows, document.querySelector('#products-table tbody'));
+
+        const svcRows = data.services.map(s => ({
+          name: s.service,
+          cost: fmtMoney(s.cost),
+          pct: s.pctOfTotal
+        }));
+        renderBars(svcRows, document.querySelector('#services-table tbody'));
+
+        const envRows = data.environments.map(e => ({
+          name: e.environment,
+          cost: fmtMoney(e.cost),
+          pct: e.pctOfTotal
+        }));
+        renderBars(envRows, document.querySelector('#env-table tbody'));
+
+        const co = data.coOccurrence.slice(0, 8);
+        const coWrap = document.getElementById('co-table');
+        co.forEach(pair => {
+          const row = document.createElement('div');
+          row.className = 'row';
+          row.style.marginBottom = '8px';
+          const left = document.createElement('div');
+          left.textContent = `${pair.pair[0]} + ${pair.pair[1]}`;
+          const right = document.createElement('div');
+          right.className = 'tag';
+          right.textContent = `${pair.products} products`;
+          row.append(left, right);
+          coWrap.appendChild(row);
+        });
+
+        const stacks = document.getElementById('stack-cards');
+        data.products.forEach(p => {
+          const sCard = document.createElement('div');
+          sCard.className = 'stack-card';
+          const row = document.createElement('div');
+          row.className = 'row';
+          row.innerHTML = `<div><strong>${p.product}</strong><div class="muted">${fmtMoney(p.cost)} · ${fmtPct(p.pctOfTotal)} of total</div></div><div class="tag">HHI ${p.hhi}</div>`;
+          sCard.appendChild(row);
+          const list = document.createElement('div');
+          list.style.marginTop = '10px';
+          p.services.forEach(svc => {
+            const line = document.createElement('div');
+            line.className = 'row';
+            line.style.marginBottom = '6px';
+            line.innerHTML = `<div class="muted">${svc.service}</div><div>${fmtPct(svc.pctOfProduct)}</div>`;
+            list.appendChild(line);
+          });
+          sCard.appendChild(list);
+          stacks.appendChild(sCard);
+        });
+
+        const shared = document.getElementById('shared-stacks');
+        if (!data.sharedStacks.length) {
+          shared.textContent = '(none)';
+        } else {
+          data.sharedStacks.forEach(stack => {
+            const wrap = document.createElement('div');
+            wrap.className = 'stack-card';
+            const title = document.createElement('div');
+            title.innerHTML = `<strong>${stack.products.join(', ')}</strong>`;
+            const chips = document.createElement('div');
+            chips.className = 'chips';
+            stack.services.forEach(s => {
+              const c = document.createElement('div');
+              c.className = 'chip';
+              c.textContent = s;
+              chips.appendChild(c);
+            });
+            wrap.append(title, chips);
+            shared.appendChild(wrap);
+          });
+        }
+      }).catch(err => {
+        document.body.innerHTML = '<div style="padding:24px;color:#fff;font-family:monospace;">Failed to load report_data.json. Run `python cur_to_json.py` first.<br/><br/>' + err + '</div>';
+      });
+    }
+
+    render();
+  </script>
+</body>
+</html>
