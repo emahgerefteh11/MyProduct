@@ -1,3 +1,4 @@
+import argparse
 import csv
 import itertools
 import json
@@ -5,6 +6,34 @@ import math
 import pathlib
 from collections import defaultdict
 from typing import Dict, List, Set, Tuple
+
+
+def classify_resource_name(resource_id: str) -> str:
+    """Heuristic to bucket resources by naming convention/prefix."""
+    if not resource_id:
+        return "unknown"
+    rid = resource_id.strip()
+    if rid.startswith("arn:"):
+        # arn:partition:service:region:account:resourcetype/resource
+        tail = rid.split(":", 5)[-1]
+        tail = tail.split("/")[-1]
+        return tail.split("-")[0] if "-" in tail else tail.split(":")[0]
+    # common AWS ids like i-xxxx, vol-xxxx, db-xxxx, etc.
+    token = rid.split("-")[0]
+    return token or "unknown"
+
+
+def extract_platform(resource_id: str) -> str:
+    """
+    Heuristic to extract a platform marker from a resource name like
+    'disk-PlatformB-dev-0001'. Returns 'unknown' if not present.
+    """
+    if not resource_id:
+        return "unknown"
+    parts = resource_id.split("-")
+    if len(parts) >= 2:
+        return parts[1] or "unknown"
+    return "unknown"
 
 
 def load_cur(path: pathlib.Path):
@@ -15,6 +44,12 @@ def load_cur(path: pathlib.Path):
     prod_svc_res: Dict[str, Dict[str, Set[str]]] = defaultdict(lambda: defaultdict(set))
     prod_rows: Dict[str, int] = defaultdict(int)
     prod_service_sets: Dict[str, Set[str]] = defaultdict(set)
+
+    # resource naming breakdown
+    res_name_cost: Dict[str, float] = defaultdict(float)
+    res_name_count: Dict[str, int] = defaultdict(int)
+    platform_cost: Dict[str, float] = defaultdict(float)
+    platform_count: Dict[str, int] = defaultdict(int)
 
     with path.open(newline="") as f:
         reader = csv.DictReader(f)
@@ -33,6 +68,14 @@ def load_cur(path: pathlib.Path):
             prod_rows[prod] += 1
             prod_service_sets[prod].add(svc)
 
+            res_key = classify_resource_name(rid)
+            res_name_cost[res_key] += cost
+            res_name_count[res_key] += 1
+
+            platform = extract_platform(rid)
+            platform_cost[platform] += cost
+            platform_count[platform] += 1
+
     return {
         "prod_cost": prod_cost,
         "env_cost": env_cost,
@@ -41,6 +84,10 @@ def load_cur(path: pathlib.Path):
         "prod_svc_res": prod_svc_res,
         "prod_rows": prod_rows,
         "prod_service_sets": prod_service_sets,
+        "res_name_cost": res_name_cost,
+        "res_name_count": res_name_count,
+        "platform_cost": platform_cost,
+        "platform_count": platform_count,
     }
 
 
@@ -56,6 +103,10 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
     prod_svc_res = cur["prod_svc_res"]
     prod_rows = cur["prod_rows"]
     prod_service_sets = cur["prod_service_sets"]
+    res_name_cost = cur["res_name_cost"]
+    res_name_count = cur["res_name_count"]
+    platform_cost = cur["platform_cost"]
+    platform_count = cur["platform_count"]
 
     total_cost = sum(prod_cost.values())
 
@@ -102,6 +153,26 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
         for env, cost in top_items(env_cost, len(env_cost))
     ]
 
+    resource_names = [
+        {
+            "name": name,
+            "cost": round(cost, 2),
+            "pctOfTotal": round(pct(cost), 2),
+            "rows": res_name_count[name],
+        }
+        for name, cost in top_items(res_name_cost, len(res_name_cost))
+    ]
+
+    platforms = [
+        {
+            "platform": name,
+            "cost": round(cost, 2),
+            "pctOfTotal": round(pct(cost), 2),
+            "rows": platform_count[name],
+        }
+        for name, cost in top_items(platform_cost, len(platform_cost))
+    ]
+
     pair_counts: Dict[Tuple[str, str], int] = defaultdict(int)
     for prod, svc_set in prod_service_sets.items():
         for a, b in itertools.combinations(sorted(svc_set), 2):
@@ -130,17 +201,33 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
         "environments": environments,
         "coOccurrence": co_occurrence,
         "sharedStacks": shared_stacks,
+        "resourceNames": resource_names,
+        "platforms": platforms,
     }
 
 
 def main():
-    input_path = pathlib.Path("MyProduct/mock_aws_cur_iaas_heavy.csv")
-    output_path = pathlib.Path("MyProduct/report_data.json")
+    parser = argparse.ArgumentParser(description="Summarize AWS CUR slice into JSON for the report UI.")
+    parser.add_argument(
+        "--input",
+        "-i",
+        type=pathlib.Path,
+        default=pathlib.Path("MyProduct/mock_aws_cur_iaas_heavy.csv"),
+        help="Path to CUR CSV file",
+    )
+    parser.add_argument(
+        "--output",
+        "-o",
+        type=pathlib.Path,
+        default=pathlib.Path("MyProduct/report_data.json"),
+        help="Path to write JSON summary",
+    )
+    args = parser.parse_args()
 
-    cur = load_cur(input_path)
+    cur = load_cur(args.input)
     summary = build_summary(cur)
-    output_path.write_text(json.dumps(summary, indent=2))
-    print(f"Wrote {output_path} with totalCost=${summary['totalCost']:,.2f}")
+    args.output.write_text(json.dumps(summary, indent=2))
+    print(f"Wrote {args.output} with totalCost=${summary['totalCost']:,.2f}")
 
 
 if __name__ == "__main__":

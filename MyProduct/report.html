@@ -83,6 +83,28 @@
       width: 100%;
       border-collapse: collapse;
     }
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .tab {
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .tab.active {
+      border-color: var(--accent);
+      box-shadow: 0 8px 18px rgba(0,0,0,0.3);
+      color: #0b1021;
+      background: linear-gradient(135deg, var(--accent), #6de2ff);
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
     th, td {
       text-align: left;
       padding: 8px 0;
@@ -154,68 +176,95 @@
       <div class="pill" id="source-info">Loading…</div>
     </header>
 
-    <div class="grid" id="metrics">
-      <div class="card">
-        <h3>Total Unblended Cost</h3>
-        <div class="big" id="total-cost">—</div>
-        <div class="muted" id="product-count"></div>
+    <div class="tabs">
+      <div class="tab active" data-tab="finops">FinOps Overview</div>
+      <div class="tab" data-tab="naming">Resource Naming & Platform</div>
+    </div>
+
+    <div id="finops" class="tab-content active">
+      <div class="grid" id="metrics">
+        <div class="card">
+          <h3>Total Unblended Cost</h3>
+          <div class="big" id="total-cost">—</div>
+          <div class="muted" id="product-count"></div>
+        </div>
+        <div class="card">
+          <h3>Storage Share (EBS + S3)</h3>
+          <div class="big" id="storage-share">—</div>
+          <div class="muted">Primary optimization surface</div>
+        </div>
+        <div class="card">
+          <h3>Environments</h3>
+          <div class="big" id="env-split">—</div>
+          <div class="muted">dev / prod / staging</div>
+        </div>
       </div>
-      <div class="card">
-        <h3>Storage Share (EBS + S3)</h3>
-        <div class="big" id="storage-share">—</div>
-        <div class="muted">Primary optimization surface</div>
+
+      <div class="grid">
+        <div class="card">
+          <h3>Products by Cost</h3>
+          <table id="products-table">
+            <thead>
+              <tr><th>Product</th><th>Cost</th><th>Share</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h3>Services by Cost</h3>
+          <table id="services-table">
+            <thead>
+              <tr><th>Service</th><th>Cost</th><th>Share</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
+
+      <div class="grid">
+        <div class="card">
+          <h3>Environments</h3>
+          <table id="env-table">
+            <thead><tr><th>Environment</th><th>Cost</th><th>Share</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h3>Service Co-occurrence</h3>
+          <div class="muted" style="margin-bottom:6px;">Pairs appearing together across products</div>
+          <div id="co-table"></div>
+        </div>
+      </div>
+
       <div class="card">
-        <h3>Environments</h3>
-        <div class="big" id="env-split">—</div>
-        <div class="muted">dev / prod / staging</div>
+        <h3>Product Stack Cards</h3>
+        <div class="grid" id="stack-cards"></div>
+      </div>
+
+      <div class="card">
+        <h3>Shared Service Stacks</h3>
+        <div id="shared-stacks"></div>
       </div>
     </div>
 
-    <div class="grid">
+    <div id="naming" class="tab-content">
       <div class="card">
-        <h3>Products by Cost</h3>
-        <table id="products-table">
-          <thead>
-            <tr><th>Product</th><th>Cost</th><th>Share</th></tr>
-          </thead>
+        <h3>Resource Naming Breakdown</h3>
+        <div class="muted" style="margin-bottom:6px;">Cost grouped by resource ID naming prefix</div>
+        <table id="resnames-table">
+          <thead><tr><th>Name prefix</th><th>Cost</th><th>Share</th><th>Rows</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
+
       <div class="card">
-        <h3>Services by Cost</h3>
-        <table id="services-table">
-          <thead>
-            <tr><th>Service</th><th>Cost</th><th>Share</th></tr>
-          </thead>
+        <h3>Platforms</h3>
+        <div class="muted" style="margin-bottom:6px;">Cost and count by platform (parsed from resource names)</div>
+        <table id="platforms-table">
+          <thead><tr><th>Platform</th><th>Cost</th><th>Share</th><th>Rows</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
-    </div>
-
-    <div class="grid">
-      <div class="card">
-        <h3>Environments</h3>
-        <table id="env-table">
-          <thead><tr><th>Environment</th><th>Cost</th><th>Share</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <div class="card">
-        <h3>Service Co-occurrence</h3>
-        <div class="muted" style="margin-bottom:6px;">Pairs appearing together across products</div>
-        <div id="co-table"></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>Product Stack Cards</h3>
-      <div class="grid" id="stack-cards"></div>
-    </div>
-
-    <div class="card">
-      <h3>Shared Service Stacks</h3>
-      <div id="shared-stacks"></div>
     </div>
   </div>
 
@@ -289,6 +338,32 @@
         }));
         renderBars(envRows, document.querySelector('#env-table tbody'));
 
+        const resRows = data.resourceNames.map(r => ({
+          name: r.name,
+          cost: fmtMoney(r.cost),
+          pct: r.pctOfTotal,
+          rows: r.rows
+        }));
+        const resTbody = document.querySelector('#resnames-table tbody');
+        resRows.forEach(r => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${r.name}</td><td>${r.cost}</td><td>${fmtPct(r.pct)}</td><td>${r.rows}</td>`;
+          resTbody.appendChild(tr);
+        });
+
+        const platRows = data.platforms.map(p => ({
+          platform: p.platform,
+          cost: fmtMoney(p.cost),
+          pct: p.pctOfTotal,
+          rows: p.rows
+        }));
+        const platTbody = document.querySelector('#platforms-table tbody');
+        platRows.forEach(p => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${p.platform}</td><td>${p.cost}</td><td>${fmtPct(p.pct)}</td><td>${p.rows}</td>`;
+          platTbody.appendChild(tr);
+        });
+
         const co = data.coOccurrence.slice(0, 8);
         const coWrap = document.getElementById('co-table');
         co.forEach(pair => {
@@ -346,6 +421,17 @@
             shared.appendChild(wrap);
           });
         }
+
+        // Tabs
+        const tabs = document.querySelectorAll('.tab');
+        const contents = document.querySelectorAll('.tab-content');
+        tabs.forEach(tab => {
+          tab.addEventListener('click', () => {
+            const target = tab.getAttribute('data-tab');
+            tabs.forEach(t => t.classList.toggle('active', t === tab));
+            contents.forEach(c => c.classList.toggle('active', c.id === target));
+          });
+        });
       }).catch(err => {
         document.body.innerHTML = '<div style="padding:24px;color:#fff;font-family:monospace;">Failed to load report_data.json. Run `python cur_to_json.py` first.<br/><br/>' + err + '</div>';
       });
