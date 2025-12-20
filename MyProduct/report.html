@@ -62,6 +62,7 @@
     <div class="tabs">
       <div class="tab active" data-tab="finops">FinOps Overview</div>
       <div class="tab" data-tab="naming">Resource Naming & Platform</div>
+      <div class="tab" data-tab="anomaly">Anomalies & Distributions</div>
     </div>
 
     <div id="finops" class="tab-content active">
@@ -126,6 +127,35 @@
       </div>
     </div>
 
+    <div id="anomaly" class="tab-content">
+      <div class="card" style="margin-bottom:14px;">
+        <h3>Filters</h3>
+        <div class="muted" style="margin-bottom:6px;">Choose platform and product</div>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <select id="anomaly-platform-filter" style="padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:var(--panel);color:var(--text);min-width:200px;"></select>
+          <select id="anomaly-product-filter" style="padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:var(--panel);color:var(--text);min-width:200px;"></select>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>EC2 SKU Distribution</h3>
+        <div class="muted" style="margin-bottom:6px;">Hours and instance counts</div>
+        <div id="anomaly-ec2-chart" style="height:320px;"></div>
+        <table id="anomaly-ec2-table"><thead><tr><th>SKU</th><th>vCPU</th><th>RAM (GiB)</th><th>Hours</th><th>Instances</th></tr></thead><tbody></tbody></table>
+      </div>
+
+      <div class="card">
+        <h3>EBS Volume Size Buckets (GB-Mo)</h3>
+        <div id="anomaly-ebs-chart" style="height:260px;"></div>
+        <table id="anomaly-ebs-table"><thead><tr><th>Bucket</th><th>GB-Mo</th><th>Resources</th></tr></thead><tbody></tbody></table>
+      </div>
+      <div class="card">
+        <h3>S3 Bucket Size Buckets (GB-Mo)</h3>
+        <div id="anomaly-s3-chart" style="height:260px;"></div>
+        <table id="anomaly-s3-table"><thead><tr><th>Bucket</th><th>GB-Mo</th><th>Resources</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+
     <div id="naming" class="tab-content">
       <div class="card" style="margin-bottom:14px;">
         <h3>Filters</h3>
@@ -172,8 +202,13 @@
   </div>
 
   <script>
+    // Plotly for charts
+  </script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script>
     const fmtMoney = (n) => `$${n.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
     const fmtPct = (n) => `${n.toFixed(2)}%`;
+    const bucketOrder = ['0-100','100-500','500-1k','1k-5k','5k-10k','10k+'];
 
     async function loadData() {
       const res = await fetch('report_data.json').catch(() => fetch('MyProduct/report_data.json'));
@@ -221,8 +256,12 @@
         // FinOps filters
         const finPlatSel = document.getElementById('finops-platform-filter');
         const finProdSel = document.getElementById('finops-product-filter');
+        const anPlatSel = document.getElementById('anomaly-platform-filter');
+        const anProdSel = document.getElementById('anomaly-product-filter');
         setPlatformOptions(finPlatSel);
         setProductOptions(finProdSel, 'all');
+        setPlatformOptions(anPlatSel);
+        setProductOptions(anProdSel, 'all');
 
         function getScope(platform, product) {
           if (platform === 'all') {
@@ -435,6 +474,141 @@
         platSel.addEventListener('change', (e)=>{ setProductOptions(prodSel, e.target.value); prodSel.value='all'; renderNaming(e.target.value, 'all'); });
         prodSel.addEventListener('change', ()=>renderNaming(platSel.value, prodSel.value));
         renderNaming('all','all');
+
+        function renderAnomaly(platform, product) {
+          const ec2Body = document.querySelector('#anomaly-ec2-table tbody');
+          const ebsBody = document.querySelector('#anomaly-ebs-table tbody');
+          const s3Body = document.querySelector('#anomaly-s3-table tbody');
+          ec2Body.innerHTML = '';
+          ebsBody.innerHTML = '';
+          s3Body.innerHTML = '';
+          const ec2Chart = document.getElementById('anomaly-ec2-chart');
+          const ebsChart = document.getElementById('anomaly-ebs-chart');
+          const s3Chart = document.getElementById('anomaly-s3-chart');
+
+          const aggBuckets = (plats, key) => {
+            const acc = {};
+            plats.forEach(p => {
+              (p[key] || []).forEach(b => {
+                acc[b.label] = acc[b.label] || { label: b.label, gbMo: 0, resources: 0 };
+                acc[b.label].gbMo += b.gbMo || 0;
+                acc[b.label].resources += b.resources || 0;
+              });
+            });
+            return Object.values(acc).sort((a,b)=>a.label.localeCompare(b.label));
+          };
+
+          const aggSkus = (plats) => {
+            const acc = {};
+            plats.forEach(p => {
+              (p.ec2Skus || []).forEach(s => {
+                const k = s.sku;
+                if (!acc[k]) acc[k] = { sku:k, vcpu:s.vcpu, ramGiB:s.ramGiB, hours:0, instances:0 };
+                acc[k].hours += s.hours || 0;
+                acc[k].instances += s.instances || 0;
+              });
+            });
+            return Object.values(acc).sort((a,b)=>b.hours - a.hours);
+          };
+
+          let plats = data.platforms;
+          if (platform !== 'all') {
+            const p = data.platforms.find(x => x.platform === platform);
+            if (!p) return;
+            if (product !== 'all') {
+              const pr = p.products.find(pp => pp.product === product);
+              if (!pr) return;
+              plats = [{ ...pr, ec2Skus: pr.ec2Skus, ebsBuckets: pr.ebsBuckets, s3Buckets: pr.s3Buckets }];
+            } else {
+              plats = [p];
+            }
+          }
+
+          aggSkus(plats).forEach(s => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${s.sku}</td><td>${s.vcpu}</td><td>${s.ramGiB}</td><td>${s.hours.toFixed(2)}</td><td>${s.instances}</td>`;
+            ec2Body.appendChild(tr);
+          });
+          const ebsBuckets = aggBuckets(plats, 'ebsBuckets').sort((a,b)=>bucketOrder.indexOf(a.label) - bucketOrder.indexOf(b.label));
+          const s3Buckets = aggBuckets(plats, 's3Buckets').sort((a,b)=>bucketOrder.indexOf(a.label) - bucketOrder.indexOf(b.label));
+          ebsBuckets.forEach(b => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${b.label}</td><td>${b.gbMo.toFixed(2)}</td><td>${b.resources}</td>`;
+            ebsBody.appendChild(tr);
+          });
+          s3Buckets.forEach(b => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${b.label}</td><td>${b.gbMo.toFixed(2)}</td><td>${b.resources}</td>`;
+            s3Body.appendChild(tr);
+          });
+
+          // Charts
+          const ec2Skus = aggSkus(plats);
+          if (window.Plotly) {
+            const baseLayout = {
+              paper_bgcolor: 'rgba(0,0,0,0)',
+              plot_bgcolor: 'rgba(15,20,45,0.7)',
+              font: {color: '#e9eefc', family: 'DM Sans, sans-serif'},
+              margin: {t: 40, l: 50, r: 20, b: 50},
+              height: 320,
+              xaxis: {gridcolor: 'rgba(255,255,255,0.05)'},
+              yaxis: {gridcolor: 'rgba(255,255,255,0.05)'},
+              showlegend: false
+            };
+
+            Plotly.newPlot(ec2Chart, [{
+              type: 'bar',
+              x: ec2Skus.map(s => s.sku),
+              y: ec2Skus.map(s => s.hours),
+              text: ec2Skus.map(s => `Instances: ${s.instances}`),
+              hovertemplate: '%{x}<br>Hours %{y:.2f}<br>%{text}<extra></extra>',
+              marker: {color: '#6dd3ff'}
+            }], {
+              ...baseLayout,
+              margin: {t: 10, l: 45, r: 20, b: 40},
+              height: 260,
+              title: '',
+              yaxis: {...baseLayout.yaxis, title: 'Hours'},
+              xaxis: {...baseLayout.xaxis, title: 'SKU'}
+            }, {displayModeBar: false});
+
+            Plotly.newPlot(ebsChart, [{
+              type: 'bar',
+              x: ebsBuckets.map(b => b.label),
+              y: ebsBuckets.map(b => b.gbMo),
+              text: ebsBuckets.map(b => `${b.resources} resources`),
+              hovertemplate: '%{x}<br>GB-Mo %{y:.2f}<br>%{text}<extra></extra>',
+              marker: {color: '#f3b23a'}
+            }], {
+              ...baseLayout,
+              margin: {t: 10, l: 45, r: 20, b: 40},
+              height: 240,
+              title: '',
+              yaxis: {...baseLayout.yaxis, title: 'GB-Mo'},
+              xaxis: {...baseLayout.xaxis, title: 'Bucket'}
+            }, {displayModeBar: false});
+
+            Plotly.newPlot(s3Chart, [{
+              type: 'bar',
+              x: s3Buckets.map(b => b.label),
+              y: s3Buckets.map(b => b.gbMo),
+              text: s3Buckets.map(b => `${b.resources} buckets`),
+              hovertemplate: '%{x}<br>GB-Mo %{y:.2f}<br>%{text}<extra></extra>',
+              marker: {color: '#6de59a'}
+            }], {
+              ...baseLayout,
+              margin: {t: 10, l: 45, r: 20, b: 40},
+              height: 240,
+              title: '',
+              yaxis: {...baseLayout.yaxis, title: 'GB-Mo'},
+              xaxis: {...baseLayout.xaxis, title: 'Bucket'}
+            }, {displayModeBar: false});
+          }
+        }
+
+        anPlatSel.addEventListener('change', (e)=>{ setProductOptions(anProdSel, e.target.value); anProdSel.value='all'; renderAnomaly(e.target.value, 'all'); });
+        anProdSel.addEventListener('change', ()=>renderAnomaly(anPlatSel.value, anProdSel.value));
+        renderAnomaly('all','all');
       }).catch(err => {
         document.body.innerHTML = '<div style="padding:24px;color:#fff;font-family:monospace;">Failed to load report_data.json. Run `python cur_to_json.py` first.<br/><br/>' + err + '</div>';
       });
@@ -444,3 +618,4 @@
   </script>
 </body>
 </html>
+        const bucketOrder = ['0-100','100-500','500-1k','1k-5k','5k-10k','10k+'];

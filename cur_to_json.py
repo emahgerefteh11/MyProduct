@@ -14,26 +14,40 @@ def classify_resource_name(resource_id: str) -> str:
         return "unknown"
     rid = resource_id.strip()
     if rid.startswith("arn:"):
-        # arn:partition:service:region:account:resourcetype/resource
         tail = rid.split(":", 5)[-1]
         tail = tail.split("/")[-1]
         return tail.split("-")[0] if "-" in tail else tail.split(":")[0]
-    # common AWS ids like i-xxxx, vol-xxxx, db-xxxx, etc.
     token = rid.split("-")[0]
     return token or "unknown"
 
 
 def extract_platform(resource_id: str) -> str:
-    """
-    Heuristic to extract a platform marker from a resource name like
-    'disk-PlatformB-dev-0001'. Returns 'unknown' if not present.
-    """
+    """Heuristic to extract a platform marker from a resource name like 'disk-PlatformB-dev-0001'."""
     if not resource_id:
         return "unknown"
     parts = resource_id.split("-")
     if len(parts) >= 2:
         return parts[1] or "unknown"
     return "unknown"
+
+
+def bucketize_resources(resources: Dict[str, float]):
+    """Bucket resource usage amounts (e.g., GB-Mo) into coarse ranges."""
+    buckets = [
+        (0, 100, "0-100"),
+        (100, 500, "100-500"),
+        (500, 1000, "500-1k"),
+        (1000, 5000, "1k-5k"),
+        (5000, 10000, "5k-10k"),
+        (10000, math.inf, "10k+"),
+    ]
+    agg = []
+    for low, high, label in buckets:
+        res_ids = [rid for rid, amt in resources.items() if low <= amt < high]
+        total = sum(resources[r] for r in res_ids)
+        if res_ids:
+            agg.append({"label": label, "resources": len(res_ids), "gbMo": round(total, 2)})
+    return agg
 
 
 def load_cur(path: pathlib.Path):
@@ -45,7 +59,6 @@ def load_cur(path: pathlib.Path):
     prod_rows: Dict[str, int] = defaultdict(int)
     prod_service_sets: Dict[str, Set[str]] = defaultdict(set)
 
-    # resource naming breakdown
     res_name_cost: Dict[str, float] = defaultdict(float)
     res_name_count: Dict[str, int] = defaultdict(int)
     platform_cost: Dict[str, float] = defaultdict(float)
@@ -58,7 +71,7 @@ def load_cur(path: pathlib.Path):
 
     platform_ec2_hours: Dict[str, Dict[str, float]] = defaultdict(lambda: defaultdict(float))
     platform_ec2_instances: Dict[str, Dict[str, Set[str]]] = defaultdict(lambda: defaultdict(set))
-    platform_vm_types: Dict[str, Dict[str, str]] = defaultdict(dict)  # platform -> resourceId -> instance_type
+    platform_vm_types: Dict[str, Dict[str, str]] = defaultdict(dict)
 
     platform_rows: Dict[str, int] = defaultdict(int)
     platform_product_cost: Dict[str, Dict[str, float]] = defaultdict(lambda: defaultdict(float))
@@ -88,6 +101,14 @@ def load_cur(path: pathlib.Path):
         lambda: defaultdict(lambda: defaultdict(set))
     )
     platform_product_vm_types: Dict[str, Dict[str, Dict[str, str]]] = defaultdict(lambda: defaultdict(dict))
+    platform_ebs_resources: Dict[str, Dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    platform_s3_resources: Dict[str, Dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    platform_product_ebs_resources: Dict[str, Dict[str, Dict[str, float]]] = defaultdict(
+        lambda: defaultdict(lambda: defaultdict(float))
+    )
+    platform_product_s3_resources: Dict[str, Dict[str, Dict[str, float]]] = defaultdict(
+        lambda: defaultdict(lambda: defaultdict(float))
+    )
 
     instance_info = {
         "c5.xlarge": {"vcpu": 4, "ram_gib": 8},
@@ -138,10 +159,14 @@ def load_cur(path: pathlib.Path):
                 amt = float(row["lineItem/UsageAmount"] or 0)
                 platform_ebs_gbmo[platform] += amt
                 platform_product_ebs_gbmo[platform][prod] += amt
+                platform_ebs_resources[platform][rid] += amt
+                platform_product_ebs_resources[platform][prod][rid] += amt
             if row["lineItem/ProductCode"] == "AmazonS3" and row["lineItem/UsageUnit"] == "GB-Mo":
                 amt = float(row["lineItem/UsageAmount"] or 0)
                 platform_s3_gbmo[platform] += amt
                 platform_product_s3_gbmo[platform][prod] += amt
+                platform_s3_resources[platform][rid] += amt
+                platform_product_s3_resources[platform][prod][rid] += amt
 
             # Platform-level EC2 SKU aggregation
             if row["lineItem/ProductCode"] == "AmazonEC2":
@@ -194,6 +219,10 @@ def load_cur(path: pathlib.Path):
         "platform_product_ec2_hours": platform_product_ec2_hours,
         "platform_product_ec2_instances": platform_product_ec2_instances,
         "platform_product_vm_types": platform_product_vm_types,
+        "platform_ebs_resources": platform_ebs_resources,
+        "platform_s3_resources": platform_s3_resources,
+        "platform_product_ebs_resources": platform_product_ebs_resources,
+        "platform_product_s3_resources": platform_product_s3_resources,
     }
 
 
@@ -237,6 +266,10 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
     platform_product_ec2_hours = cur["platform_product_ec2_hours"]
     platform_product_ec2_instances = cur["platform_product_ec2_instances"]
     platform_product_vm_types = cur["platform_product_vm_types"]
+    platform_ebs_resources = cur["platform_ebs_resources"]
+    platform_s3_resources = cur["platform_s3_resources"]
+    platform_product_ebs_resources = cur["platform_product_ebs_resources"]
+    platform_product_s3_resources = cur["platform_product_s3_resources"]
 
     total_cost = sum(prod_cost.values())
 
@@ -297,7 +330,6 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
     for name, cost_val in top_items(platform_cost, len(platform_cost)):
         pct_val = pct(cost_val)
 
-        # vCPU / RAM totals based on unique VMs
         vcpu_total = 0
         ram_total = 0.0
         nic_count = len(platform_vm_types.get(name, {}))
@@ -347,6 +379,8 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
                 "nicCount": nic_count,
                 "ec2Skus": ec2_skus,
                 "resourceNames": resnames,
+                "ebsBuckets": bucketize_resources(platform_ebs_resources.get(name, {})),
+                "s3Buckets": bucketize_resources(platform_s3_resources.get(name, {})),
                 "products": [],
                 "services": [
                     {
@@ -369,7 +403,6 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
             }
         )
 
-        # populate per-platform products with nested details
         for prod, pcost in sorted(platform_product_cost.get(name, {}).items(), key=lambda kv: kv[1], reverse=True):
             vcpu_p = 0
             ram_p = 0.0
@@ -445,6 +478,12 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
                     "nicCount": nic_p,
                     "ec2Skus": ec2_prod_skus,
                     "resourceNames": prod_resnames,
+                    "ebsBuckets": bucketize_resources(
+                        platform_product_ebs_resources.get(name, {}).get(prod, {})
+                    ),
+                    "s3Buckets": bucketize_resources(
+                        platform_product_s3_resources.get(name, {}).get(prod, {})
+                    ),
                     "services": prod_services,
                     "environments": prod_envs,
                 }
@@ -467,9 +506,7 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
     shared_stacks = []
     for stack, prods in stack_signature.items():
         if len(prods) > 1:
-            shared_stacks.append(
-                {"products": sorted(prods), "services": sorted(stack)}
-            )
+            shared_stacks.append({"products": sorted(prods), "services": sorted(stack)})
 
     return {
         "totalCost": round(total_cost, 2),
