@@ -17,153 +17,36 @@
       --accent-2: #ffc857;
       --accent-3: #8cff96;
       --danger: #ff6b6b;
-      --grid: rgba(255,255,255,0.08);
       --shadow: 0 10px 40px rgba(0,0,0,0.35);
       --radius: 14px;
     }
     * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: 'DM Sans', 'Space Grotesk', sans-serif;
-      color: var(--text);
-      background: var(--bg);
-      min-height: 100vh;
-      padding: 28px 32px 80px;
-    }
-    .page {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      margin-bottom: 28px;
-    }
-    .title {
-      font-family: 'Space Grotesk', 'DM Sans', sans-serif;
-      font-size: 28px;
-      letter-spacing: 0.5px;
-      font-weight: 700;
-    }
-    .pill {
-      background: var(--panel);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 999px;
-      padding: 10px 16px;
-      color: var(--muted);
-      font-size: 13px;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 16px;
-      margin-bottom: 22px;
-    }
-    .card {
-      background: var(--card);
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: var(--radius);
-      padding: 16px;
-      box-shadow: var(--shadow);
-    }
-    .card h3 {
-      margin: 0 0 8px;
-      font-size: 16px;
-      letter-spacing: 0.2px;
-    }
-    .big {
-      font-size: 26px;
-      font-weight: 700;
-      letter-spacing: 0.4px;
-    }
+    body { margin: 0; font-family: 'DM Sans', 'Space Grotesk', sans-serif; color: var(--text); background: var(--bg); min-height: 100vh; padding: 28px 32px 80px; }
+    .page { max-width: 1200px; margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 28px; }
+    .title { font-family: 'Space Grotesk', 'DM Sans', sans-serif; font-size: 28px; letter-spacing: 0.5px; font-weight: 700; }
+    .pill { background: var(--panel); border: 1px solid rgba(255,255,255,0.12); border-radius: 999px; padding: 10px 16px; color: var(--muted); font-size: 13px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 22px; }
+    .card { background: var(--card); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+    .card h3 { margin: 0 0 8px; font-size: 16px; letter-spacing: 0.2px; }
+    .big { font-size: 26px; font-weight: 700; letter-spacing: 0.4px; }
     .muted { color: var(--muted); }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    .tabs {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-    .tab {
-      padding: 10px 14px;
-      border-radius: 10px;
-      border: 1px solid rgba(255,255,255,0.1);
-      background: rgba(255,255,255,0.05);
-      color: var(--text);
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-    .tab.active {
-      border-color: var(--accent);
-      box-shadow: 0 8px 18px rgba(0,0,0,0.3);
-      color: #0b1021;
-      background: linear-gradient(135deg, var(--accent), #6de2ff);
-    }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 8px 0; font-size: 14px; }
+    th { color: var(--muted); font-weight: 500; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .bar { height: 8px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; }
+    .bar span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--accent), #6de2ff, #4fb6ff); }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip { background: var(--panel); border: 1px solid rgba(255,255,255,0.08); border-radius: 999px; padding: 4px 10px; font-size: 12px; color: var(--muted); }
+    .stack-card { padding: 14px; background: var(--panel-strong); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius); }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .tag { background: rgba(255,255,255,0.08); padding: 4px 8px; border-radius: 8px; font-size: 12px; color: var(--accent-2); }
+    .tabs { display: flex; gap: 10px; margin-bottom: 12px; }
+    .tab { padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: var(--text); cursor: pointer; transition: all 0.15s ease; }
+    .tab.active { border-color: var(--accent); box-shadow: 0 8px 18px rgba(0,0,0,0.3); color: #0b1021; background: linear-gradient(135deg, var(--accent), #6de2ff); }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
-    th, td {
-      text-align: left;
-      padding: 8px 0;
-      font-size: 14px;
-    }
-    th {
-      color: var(--muted);
-      font-weight: 500;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-    }
-    .bar {
-      height: 8px;
-      background: rgba(255,255,255,0.08);
-      border-radius: 999px;
-      overflow: hidden;
-    }
-    .bar span {
-      display: block;
-      height: 100%;
-      border-radius: 999px;
-      background: linear-gradient(90deg, var(--accent), #6de2ff, #4fb6ff);
-    }
-    .chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-    .chip {
-      background: var(--panel);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 999px;
-      padding: 4px 10px;
-      font-size: 12px;
-      color: var(--muted);
-    }
-    .stack-card {
-      padding: 14px;
-      background: var(--panel-strong);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: var(--radius);
-    }
-    .row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-    }
-    .tag {
-      background: rgba(255,255,255,0.08);
-      padding: 4px 8px;
-      border-radius: 8px;
-      font-size: 12px;
-      color: var(--accent-2);
-    }
-    a, a:visited { color: var(--accent); text-decoration: none; }
-    @media (max-width: 720px) {
-      header { flex-direction: column; align-items: flex-start; }
-      body { padding: 18px 18px 60px; }
-    }
+    @media (max-width: 720px) { header { flex-direction: column; align-items: flex-start; } body { padding: 18px 18px 60px; } }
   </style>
 </head>
 <body>
@@ -182,6 +65,15 @@
     </div>
 
     <div id="finops" class="tab-content active">
+      <div class="card" style="margin-bottom:14px;">
+        <h3>Filters</h3>
+        <div class="muted" style="margin-bottom:6px;">Choose platform and product (platform must be set for product filtering)</div>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <select id="finops-platform-filter" style="padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:var(--panel);color:var(--text);min-width:200px;"></select>
+          <select id="finops-product-filter" style="padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:var(--panel);color:var(--text);min-width:200px;"></select>
+        </div>
+      </div>
+
       <div class="grid" id="metrics">
         <div class="card">
           <h3>Total Unblended Cost</h3>
@@ -203,31 +95,18 @@
       <div class="grid">
         <div class="card">
           <h3>Products by Cost</h3>
-          <table id="products-table">
-            <thead>
-              <tr><th>Product</th><th>Cost</th><th>Share</th></tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+          <table id="products-table"><thead><tr><th>Product</th><th>Cost</th><th>Share</th></tr></thead><tbody></tbody></table>
         </div>
         <div class="card">
           <h3>Services by Cost</h3>
-          <table id="services-table">
-            <thead>
-              <tr><th>Service</th><th>Cost</th><th>Share</th></tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+          <table id="services-table"><thead><tr><th>Service</th><th>Cost</th><th>Share</th></tr></thead><tbody></tbody></table>
         </div>
       </div>
 
       <div class="grid">
         <div class="card">
           <h3>Environments</h3>
-          <table id="env-table">
-            <thead><tr><th>Environment</th><th>Cost</th><th>Share</th></tr></thead>
-            <tbody></tbody>
-          </table>
+          <table id="env-table"><thead><tr><th>Environment</th><th>Cost</th><th>Share</th></tr></thead><tbody></tbody></table>
         </div>
         <div class="card">
           <h3>Service Co-occurrence</h3>
@@ -248,22 +127,46 @@
     </div>
 
     <div id="naming" class="tab-content">
+      <div class="card" style="margin-bottom:14px;">
+        <h3>Filters</h3>
+        <div class="muted" style="margin-bottom:6px;">Choose platform and product (product filter applies within chosen platform)</div>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <select id="platform-filter" style="padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:var(--panel);color:var(--text);min-width:200px;"></select>
+          <select id="naming-product-filter" style="padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:var(--panel);color:var(--text);min-width:200px;"></select>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h3>Platform Totals</h3>
+          <div class="muted" id="platform-meta"></div>
+          <div style="margin-top:10px; display:grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap:10px;">
+            <div class="stack-card"><div class="muted">Total Cost</div><div class="big" id="plat-cost">—</div></div>
+            <div class="stack-card"><div class="muted">vCPU</div><div class="big" id="plat-vcpu">—</div></div>
+            <div class="stack-card"><div class="muted">RAM (GiB)</div><div class="big" id="plat-ram">—</div></div>
+            <div class="stack-card"><div class="muted">EBS (GB-Mo)</div><div class="big" id="plat-ebs">—</div></div>
+            <div class="stack-card"><div class="muted">S3 (GB-Mo)</div><div class="big" id="plat-s3">—</div></div>
+            <div class="stack-card"><div class="muted">NICs (approx)</div><div class="big" id="plat-nics">—</div></div>
+          </div>
+        </div>
+      </div>
+
       <div class="card">
         <h3>Resource Naming Breakdown</h3>
         <div class="muted" style="margin-bottom:6px;">Cost grouped by resource ID naming prefix</div>
-        <table id="resnames-table">
-          <thead><tr><th>Name prefix</th><th>Cost</th><th>Share</th><th>Rows</th></tr></thead>
-          <tbody></tbody>
-        </table>
+        <table id="resnames-table"><thead><tr><th>Name prefix</th><th>Cost</th><th>Share</th><th>Rows</th></tr></thead><tbody></tbody></table>
       </div>
 
       <div class="card">
         <h3>Platforms</h3>
         <div class="muted" style="margin-bottom:6px;">Cost and count by platform (parsed from resource names)</div>
-        <table id="platforms-table">
-          <thead><tr><th>Platform</th><th>Cost</th><th>Share</th><th>Rows</th></tr></thead>
-          <tbody></tbody>
-        </table>
+        <table id="platforms-table"><thead><tr><th>Platform</th><th>Cost</th><th>Share</th><th>Rows</th></tr></thead><tbody></tbody></table>
+      </div>
+
+      <div class="card">
+        <h3>EC2 SKUs</h3>
+        <div class="muted" style="margin-bottom:6px;">Instance types for selected platform/product</div>
+        <table id="ec2-table"><thead><tr><th>SKU</th><th>vCPU</th><th>RAM (GiB)</th><th>Hours</th><th>Instances</th></tr></thead><tbody></tbody></table>
       </div>
     </div>
   </div>
@@ -279,114 +182,127 @@
     }
 
     function renderBars(rows, tbody) {
+      tbody.innerHTML = '';
       rows.forEach((row) => {
         const tr = document.createElement('tr');
-        const nameCell = document.createElement('td');
-        nameCell.textContent = row.name;
-
-        const costCell = document.createElement('td');
-        costCell.textContent = row.cost;
-
-        const shareCell = document.createElement('td');
-        const bar = document.createElement('div');
-        bar.className = 'bar';
-        const span = document.createElement('span');
-        span.style.width = Math.min(row.pct, 100) + '%';
-        bar.appendChild(span);
-        const label = document.createElement('div');
-        label.className = 'muted';
-        label.textContent = fmtPct(row.pct);
-        shareCell.append(bar, label);
-
-        tr.append(nameCell, costCell, shareCell);
+        tr.innerHTML = `<td>${row.name}</td><td>${row.cost}</td><td><div class="bar"><span style="width:${Math.min(row.pct,100)}%"></span></div><div class="muted">${fmtPct(row.pct)}</div></td>`;
         tbody.appendChild(tr);
       });
     }
 
     function render() {
       loadData().then((data) => {
-        document.getElementById('source-info').textContent = 'Source: CUR slice → report_data.json';
-        document.getElementById('total-cost').textContent = fmtMoney(data.totalCost);
-        document.getElementById('product-count').textContent = `${data.products.length} tagged products • ${data.services.length} services`;
+        document.getElementById('source-info').textContent = 'Source: CUR slice -> report_data.json';
 
-        const storageShare = data.services
-          .filter(s => ['AmazonEBS','AmazonS3'].includes(s.service))
-          .reduce((a,b)=>a+b.pctOfTotal, 0);
-        document.getElementById('storage-share').textContent = fmtPct(storageShare);
-
-        const envSplit = data.environments.map(e => `${e.environment}:${fmtPct(e.pctOfTotal)}`).join(' · ');
-        document.getElementById('env-split').textContent = envSplit;
-
-        const prodRows = data.products.map(p => ({
-          name: p.product,
-          cost: fmtMoney(p.cost),
-          pct: p.pctOfTotal
-        }));
-        renderBars(prodRows, document.querySelector('#products-table tbody'));
-
-        const svcRows = data.services.map(s => ({
-          name: s.service,
-          cost: fmtMoney(s.cost),
-          pct: s.pctOfTotal
-        }));
-        renderBars(svcRows, document.querySelector('#services-table tbody'));
-
-        const envRows = data.environments.map(e => ({
-          name: e.environment,
-          cost: fmtMoney(e.cost),
-          pct: e.pctOfTotal
-        }));
-        renderBars(envRows, document.querySelector('#env-table tbody'));
-
-        const resRows = data.resourceNames.map(r => ({
-          name: r.name,
-          cost: fmtMoney(r.cost),
-          pct: r.pctOfTotal,
-          rows: r.rows
-        }));
-        const resTbody = document.querySelector('#resnames-table tbody');
-        resRows.forEach(r => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${r.name}</td><td>${r.cost}</td><td>${fmtPct(r.pct)}</td><td>${r.rows}</td>`;
-          resTbody.appendChild(tr);
+        // Tabs
+        document.querySelectorAll('.tab').forEach(tab => {
+          tab.addEventListener('click', () => {
+            const target = tab.getAttribute('data-tab');
+            document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === target));
+          });
         });
 
-        const platRows = data.platforms.map(p => ({
-          platform: p.platform,
-          cost: fmtMoney(p.cost),
-          pct: p.pctOfTotal,
-          rows: p.rows
-        }));
+        // Filter helpers
+        function setPlatformOptions(sel) {
+          sel.innerHTML = '';
+          const allOpt = document.createElement('option'); allOpt.value='all'; allOpt.textContent='All platforms'; sel.appendChild(allOpt);
+          data.platforms.forEach(p => { const opt=document.createElement('option'); opt.value=p.platform; opt.textContent=p.platform; sel.appendChild(opt); });
+        }
+        function setProductOptions(sel, platform) {
+          sel.innerHTML = '';
+          const allOpt = document.createElement('option'); allOpt.value='all'; allOpt.textContent='All products'; sel.appendChild(allOpt);
+          if (platform === 'all') return;
+          const p = data.platforms.find(x => x.platform === platform);
+          if (!p) return;
+          p.products.forEach(pr => { const opt=document.createElement('option'); opt.value=pr.product; opt.textContent=pr.product; sel.appendChild(opt); });
+        }
+
+        // FinOps filters
+        const finPlatSel = document.getElementById('finops-platform-filter');
+        const finProdSel = document.getElementById('finops-product-filter');
+        setPlatformOptions(finPlatSel);
+        setProductOptions(finProdSel, 'all');
+
+        function getScope(platform, product) {
+          if (platform === 'all') {
+            return {
+              cost: data.totalCost,
+              products: data.products.map(p => ({name: p.product, cost: p.cost, pct: p.pctOfTotal})),
+              services: data.services.map(s => ({name: s.service, cost: s.cost, pct: s.pctOfTotal})),
+              envs: data.environments.map(e => ({name: e.environment, cost: e.cost, pct: e.pctOfTotal})),
+              storageShare: data.services.filter(s => ['AmazonEBS','AmazonS3'].includes(s.service)).reduce((a,b)=>a+b.pctOfTotal,0),
+              meta: `${data.products.length} tagged products · ${data.services.length} services`,
+            };
+          }
+          const plat = data.platforms.find(p => p.platform === platform);
+          if (!plat) return null;
+          if (product === 'all') {
+            return {
+              cost: plat.cost,
+              products: plat.products.map(p => ({name: p.product, cost: p.cost, pct: p.pctOfPlatform})),
+              services: plat.services.map(s => ({name: s.service, cost: s.cost, pct: s.pctOfPlatform})),
+              envs: plat.environments.map(e => ({name: e.environment, cost: e.cost, pct: e.pctOfPlatform})),
+              storageShare: plat.services.filter(s => ['AmazonEBS','AmazonS3'].includes(s.service)).reduce((a,b)=>a+b.pctOfPlatform,0),
+              meta: `${plat.products.length} products · ${plat.services.length} services`,
+            };
+          }
+          const prodObj = plat.products.find(p => p.product === product);
+          if (!prodObj) return null;
+          return {
+            cost: prodObj.cost,
+            products: [{name: prodObj.product, cost: prodObj.cost, pct: prodObj.pctOfPlatform}],
+            services: (prodObj.services || []).map(s => ({name: s.service, cost: s.cost, pct: s.pctOfPlatform})),
+            envs: (prodObj.environments || []).map(e => ({name: e.environment, cost: e.cost, pct: e.pctOfPlatform})),
+            storageShare: (prodObj.services || []).filter(s => ['AmazonEBS','AmazonS3'].includes(s.service)).reduce((a,b)=>a+b.pctOfPlatform,0),
+            meta: `${prodObj.product} · ${fmtPct(prodObj.pctOfPlatform)} of ${platform}`,
+          };
+        }
+
+        function renderFinops(platform, product) {
+          const scope = getScope(platform, product);
+          if (!scope) return;
+          document.getElementById('total-cost').textContent = fmtMoney(scope.cost);
+          document.getElementById('product-count').textContent = scope.meta;
+          renderBars(scope.products.map(p => ({name:p.name, cost:fmtMoney(p.cost), pct:p.pct})), document.querySelector('#products-table tbody'));
+          renderBars(scope.services.map(s => ({name:s.name, cost:fmtMoney(s.cost), pct:s.pct})), document.querySelector('#services-table tbody'));
+          renderBars(scope.envs.map(e => ({name:e.name, cost:fmtMoney(e.cost), pct:e.pct})), document.querySelector('#env-table tbody'));
+          document.getElementById('storage-share').textContent = fmtPct(scope.storageShare || 0);
+          document.getElementById('env-split').textContent = scope.envs.map(e => `${e.name}:${fmtPct(e.pct)}`).join(' · ');
+        }
+
+        finPlatSel.addEventListener('change', (e)=>{
+          setProductOptions(finProdSel, e.target.value);
+          finProdSel.value = 'all';
+          renderFinops(e.target.value, 'all');
+        });
+        finProdSel.addEventListener('change', ()=>renderFinops(finPlatSel.value, finProdSel.value));
+        renderFinops('all','all');
+
+        // Platform table (static)
         const platTbody = document.querySelector('#platforms-table tbody');
-        platRows.forEach(p => {
+        data.platforms.forEach(p => {
           const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${p.platform}</td><td>${p.cost}</td><td>${fmtPct(p.pct)}</td><td>${p.rows}</td>`;
+          tr.innerHTML = `<td>${p.platform}</td><td>${fmtMoney(p.cost)}</td><td>${fmtPct(p.pctOfTotal)}</td><td>${p.rows}</td>`;
           platTbody.appendChild(tr);
         });
 
-        const co = data.coOccurrence.slice(0, 8);
+        // Co-occurrence static
         const coWrap = document.getElementById('co-table');
-        co.forEach(pair => {
+        data.coOccurrence.slice(0,8).forEach(pair => {
           const row = document.createElement('div');
           row.className = 'row';
           row.style.marginBottom = '8px';
-          const left = document.createElement('div');
-          left.textContent = `${pair.pair[0]} + ${pair.pair[1]}`;
-          const right = document.createElement('div');
-          right.className = 'tag';
-          right.textContent = `${pair.products} products`;
-          row.append(left, right);
+          row.innerHTML = `<div>${pair.pair[0]} + ${pair.pair[1]}</div><div class="tag">${pair.products} products</div>`;
           coWrap.appendChild(row);
         });
 
+        // Stack cards static
         const stacks = document.getElementById('stack-cards');
         data.products.forEach(p => {
           const sCard = document.createElement('div');
           sCard.className = 'stack-card';
-          const row = document.createElement('div');
-          row.className = 'row';
-          row.innerHTML = `<div><strong>${p.product}</strong><div class="muted">${fmtMoney(p.cost)} · ${fmtPct(p.pctOfTotal)} of total</div></div><div class="tag">HHI ${p.hhi}</div>`;
-          sCard.appendChild(row);
+          sCard.innerHTML = `<div class="row"><div><strong>${p.product}</strong><div class="muted">${fmtMoney(p.cost)} · ${fmtPct(p.pctOfTotal)} of total</div></div><div class="tag">HHI ${p.hhi}</div></div>`;
           const list = document.createElement('div');
           list.style.marginTop = '10px';
           p.services.forEach(svc => {
@@ -407,8 +323,7 @@
           data.sharedStacks.forEach(stack => {
             const wrap = document.createElement('div');
             wrap.className = 'stack-card';
-            const title = document.createElement('div');
-            title.innerHTML = `<strong>${stack.products.join(', ')}</strong>`;
+            wrap.innerHTML = `<div><strong>${stack.products.join(', ')}</strong></div>`;
             const chips = document.createElement('div');
             chips.className = 'chips';
             stack.services.forEach(s => {
@@ -417,21 +332,109 @@
               c.textContent = s;
               chips.appendChild(c);
             });
-            wrap.append(title, chips);
+            wrap.appendChild(chips);
             shared.appendChild(wrap);
           });
         }
 
-        // Tabs
-        const tabs = document.querySelectorAll('.tab');
-        const contents = document.querySelectorAll('.tab-content');
-        tabs.forEach(tab => {
-          tab.addEventListener('click', () => {
-            const target = tab.getAttribute('data-tab');
-            tabs.forEach(t => t.classList.toggle('active', t === tab));
-            contents.forEach(c => c.classList.toggle('active', c.id === target));
+        // Naming/platform filters
+        const platSel = document.getElementById('platform-filter');
+        const prodSel = document.getElementById('naming-product-filter');
+        setPlatformOptions(platSel);
+        setProductOptions(prodSel, 'all');
+
+        function renderNaming(platform, product) {
+          const resTbody = document.querySelector('#resnames-table tbody');
+          const platMeta = document.getElementById('platform-meta');
+          const platCost = document.getElementById('plat-cost');
+          const platVcpu = document.getElementById('plat-vcpu');
+          const platRam = document.getElementById('plat-ram');
+          const platEbs = document.getElementById('plat-ebs');
+          const platS3 = document.getElementById('plat-s3');
+          const platNics = document.getElementById('plat-nics');
+          const ec2Tbody = document.querySelector('#ec2-table tbody');
+          resTbody.innerHTML = '';
+          ec2Tbody.innerHTML = '';
+
+          if (platform === 'all') {
+            let vcpuSum=0, ramSum=0, ebsSum=0, s3Sum=0, nicsSum=0;
+            const skuAgg = {};
+            data.platforms.forEach(p => {
+              vcpuSum += p.vcpuTotal || 0;
+              ramSum  += p.ramGiBTotal || 0;
+              ebsSum  += p.ebsGbMo || 0;
+              s3Sum   += p.s3GbMo || 0;
+              nicsSum += p.nicCount || 0;
+              (p.ec2Skus || []).forEach(s => {
+                if (!skuAgg[s.sku]) skuAgg[s.sku] = { sku:s.sku, vcpu:s.vcpu, ramGiB:s.ramGiB, hours:0, instances:0 };
+                skuAgg[s.sku].hours += s.hours || 0;
+                skuAgg[s.sku].instances += s.instances || 0;
+              });
+            });
+            platMeta.textContent = 'All platforms';
+            platCost.textContent = fmtMoney(data.totalCost);
+            platVcpu.textContent = vcpuSum;
+            platRam.textContent = ramSum.toFixed(2);
+            platEbs.textContent = ebsSum.toFixed(2);
+            platS3.textContent = s3Sum.toFixed(2);
+            platNics.textContent = nicsSum;
+            data.resourceNames.forEach(r => {
+              const tr = document.createElement('tr');
+              tr.innerHTML = `<td>${r.name}</td><td>${fmtMoney(r.cost)}</td><td>${fmtPct(r.pctOfTotal)}</td><td>${r.rows}</td>`;
+              resTbody.appendChild(tr);
+            });
+            Object.values(skuAgg).sort((a,b)=>b.hours-a.hours).forEach(s => {
+              const tr = document.createElement('tr');
+              tr.innerHTML = `<td>${s.sku}</td><td>${s.vcpu}</td><td>${s.ramGiB}</td><td>${s.hours.toFixed(2)}</td><td>${s.instances}</td>`;
+              ec2Tbody.appendChild(tr);
+            });
+            return;
+          }
+          const plat = data.platforms.find(p => p.platform === platform);
+          if (!plat) return;
+
+          let scope = {
+            cost: plat.cost, vcpu: plat.vcpuTotal, ram: plat.ramGiBTotal,
+            ebs: plat.ebsGbMo, s3: plat.s3GbMo, nics: plat.nicCount,
+            resnames: plat.resourceNames, ec2: plat.ec2Skus,
+            meta: `${platform} · ${fmtPct(plat.pctOfTotal)} of total · rows ${plat.rows}`
+          };
+          if (product !== 'all') {
+            const pr = plat.products.find(p => p.product === product);
+            if (pr) {
+              scope = {
+                cost: pr.cost, vcpu: pr.vcpuTotal, ram: pr.ramGiBTotal,
+                ebs: pr.ebsGbMo, s3: pr.s3GbMo, nics: pr.nicCount,
+                resnames: pr.resourceNames, ec2: pr.ec2Skus,
+                meta: `${platform}/${product} · ${fmtPct(pr.pctOfPlatform)} of platform · rows ${pr.rows}`
+              };
+            }
+          }
+
+          platMeta.textContent = scope.meta;
+          platCost.textContent = fmtMoney(scope.cost);
+          platVcpu.textContent = scope.vcpu;
+          platRam.textContent = scope.ram;
+          platEbs.textContent = scope.ebs;
+          platS3.textContent = scope.s3;
+          platNics.textContent = scope.nics;
+
+          (scope.resnames || []).forEach(r => {
+            const pct = r.pctOfPlatform ?? r.pctOfTotal ?? 0;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${r.name}</td><td>${fmtMoney(r.cost)}</td><td>${fmtPct(pct)}</td><td>${r.rows}</td>`;
+            resTbody.appendChild(tr);
           });
-        });
+          (scope.ec2 || []).forEach(s => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${s.sku}</td><td>${s.vcpu}</td><td>${s.ramGiB}</td><td>${s.hours}</td><td>${s.instances}</td>`;
+            ec2Tbody.appendChild(tr);
+          });
+        }
+
+        platSel.addEventListener('change', (e)=>{ setProductOptions(prodSel, e.target.value); prodSel.value='all'; renderNaming(e.target.value, 'all'); });
+        prodSel.addEventListener('change', ()=>renderNaming(platSel.value, prodSel.value));
+        renderNaming('all','all');
       }).catch(err => {
         document.body.innerHTML = '<div style="padding:24px;color:#fff;font-family:monospace;">Failed to load report_data.json. Run `python cur_to_json.py` first.<br/><br/>' + err + '</div>';
       });
