@@ -125,6 +125,24 @@
       pointer-events: none;
     }
     .chart-shell > * { position: relative; z-index: 1; }
+    .detail-list {
+      max-height: 220px;
+      overflow: auto;
+      padding: 8px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(10, 16, 28, 0.6);
+    }
+    .detail-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 6px 4px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+      font-size: 12px;
+      color: var(--text);
+    }
+    .detail-item:last-child { border-bottom: none; }
     @media (max-width: 720px) { header { flex-direction: column; align-items: flex-start; } body { padding: 18px 18px 60px; } }
   </style>
 </head>
@@ -248,6 +266,12 @@
           <div id="anomaly-s3-chart" style="height:260px;"></div>
         </div>
         <table id="anomaly-s3-table"><thead><tr><th>Bucket</th><th>GB</th><th>Resources</th></tr></thead><tbody></tbody></table>
+      </div>
+
+      <div class="card">
+        <h3>Selected Resources</h3>
+        <div class="muted" id="anomaly-detail-title" style="margin-bottom:8px;">Click a bar to inspect resources</div>
+        <div class="detail-list" id="anomaly-detail-list"></div>
       </div>
     </div>
 
@@ -692,6 +716,8 @@
           const ec2Body = document.querySelector('#anomaly-ec2-table tbody');
           const ebsBody = document.querySelector('#anomaly-ebs-table tbody');
           const s3Body = document.querySelector('#anomaly-s3-table tbody');
+          const detailTitle = document.getElementById('anomaly-detail-title');
+          const detailList = document.getElementById('anomaly-detail-list');
           ec2Body.innerHTML = '';
           ebsBody.innerHTML = '';
           s3Body.innerHTML = '';
@@ -699,16 +725,65 @@
           const ebsChart = document.getElementById('anomaly-ebs-chart');
           const s3Chart = document.getElementById('anomaly-s3-chart');
 
+          const normalizeResourceList = (items) => {
+            const map = new Map();
+            (items || []).forEach((item) => {
+              const isString = typeof item === 'string';
+              const id = isString ? item : item.id;
+              if (!id) return;
+              const amount = isString ? 0 : (item.amount || 0);
+              if (map.has(id)) {
+                const existing = map.get(id);
+                existing.amount = (existing.amount || 0) + amount;
+              } else {
+                map.set(id, { id, amount });
+              }
+            });
+            return Array.from(map.values());
+          };
+
           const aggBuckets = (plats, key) => {
             const acc = {};
             plats.forEach(p => {
               (p[key] || []).forEach(b => {
-                acc[b.label] = acc[b.label] || { label: b.label, gbMo: 0, resources: 0 };
+                acc[b.label] = acc[b.label] || { label: b.label, gbMo: 0, resources: 0, resourceIds: [] };
                 acc[b.label].gbMo += b.gbMo || 0;
                 acc[b.label].resources += b.resources || 0;
+                if (Array.isArray(b.resourceIds)) {
+                  acc[b.label].resourceIds.push(...b.resourceIds);
+                }
               });
             });
-            return Object.values(acc).sort((a,b)=>a.label.localeCompare(b.label));
+            return Object.values(acc).map((bucket) => {
+              bucket.resourceIds = normalizeResourceList(bucket.resourceIds);
+              bucket.resources = bucket.resourceIds.length;
+              return bucket;
+            }).sort((a,b)=>a.label.localeCompare(b.label));
+          };
+
+          const showDetails = (label, items) => {
+            if (!detailTitle || !detailList) return;
+            const list = normalizeResourceList(items || []);
+            detailTitle.textContent = `${label} / ${list.length} resources`;
+            detailList.innerHTML = '';
+            if (!list.length) {
+              detailList.textContent = '(none)';
+              return;
+            }
+            list.forEach((item) => {
+              const row = document.createElement('div');
+              row.className = 'detail-item';
+              const amount = item.amount ? `${item.amount.toFixed(2)} GB` : '';
+              row.innerHTML = `<div>${item.id}</div><div class="muted">${amount}</div>`;
+              detailList.appendChild(row);
+            });
+          };
+
+          const resetDetails = () => {
+            if (!detailTitle || !detailList) return;
+            detailTitle.textContent = 'Click a bar to inspect resources';
+            detailList.innerHTML = '';
+            detailList.textContent = '(none)';
           };
 
           const aggSkus = (plats) => {
@@ -716,12 +791,18 @@
             plats.forEach(p => {
               (p.vmSkus || []).forEach(s => {
                 const k = s.sku;
-                if (!acc[k]) acc[k] = { sku:k, vcpu:s.vcpu, ramGiB:s.ramGiB, hours:0, instances:0 };
+                if (!acc[k]) acc[k] = { sku:k, vcpu:s.vcpu, ramGiB:s.ramGiB, hours:0, instances:0, resourceIds: [] };
                 acc[k].hours += s.hours || 0;
                 acc[k].instances += s.instances || 0;
+                if (Array.isArray(s.resourceIds)) {
+                  acc[k].resourceIds.push(...s.resourceIds);
+                }
               });
             });
-            return Object.values(acc).sort((a,b)=>b.hours - a.hours);
+            return Object.values(acc).map((sku) => {
+              sku.resourceIds = normalizeResourceList(sku.resourceIds);
+              return sku;
+            }).sort((a,b)=>b.hours - a.hours);
           };
 
           let plats = safeArray(activeData.platforms);
@@ -757,6 +838,14 @@
 
           // Charts
           const vmSkus = aggSkus(plats);
+          const vmResourceMap = {};
+          vmSkus.forEach((s) => { vmResourceMap[s.sku] = s.resourceIds || []; });
+          const blockResourceMap = {};
+          blockBuckets.forEach((b) => { blockResourceMap[b.label] = b.resourceIds || []; });
+          const objectResourceMap = {};
+          objectBuckets.forEach((b) => { objectResourceMap[b.label] = b.resourceIds || []; });
+
+          resetDetails();
           if (window.Plotly) {
             const baseLayout = {
               paper_bgcolor: 'rgba(0,0,0,0)',
@@ -791,8 +880,9 @@
               type: 'bar',
               x: vmSkus.map(s => s.sku),
               y: vmSkus.map(s => s.hours),
-              text: vmSkus.map(s => `vCPU ${s.vcpu || '-'} / RAM ${s.ramGiB || '-'} GiB / Instances ${s.instances}`),
-              hovertemplate: '%{x}<br>Hours %{y:.2f}<br>%{text}<extra></extra>',
+              customdata: vmSkus.map(s => [s.vcpu || '-', s.ramGiB || '-', s.instances]),
+              hovertemplate: '%{x}<br>Hours %{y:.2f}<br>vCPU %{customdata[0]} / RAM %{customdata[1]} GiB<br>Instances %{customdata[2]}<extra></extra>',
+              textposition: 'none',
               marker: {
                 color: chartPalette.vm,
                 line: {color: 'rgba(255,255,255,0.25)', width: 1},
@@ -806,13 +896,22 @@
               yaxis: {...baseLayout.yaxis, title: 'Hours'},
               xaxis: {...baseLayout.xaxis, title: 'Size'}
             }, {displayModeBar: false});
+            if (ec2Chart && ec2Chart.removeAllListeners) {
+              ec2Chart.removeAllListeners('plotly_click');
+            }
+            ec2Chart.on('plotly_click', (evt) => {
+              const label = evt.points?.[0]?.x;
+              if (!label) return;
+              showDetails(`VM size ${label}`, vmResourceMap[label] || []);
+            });
 
             Plotly.newPlot(ebsChart, [{
               type: 'bar',
               x: blockBuckets.map(b => b.label),
               y: blockBuckets.map(b => b.gbMo),
-              text: blockBuckets.map(b => `${b.resources} resources`),
-              hovertemplate: '%{x}<br>GB %{y:.2f}<br>%{text}<extra></extra>',
+              customdata: blockBuckets.map(b => b.resources),
+              hovertemplate: '%{x}<br>GB %{y:.2f}<br>Resources %{customdata}<extra></extra>',
+              textposition: 'none',
               marker: {
                 color: chartPalette.block,
                 line: {color: 'rgba(255,255,255,0.2)', width: 1},
@@ -826,13 +925,22 @@
               yaxis: {...baseLayout.yaxis, title: 'GB'},
               xaxis: {...baseLayout.xaxis, title: 'Bucket'}
             }, {displayModeBar: false});
+            if (ebsChart && ebsChart.removeAllListeners) {
+              ebsChart.removeAllListeners('plotly_click');
+            }
+            ebsChart.on('plotly_click', (evt) => {
+              const label = evt.points?.[0]?.x;
+              if (!label) return;
+              showDetails(`Block storage ${label}`, blockResourceMap[label] || []);
+            });
 
             Plotly.newPlot(s3Chart, [{
               type: 'bar',
               x: objectBuckets.map(b => b.label),
               y: objectBuckets.map(b => b.gbMo),
-              text: objectBuckets.map(b => `${b.resources} buckets`),
-              hovertemplate: '%{x}<br>GB %{y:.2f}<br>%{text}<extra></extra>',
+              customdata: objectBuckets.map(b => b.resources),
+              hovertemplate: '%{x}<br>GB %{y:.2f}<br>Buckets %{customdata}<extra></extra>',
+              textposition: 'none',
               marker: {
                 color: chartPalette.object,
                 line: {color: 'rgba(255,255,255,0.2)', width: 1},
@@ -846,6 +954,14 @@
               yaxis: {...baseLayout.yaxis, title: 'GB'},
               xaxis: {...baseLayout.xaxis, title: 'Bucket'}
             }, {displayModeBar: false});
+            if (s3Chart && s3Chart.removeAllListeners) {
+              s3Chart.removeAllListeners('plotly_click');
+            }
+            s3Chart.on('plotly_click', (evt) => {
+              const label = evt.points?.[0]?.x;
+              if (!label) return;
+              showDetails(`Object storage ${label}`, objectResourceMap[label] || []);
+            });
           }
         }
 

@@ -360,7 +360,7 @@ def extract_platform(resource_id: str) -> str:
     return "unknown"
 
 
-def bucketize_resources(resources: Dict[str, float]):
+def bucketize_resources(resources: Dict[str, float], include_resources: bool = False):
     """Bucket resource usage amounts (e.g., GB-Mo) into coarse ranges."""
     buckets = [
         (0, 100, "0-100"),
@@ -375,7 +375,11 @@ def bucketize_resources(resources: Dict[str, float]):
         res_ids = [rid for rid, amt in resources.items() if low <= amt < high]
         total = sum(resources[r] for r in res_ids)
         if res_ids:
-            agg.append({"label": label, "resources": len(res_ids), "gbMo": round(total, 2)})
+            bucket = {"label": label, "resources": len(res_ids), "gbMo": round(total, 2)}
+            if include_resources:
+                ordered = sorted(res_ids, key=lambda r: resources[r], reverse=True)
+                bucket["resourceIds"] = [{"id": rid, "amount": round(resources[rid], 2)} for rid in ordered]
+            agg.append(bucket)
     return agg
 
 
@@ -874,6 +878,7 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
         vm_skus = []
         for combo, hours in platform_vm_combo_hours.get(name, {}).items():
             spec = platform_vm_combo_specs.get(name, {}).get(combo, {})
+            resource_ids = sorted(platform_vm_combo_instances.get(name, {}).get(combo, set()))
             vm_skus.append(
                 {
                     "sku": combo,
@@ -881,6 +886,7 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
                     "instances": len(platform_vm_combo_instances.get(name, {}).get(combo, set())),
                     "vcpu": spec.get("vcpu", 0),
                     "ramGiB": spec.get("ramGiB", 0),
+                    "resourceIds": [{"id": rid} for rid in resource_ids],
                 }
             )
         vm_skus = sorted(vm_skus, key=lambda x: x["hours"], reverse=True)
@@ -910,10 +916,10 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
                 "ec2Skus": ec2_skus,
                 "vmSkus": vm_skus,
                 "resourceNames": resnames,
-                "ebsBuckets": bucketize_resources(platform_ebs_resources.get(name, {})),
-                "s3Buckets": bucketize_resources(platform_s3_resources.get(name, {})),
-                "blockBuckets": bucketize_resources(platform_block_resources.get(name, {})),
-                "objectBuckets": bucketize_resources(platform_object_resources.get(name, {})),
+                "ebsBuckets": bucketize_resources(platform_ebs_resources.get(name, {}), True),
+                "s3Buckets": bucketize_resources(platform_s3_resources.get(name, {}), True),
+                "blockBuckets": bucketize_resources(platform_block_resources.get(name, {}), True),
+                "objectBuckets": bucketize_resources(platform_object_resources.get(name, {}), True),
                 "products": [],
                 "services": [
                     {
@@ -962,6 +968,7 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
             vm_prod_skus = []
             for combo, hours in platform_product_vm_combo_hours.get(name, {}).get(prod, {}).items():
                 spec = platform_product_vm_combo_specs.get(name, {}).get(prod, {}).get(combo, {})
+                resource_ids = sorted(platform_product_vm_combo_instances.get(name, {}).get(prod, {}).get(combo, set()))
                 vm_prod_skus.append(
                     {
                         "sku": combo,
@@ -971,6 +978,7 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
                         ),
                         "vcpu": spec.get("vcpu", 0),
                         "ramGiB": spec.get("ramGiB", 0),
+                        "resourceIds": [{"id": rid} for rid in resource_ids],
                     }
                 )
             vm_prod_skus = sorted(vm_prod_skus, key=lambda x: x["hours"], reverse=True)
@@ -1029,16 +1037,20 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
                     "vmSkus": vm_prod_skus,
                     "resourceNames": prod_resnames,
                     "ebsBuckets": bucketize_resources(
-                        platform_product_ebs_resources.get(name, {}).get(prod, {})
+                        platform_product_ebs_resources.get(name, {}).get(prod, {}),
+                        True,
                     ),
                     "s3Buckets": bucketize_resources(
-                        platform_product_s3_resources.get(name, {}).get(prod, {})
+                        platform_product_s3_resources.get(name, {}).get(prod, {}),
+                        True,
                     ),
                     "blockBuckets": bucketize_resources(
-                        platform_product_block_resources.get(name, {}).get(prod, {})
+                        platform_product_block_resources.get(name, {}).get(prod, {}),
+                        True,
                     ),
                     "objectBuckets": bucketize_resources(
-                        platform_product_object_resources.get(name, {}).get(prod, {})
+                        platform_product_object_resources.get(name, {}).get(prod, {}),
+                        True,
                     ),
                     "services": prod_services,
                     "environments": prod_envs,
