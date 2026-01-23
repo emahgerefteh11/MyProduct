@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "default": {
+    "delimiter": "-",
+    "pattern": [
+      "resource_type",
+      "platform",
+      "product",
+      "environment",
+      "region",
+      "instance"
+    ]
+  },
+  "providers": {
+    "aws": {
+      "pattern": [
+        "resource_type",
+        "platform",
+        "product",
+        "environment",
+        "instance"
+      ]
+    },
+    "azure": {
+      "pattern": [
+        "resource_type",
+        "platform",
+        "product",
+        "environment",
+        "region",
+        "instance"
+      ]
+    },
+    "gcp": {
+      "pattern": [
+        "resource_type",
+        "platform",
+        "product",
+        "environment",
+        "region",
+        "instance"
+      ]
+    }
+  }
+}

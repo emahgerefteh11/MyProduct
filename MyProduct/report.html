@@ -7,45 +7,124 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: linear-gradient(135deg, #0b1021 0%, #0f1e3a 60%, #1c305b 100%);
-      --panel: rgba(255,255,255,0.05);
-      --panel-strong: rgba(255,255,255,0.08);
-      --card: rgba(255,255,255,0.07);
-      --text: #e9eefc;
-      --muted: #9fb3d9;
-      --accent: #88f0ff;
-      --accent-2: #ffc857;
-      --accent-3: #8cff96;
+      --bg:
+        radial-gradient(1200px 600px at 10% -10%, rgba(136, 240, 255, 0.12), transparent 55%),
+        radial-gradient(900px 500px at 90% 0%, rgba(255, 200, 87, 0.08), transparent 50%),
+        linear-gradient(180deg, #0b1021 0%, #0f1a2e 100%);
+      --panel: rgba(15, 23, 42, 0.55);
+      --panel-strong: rgba(15, 23, 42, 0.75);
+      --card: rgba(15, 23, 42, 0.5);
+      --text: #e8edf8;
+      --muted: #a3b0c7;
+      --accent: #8fe9ff;
+      --accent-2: #f2c97a;
+      --accent-3: #8de9a7;
       --danger: #ff6b6b;
-      --shadow: 0 10px 40px rgba(0,0,0,0.35);
-      --radius: 14px;
+      --border: rgba(148, 163, 184, 0.18);
+      --border-strong: rgba(148, 163, 184, 0.28);
+      --shadow: 0 10px 30px rgba(2, 6, 23, 0.25);
+      --radius: 12px;
+      --chart-panel: rgba(11, 18, 32, 0.6);
+      --chart-glow: rgba(143, 233, 255, 0.14);
     }
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: 'DM Sans', 'Space Grotesk', sans-serif; color: var(--text); background: var(--bg); min-height: 100vh; padding: 28px 32px 80px; }
-    .page { max-width: 1200px; margin: 0 auto; }
-    header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 28px; }
-    .title { font-family: 'Space Grotesk', 'DM Sans', sans-serif; font-size: 28px; letter-spacing: 0.5px; font-weight: 700; }
-    .pill { background: var(--panel); border: 1px solid rgba(255,255,255,0.12); border-radius: 999px; padding: 10px 16px; color: var(--muted); font-size: 13px; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 22px; }
-    .card { background: var(--card); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
-    .card h3 { margin: 0 0 8px; font-size: 16px; letter-spacing: 0.2px; }
-    .big { font-size: 26px; font-weight: 700; letter-spacing: 0.4px; }
+    body {
+      margin: 0;
+      font-family: 'DM Sans', 'Space Grotesk', sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      min-height: 100vh;
+      padding: 24px 28px 72px;
+      line-height: 1.5;
+    }
+    .page { max-width: 1160px; margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+    .title { font-family: 'Space Grotesk', 'DM Sans', sans-serif; font-size: 26px; letter-spacing: 0.4px; font-weight: 700; }
+    .pill {
+      background: rgba(15, 23, 42, 0.4);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 8px 14px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; margin-bottom: 22px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(6px);
+    }
+    .card h3 { margin: 0 0 10px; font-size: 15px; letter-spacing: 0.3px; color: #d9e2f3; }
+    .big { font-size: 24px; font-weight: 700; letter-spacing: 0.3px; }
     .muted { color: var(--muted); }
     table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: left; padding: 8px 0; font-size: 14px; }
-    th { color: var(--muted); font-weight: 500; border-bottom: 1px solid rgba(255,255,255,0.08); }
-    .bar { height: 8px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; }
-    .bar span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--accent), #6de2ff, #4fb6ff); }
-    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-    .chip { background: var(--panel); border: 1px solid rgba(255,255,255,0.08); border-radius: 999px; padding: 4px 10px; font-size: 12px; color: var(--muted); }
-    .stack-card { padding: 14px; background: var(--panel-strong); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius); }
+    th, td { text-align: left; padding: 10px 0; font-size: 14px; }
+    th { color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--border); }
+    tbody tr + tr td { border-top: 1px solid var(--border); }
+    .bar { height: 6px; background: rgba(148, 163, 184, 0.22); border-radius: 999px; overflow: hidden; }
+    .bar span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--accent), #6de2ff); }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip { background: var(--panel); border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; font-size: 11px; color: var(--muted); }
+    .stack-card { padding: 12px; background: var(--panel-strong); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: none; }
     .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-    .tag { background: rgba(255,255,255,0.08); padding: 4px 8px; border-radius: 8px; font-size: 12px; color: var(--accent-2); }
-    .tabs { display: flex; gap: 10px; margin-bottom: 12px; }
-    .tab { padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: var(--text); cursor: pointer; transition: all 0.15s ease; }
-    .tab.active { border-color: var(--accent); box-shadow: 0 8px 18px rgba(0,0,0,0.3); color: #0b1021; background: linear-gradient(135deg, var(--accent), #6de2ff); }
+    .tag { background: var(--panel); border: 1px solid var(--border); padding: 4px 8px; border-radius: 8px; font-size: 12px; color: var(--accent-2); }
+    .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .tab {
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.35);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-size: 13px;
+      letter-spacing: 0.2px;
+    }
+    .tab.active {
+      border-color: rgba(143, 233, 255, 0.6);
+      background: rgba(15, 23, 42, 0.7);
+      color: var(--text);
+      box-shadow: none;
+    }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
+    .filter-row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .select {
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border-strong);
+      background: rgba(11, 18, 32, 0.6);
+      color: var(--text);
+      min-width: 200px;
+      font-family: inherit;
+    }
+    .select:focus { outline: 2px solid rgba(143, 233, 255, 0.35); outline-offset: 1px; }
+    .chart-card { overflow: hidden; }
+    .chart-shell {
+      position: relative;
+      padding: 12px;
+      border-radius: 14px;
+      background: var(--chart-panel);
+      border: 1px solid var(--border-strong);
+      box-shadow: inset 0 0 0 1px rgba(2, 6, 23, 0.4);
+      margin-bottom: 12px;
+    }
+    .chart-shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(380px 120px at 10% 0%, rgba(143, 233, 255, 0.22), transparent 60%),
+        radial-gradient(320px 140px at 90% 0%, rgba(242, 201, 122, 0.18), transparent 65%);
+      opacity: 0.6;
+      pointer-events: none;
+    }
+    .chart-shell > * { position: relative; z-index: 1; }
     @media (max-width: 720px) { header { flex-direction: column; align-items: flex-start; } body { padding: 18px 18px 60px; } }
   </style>
 </head>
@@ -53,11 +132,21 @@
   <div class="page">
     <header>
       <div>
-        <div class="pill">FinOps · Product Footprints</div>
+        <div class="pill">FinOps Product Footprints</div>
         <div class="title">Cloud Cost Atlas</div>
       </div>
-      <div class="pill" id="source-info">Loading…</div>
+      <div class="pill" id="source-info">Loading...</div>
     </header>
+
+    <div class="card" id="report-selector-card" style="margin-bottom:14px;">
+      <div class="row" style="align-items:center;">
+        <div>
+          <h3 style="margin-bottom:4px;">Report</h3>
+          <div class="muted">View aggregate or a single CUR file</div>
+        </div>
+        <select id="report-select" class="select"></select>
+      </div>
+    </div>
 
     <div class="tabs">
       <div class="tab active" data-tab="finops">FinOps Overview</div>
@@ -69,26 +158,26 @@
       <div class="card" style="margin-bottom:14px;">
         <h3>Filters</h3>
         <div class="muted" style="margin-bottom:6px;">Choose platform and product (platform must be set for product filtering)</div>
-        <div style="display:flex; gap:12px; flex-wrap:wrap;">
-          <select id="finops-platform-filter" style="padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:var(--panel);color:var(--text);min-width:200px;"></select>
-          <select id="finops-product-filter" style="padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:var(--panel);color:var(--text);min-width:200px;"></select>
+        <div class="filter-row">
+          <select id="finops-platform-filter" class="select"></select>
+          <select id="finops-product-filter" class="select"></select>
         </div>
       </div>
 
       <div class="grid" id="metrics">
         <div class="card">
           <h3>Total Unblended Cost</h3>
-          <div class="big" id="total-cost">—</div>
+          <div class="big" id="total-cost">--</div>
           <div class="muted" id="product-count"></div>
         </div>
         <div class="card">
           <h3>Storage Share (EBS + S3)</h3>
-          <div class="big" id="storage-share">—</div>
+          <div class="big" id="storage-share">--</div>
           <div class="muted">Primary optimization surface</div>
         </div>
         <div class="card">
           <h3>Environments</h3>
-          <div class="big" id="env-split">—</div>
+          <div class="big" id="env-split">--</div>
           <div class="muted">dev / prod / staging</div>
         </div>
       </div>
@@ -99,7 +188,7 @@
           <table id="products-table"><thead><tr><th>Product</th><th>Cost</th><th>Share</th></tr></thead><tbody></tbody></table>
         </div>
         <div class="card">
-          <h3>Services by Cost</h3>
+          <h3>Service Families by Cost</h3>
           <table id="services-table"><thead><tr><th>Service</th><th>Cost</th><th>Share</th></tr></thead><tbody></tbody></table>
         </div>
       </div>
@@ -110,7 +199,7 @@
           <table id="env-table"><thead><tr><th>Environment</th><th>Cost</th><th>Share</th></tr></thead><tbody></tbody></table>
         </div>
         <div class="card">
-          <h3>Service Co-occurrence</h3>
+          <h3>Service Family Co-occurrence</h3>
           <div class="muted" style="margin-bottom:6px;">Pairs appearing together across products</div>
           <div id="co-table"></div>
         </div>
@@ -131,28 +220,34 @@
       <div class="card" style="margin-bottom:14px;">
         <h3>Filters</h3>
         <div class="muted" style="margin-bottom:6px;">Choose platform and product</div>
-        <div style="display:flex; gap:12px; flex-wrap:wrap;">
-          <select id="anomaly-platform-filter" style="padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:var(--panel);color:var(--text);min-width:200px;"></select>
-          <select id="anomaly-product-filter" style="padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:var(--panel);color:var(--text);min-width:200px;"></select>
+        <div class="filter-row">
+          <select id="anomaly-platform-filter" class="select"></select>
+          <select id="anomaly-product-filter" class="select"></select>
         </div>
       </div>
 
-      <div class="card">
-        <h3>EC2 SKU Distribution</h3>
-        <div class="muted" style="margin-bottom:6px;">Hours and instance counts</div>
-        <div id="anomaly-ec2-chart" style="height:320px;"></div>
-        <table id="anomaly-ec2-table"><thead><tr><th>SKU</th><th>vCPU</th><th>RAM (GiB)</th><th>Hours</th><th>Instances</th></tr></thead><tbody></tbody></table>
+      <div class="card chart-card">
+        <h3>VM SKU Distribution</h3>
+        <div class="muted" style="margin-bottom:6px;">Hours and instance counts across providers</div>
+        <div class="chart-shell">
+          <div id="anomaly-ec2-chart" style="height:320px;"></div>
+        </div>
+        <table id="anomaly-ec2-table"><thead><tr><th>Size</th><th>vCPU</th><th>RAM (GiB)</th><th>Hours</th><th>Instances</th></tr></thead><tbody></tbody></table>
       </div>
 
-      <div class="card">
-        <h3>EBS Volume Size Buckets (GB-Mo)</h3>
-        <div id="anomaly-ebs-chart" style="height:260px;"></div>
-        <table id="anomaly-ebs-table"><thead><tr><th>Bucket</th><th>GB-Mo</th><th>Resources</th></tr></thead><tbody></tbody></table>
+      <div class="card chart-card">
+        <h3>Block Storage Size Buckets (GB / GB-Mo)</h3>
+        <div class="chart-shell">
+          <div id="anomaly-ebs-chart" style="height:260px;"></div>
+        </div>
+        <table id="anomaly-ebs-table"><thead><tr><th>Bucket</th><th>GB</th><th>Resources</th></tr></thead><tbody></tbody></table>
       </div>
-      <div class="card">
-        <h3>S3 Bucket Size Buckets (GB-Mo)</h3>
-        <div id="anomaly-s3-chart" style="height:260px;"></div>
-        <table id="anomaly-s3-table"><thead><tr><th>Bucket</th><th>GB-Mo</th><th>Resources</th></tr></thead><tbody></tbody></table>
+      <div class="card chart-card">
+        <h3>Object Storage Size Buckets (GB / GB-Mo)</h3>
+        <div class="chart-shell">
+          <div id="anomaly-s3-chart" style="height:260px;"></div>
+        </div>
+        <table id="anomaly-s3-table"><thead><tr><th>Bucket</th><th>GB</th><th>Resources</th></tr></thead><tbody></tbody></table>
       </div>
     </div>
 
@@ -160,9 +255,21 @@
       <div class="card" style="margin-bottom:14px;">
         <h3>Filters</h3>
         <div class="muted" style="margin-bottom:6px;">Choose platform and product (product filter applies within chosen platform)</div>
-        <div style="display:flex; gap:12px; flex-wrap:wrap;">
-          <select id="platform-filter" style="padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:var(--panel);color:var(--text);min-width:200px;"></select>
-          <select id="naming-product-filter" style="padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:var(--panel);color:var(--text);min-width:200px;"></select>
+        <div class="filter-row">
+          <select id="platform-filter" class="select"></select>
+          <select id="naming-product-filter" class="select"></select>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h3>Naming Convention</h3>
+          <div class="muted" id="naming-meta" style="margin-bottom:8px;"></div>
+          <div class="chips" id="naming-pattern"></div>
+        </div>
+        <div class="card">
+          <h3>Providers</h3>
+          <table id="providers-table"><thead><tr><th>Provider</th><th>Cost</th><th>Share</th><th>Rows</th></tr></thead><tbody></tbody></table>
         </div>
       </div>
 
@@ -171,25 +278,25 @@
           <h3>Platform Totals</h3>
           <div class="muted" id="platform-meta"></div>
           <div style="margin-top:10px; display:grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap:10px;">
-            <div class="stack-card"><div class="muted">Total Cost</div><div class="big" id="plat-cost">—</div></div>
-            <div class="stack-card"><div class="muted">vCPU</div><div class="big" id="plat-vcpu">—</div></div>
-            <div class="stack-card"><div class="muted">RAM (GiB)</div><div class="big" id="plat-ram">—</div></div>
-            <div class="stack-card"><div class="muted">EBS (GB-Mo)</div><div class="big" id="plat-ebs">—</div></div>
-            <div class="stack-card"><div class="muted">S3 (GB-Mo)</div><div class="big" id="plat-s3">—</div></div>
-            <div class="stack-card"><div class="muted">NICs (approx)</div><div class="big" id="plat-nics">—</div></div>
+            <div class="stack-card"><div class="muted">Total Cost</div><div class="big" id="plat-cost">--</div></div>
+            <div class="stack-card"><div class="muted">vCPU</div><div class="big" id="plat-vcpu">--</div></div>
+            <div class="stack-card"><div class="muted">RAM (GiB)</div><div class="big" id="plat-ram">--</div></div>
+            <div class="stack-card"><div class="muted">EBS (GB-Mo)</div><div class="big" id="plat-ebs">--</div></div>
+            <div class="stack-card"><div class="muted">S3 (GB-Mo)</div><div class="big" id="plat-s3">--</div></div>
+            <div class="stack-card"><div class="muted">NICs (approx)</div><div class="big" id="plat-nics">--</div></div>
           </div>
         </div>
       </div>
 
       <div class="card">
         <h3>Resource Naming Breakdown</h3>
-        <div class="muted" style="margin-bottom:6px;">Cost grouped by resource ID naming prefix</div>
+        <div class="muted" style="margin-bottom:6px;">Cost grouped by resource name segments</div>
         <table id="resnames-table"><thead><tr><th>Name prefix</th><th>Cost</th><th>Share</th><th>Rows</th></tr></thead><tbody></tbody></table>
       </div>
 
       <div class="card">
         <h3>Platforms</h3>
-        <div class="muted" style="margin-bottom:6px;">Cost and count by platform (parsed from resource names)</div>
+        <div class="muted" style="margin-bottom:6px;">Cost and count by platform (derived from resource names)</div>
         <table id="platforms-table"><thead><tr><th>Platform</th><th>Cost</th><th>Share</th><th>Rows</th></tr></thead><tbody></tbody></table>
       </div>
 
@@ -209,6 +316,11 @@
     const fmtMoney = (n) => `$${n.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
     const fmtPct = (n) => `${n.toFixed(2)}%`;
     const bucketOrder = ['0-100','100-500','500-1k','1k-5k','5k-10k','10k+'];
+    const chartPalette = {
+      vm: '#7dd3fc',
+      block: '#f6c46a',
+      object: '#6ee7b7'
+    };
 
     async function loadData() {
       const res = await fetch('report_data.json').catch(() => fetch('MyProduct/report_data.json'));
@@ -227,139 +339,155 @@
 
     function render() {
       loadData().then((data) => {
-        document.getElementById('source-info').textContent = 'Source: CUR slice -> report_data.json';
+        const namingConfig = data.namingConvention || {};
+        const reportCard = document.getElementById('report-selector-card');
+        const reportSelect = document.getElementById('report-select');
+        const reportViews = [];
+        const reports = Array.isArray(data.reports) ? data.reports : [];
 
-        // Tabs
-        document.querySelectorAll('.tab').forEach(tab => {
-          tab.addEventListener('click', () => {
-            const target = tab.getAttribute('data-tab');
-            document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === target));
+        if (reports.length > 1) {
+          reportViews.push({ id: 'aggregate', label: 'All reports', data });
+          reports.forEach((report, index) => {
+            const summary = report.summary || report.data || report;
+            reportViews.push({
+              id: report.id || `report-${index + 1}`,
+              label: report.label || `Report ${index + 1}`,
+              data: summary
+            });
           });
-        });
-
-        // Filter helpers
-        function setPlatformOptions(sel) {
-          sel.innerHTML = '';
-          const allOpt = document.createElement('option'); allOpt.value='all'; allOpt.textContent='All platforms'; sel.appendChild(allOpt);
-          data.platforms.forEach(p => { const opt=document.createElement('option'); opt.value=p.platform; opt.textContent=p.platform; sel.appendChild(opt); });
-        }
-        function setProductOptions(sel, platform) {
-          sel.innerHTML = '';
-          const allOpt = document.createElement('option'); allOpt.value='all'; allOpt.textContent='All products'; sel.appendChild(allOpt);
-          if (platform === 'all') return;
-          const p = data.platforms.find(x => x.platform === platform);
-          if (!p) return;
-          p.products.forEach(pr => { const opt=document.createElement('option'); opt.value=pr.product; opt.textContent=pr.product; sel.appendChild(opt); });
-        }
-
-        // FinOps filters
-        const finPlatSel = document.getElementById('finops-platform-filter');
-        const finProdSel = document.getElementById('finops-product-filter');
-        const anPlatSel = document.getElementById('anomaly-platform-filter');
-        const anProdSel = document.getElementById('anomaly-product-filter');
-        setPlatformOptions(finPlatSel);
-        setProductOptions(finProdSel, 'all');
-        setPlatformOptions(anPlatSel);
-        setProductOptions(anProdSel, 'all');
-
-        function getScope(platform, product) {
-          if (platform === 'all') {
-            return {
-              cost: data.totalCost,
-              products: data.products.map(p => ({name: p.product, cost: p.cost, pct: p.pctOfTotal})),
-              services: data.services.map(s => ({name: s.service, cost: s.cost, pct: s.pctOfTotal})),
-              envs: data.environments.map(e => ({name: e.environment, cost: e.cost, pct: e.pctOfTotal})),
-              storageShare: data.services.filter(s => ['AmazonEBS','AmazonS3'].includes(s.service)).reduce((a,b)=>a+b.pctOfTotal,0),
-              meta: `${data.products.length} tagged products · ${data.services.length} services`,
-            };
-          }
-          const plat = data.platforms.find(p => p.platform === platform);
-          if (!plat) return null;
-          if (product === 'all') {
-            return {
-              cost: plat.cost,
-              products: plat.products.map(p => ({name: p.product, cost: p.cost, pct: p.pctOfPlatform})),
-              services: plat.services.map(s => ({name: s.service, cost: s.cost, pct: s.pctOfPlatform})),
-              envs: plat.environments.map(e => ({name: e.environment, cost: e.cost, pct: e.pctOfPlatform})),
-              storageShare: plat.services.filter(s => ['AmazonEBS','AmazonS3'].includes(s.service)).reduce((a,b)=>a+b.pctOfPlatform,0),
-              meta: `${plat.products.length} products · ${plat.services.length} services`,
-            };
-          }
-          const prodObj = plat.products.find(p => p.product === product);
-          if (!prodObj) return null;
-          return {
-            cost: prodObj.cost,
-            products: [{name: prodObj.product, cost: prodObj.cost, pct: prodObj.pctOfPlatform}],
-            services: (prodObj.services || []).map(s => ({name: s.service, cost: s.cost, pct: s.pctOfPlatform})),
-            envs: (prodObj.environments || []).map(e => ({name: e.environment, cost: e.cost, pct: e.pctOfPlatform})),
-            storageShare: (prodObj.services || []).filter(s => ['AmazonEBS','AmazonS3'].includes(s.service)).reduce((a,b)=>a+b.pctOfPlatform,0),
-            meta: `${prodObj.product} · ${fmtPct(prodObj.pctOfPlatform)} of ${platform}`,
-          };
-        }
-
-        function renderFinops(platform, product) {
-          const scope = getScope(platform, product);
-          if (!scope) return;
-          document.getElementById('total-cost').textContent = fmtMoney(scope.cost);
-          document.getElementById('product-count').textContent = scope.meta;
-          renderBars(scope.products.map(p => ({name:p.name, cost:fmtMoney(p.cost), pct:p.pct})), document.querySelector('#products-table tbody'));
-          renderBars(scope.services.map(s => ({name:s.name, cost:fmtMoney(s.cost), pct:s.pct})), document.querySelector('#services-table tbody'));
-          renderBars(scope.envs.map(e => ({name:e.name, cost:fmtMoney(e.cost), pct:e.pct})), document.querySelector('#env-table tbody'));
-          document.getElementById('storage-share').textContent = fmtPct(scope.storageShare || 0);
-          document.getElementById('env-split').textContent = scope.envs.map(e => `${e.name}:${fmtPct(e.pct)}`).join(' · ');
-        }
-
-        finPlatSel.addEventListener('change', (e)=>{
-          setProductOptions(finProdSel, e.target.value);
-          finProdSel.value = 'all';
-          renderFinops(e.target.value, 'all');
-        });
-        finProdSel.addEventListener('change', ()=>renderFinops(finPlatSel.value, finProdSel.value));
-        renderFinops('all','all');
-
-        // Platform table (static)
-        const platTbody = document.querySelector('#platforms-table tbody');
-        data.platforms.forEach(p => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${p.platform}</td><td>${fmtMoney(p.cost)}</td><td>${fmtPct(p.pctOfTotal)}</td><td>${p.rows}</td>`;
-          platTbody.appendChild(tr);
-        });
-
-        // Co-occurrence static
-        const coWrap = document.getElementById('co-table');
-        data.coOccurrence.slice(0,8).forEach(pair => {
-          const row = document.createElement('div');
-          row.className = 'row';
-          row.style.marginBottom = '8px';
-          row.innerHTML = `<div>${pair.pair[0]} + ${pair.pair[1]}</div><div class="tag">${pair.products} products</div>`;
-          coWrap.appendChild(row);
-        });
-
-        // Stack cards static
-        const stacks = document.getElementById('stack-cards');
-        data.products.forEach(p => {
-          const sCard = document.createElement('div');
-          sCard.className = 'stack-card';
-          sCard.innerHTML = `<div class="row"><div><strong>${p.product}</strong><div class="muted">${fmtMoney(p.cost)} · ${fmtPct(p.pctOfTotal)} of total</div></div><div class="tag">HHI ${p.hhi}</div></div>`;
-          const list = document.createElement('div');
-          list.style.marginTop = '10px';
-          p.services.forEach(svc => {
-            const line = document.createElement('div');
-            line.className = 'row';
-            line.style.marginBottom = '6px';
-            line.innerHTML = `<div class="muted">${svc.service}</div><div>${fmtPct(svc.pctOfProduct)}</div>`;
-            list.appendChild(line);
+        } else if (reports.length === 1) {
+          const report = reports[0];
+          const summary = report.summary || report.data || report;
+          reportViews.push({
+            id: report.id || 'report-1',
+            label: report.label || 'Report',
+            data: summary
           });
-          sCard.appendChild(list);
-          stacks.appendChild(sCard);
-        });
-
-        const shared = document.getElementById('shared-stacks');
-        if (!data.sharedStacks.length) {
-          shared.textContent = '(none)';
         } else {
-          data.sharedStacks.forEach(stack => {
+          reportViews.push({ id: 'report', label: data.reportLabel || 'Report', data });
+        }
+
+        let activeReport = reportViews[0];
+        let activeData = activeReport.data;
+
+        function updateSourceInfo() {
+          const sourceInfo = document.getElementById('source-info');
+          if (!sourceInfo) return;
+          const label = activeReport ? activeReport.label : 'Report';
+          sourceInfo.textContent = `Source: report_data.json / view: ${label}`;
+        }
+
+        function safeArray(value) {
+          return Array.isArray(value) ? value : [];
+        }
+
+        function renderNamingMeta() {
+          const namingMeta = document.getElementById('naming-meta');
+          const namingPattern = document.getElementById('naming-pattern');
+          if (!namingMeta || !namingPattern) return;
+          const source = namingConfig.source || 'naming';
+          const delimiter = namingConfig.delimiter || '-';
+          const mode = namingConfig.mode ? ` / mode: ${namingConfig.mode}` : '';
+          namingMeta.textContent = `Source: ${source} / delimiter: "${delimiter}"${mode}`;
+          namingPattern.innerHTML = '';
+          (namingConfig.pattern || []).forEach((token) => {
+            const chip = document.createElement('div');
+            chip.className = 'chip';
+            chip.textContent = token;
+            namingPattern.appendChild(chip);
+          });
+          if (!namingConfig.pattern || !namingConfig.pattern.length) {
+            namingPattern.textContent = '(pattern not available)';
+          }
+        }
+
+        function renderProviders(dataSet) {
+          const providerBody = document.querySelector('#providers-table tbody');
+          if (!providerBody) return;
+          providerBody.innerHTML = '';
+          const providers = safeArray(dataSet.providers);
+          if (providers.length) {
+            providers.forEach((p) => {
+              const tr = document.createElement('tr');
+              tr.innerHTML = `<td>${p.provider}</td><td>${fmtMoney(p.cost)}</td><td>${fmtPct(p.pctOfTotal)}</td><td>${p.rows}</td>`;
+              providerBody.appendChild(tr);
+            });
+          } else {
+            providerBody.innerHTML = '<tr><td colspan="4" class="muted">(none)</td></tr>';
+          }
+        }
+
+        function renderPlatformsTable(dataSet) {
+          const platTbody = document.querySelector('#platforms-table tbody');
+          if (!platTbody) return;
+          platTbody.innerHTML = '';
+          const platforms = safeArray(dataSet.platforms);
+          if (!platforms.length) {
+            platTbody.innerHTML = '<tr><td colspan="4" class="muted">(none)</td></tr>';
+            return;
+          }
+          platforms.forEach(p => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${p.platform}</td><td>${fmtMoney(p.cost)}</td><td>${fmtPct(p.pctOfTotal)}</td><td>${p.rows}</td>`;
+            platTbody.appendChild(tr);
+          });
+        }
+
+        function renderCooccurrence(dataSet) {
+          const coWrap = document.getElementById('co-table');
+          if (!coWrap) return;
+          coWrap.innerHTML = '';
+          const pairs = safeArray(dataSet.coOccurrence).slice(0, 8);
+          if (!pairs.length) {
+            coWrap.textContent = '(none)';
+            return;
+          }
+          pairs.forEach(pair => {
+            const row = document.createElement('div');
+            row.className = 'row';
+            row.style.marginBottom = '8px';
+            row.innerHTML = `<div>${pair.pair[0]} + ${pair.pair[1]}</div><div class="tag">${pair.products} products</div>`;
+            coWrap.appendChild(row);
+          });
+        }
+
+        function renderStackCards(dataSet) {
+          const stacks = document.getElementById('stack-cards');
+          if (!stacks) return;
+          stacks.innerHTML = '';
+          const products = safeArray(dataSet.products);
+          if (!products.length) {
+            stacks.textContent = '(none)';
+            return;
+          }
+          products.forEach(p => {
+            const sCard = document.createElement('div');
+            sCard.className = 'stack-card';
+            sCard.innerHTML = `<div class="row"><div><strong>${p.product}</strong><div class="muted">${fmtMoney(p.cost)} / ${fmtPct(p.pctOfTotal)} of total</div></div><div class="tag">HHI ${p.hhi}</div></div>`;
+            const list = document.createElement('div');
+            list.style.marginTop = '10px';
+            (p.services || []).forEach(svc => {
+              const line = document.createElement('div');
+              line.className = 'row';
+              line.style.marginBottom = '6px';
+              line.innerHTML = `<div class="muted">${svc.service}</div><div>${fmtPct(svc.pctOfProduct)}</div>`;
+              list.appendChild(line);
+            });
+            sCard.appendChild(list);
+            stacks.appendChild(sCard);
+          });
+        }
+
+        function renderSharedStacks(dataSet) {
+          const shared = document.getElementById('shared-stacks');
+          if (!shared) return;
+          shared.innerHTML = '';
+          const stacks = safeArray(dataSet.sharedStacks);
+          if (!stacks.length) {
+            shared.textContent = '(none)';
+            return;
+          }
+          stacks.forEach(stack => {
             const wrap = document.createElement('div');
             wrap.className = 'stack-card';
             wrap.innerHTML = `<div><strong>${stack.products.join(', ')}</strong></div>`;
@@ -376,11 +504,97 @@
           });
         }
 
+        // Tabs
+        document.querySelectorAll('.tab').forEach(tab => {
+          tab.addEventListener('click', () => {
+            const target = tab.getAttribute('data-tab');
+            document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === target));
+          });
+        });
+
+        // Filter helpers
+        function setPlatformOptions(sel) {
+          sel.innerHTML = '';
+          const allOpt = document.createElement('option'); allOpt.value='all'; allOpt.textContent='All platforms'; sel.appendChild(allOpt);
+          safeArray(activeData.platforms).forEach(p => { const opt=document.createElement('option'); opt.value=p.platform; opt.textContent=p.platform; sel.appendChild(opt); });
+        }
+        function setProductOptions(sel, platform) {
+          sel.innerHTML = '';
+          const allOpt = document.createElement('option'); allOpt.value='all'; allOpt.textContent='All products'; sel.appendChild(allOpt);
+          if (platform === 'all') return;
+          const p = safeArray(activeData.platforms).find(x => x.platform === platform);
+          if (!p) return;
+          safeArray(p.products).forEach(pr => { const opt=document.createElement('option'); opt.value=pr.product; opt.textContent=pr.product; sel.appendChild(opt); });
+        }
+
+        // FinOps filters
+        const finPlatSel = document.getElementById('finops-platform-filter');
+        const finProdSel = document.getElementById('finops-product-filter');
+        const anPlatSel = document.getElementById('anomaly-platform-filter');
+        const anProdSel = document.getElementById('anomaly-product-filter');
+
+        function getScope(platform, product) {
+          if (!activeData) return null;
+          const products = safeArray(activeData.products);
+          const services = safeArray(activeData.services);
+          const environments = safeArray(activeData.environments);
+          if (platform === 'all') {
+            return {
+              cost: activeData.totalCost || 0,
+              products: products.map(p => ({name: p.product, cost: p.cost, pct: p.pctOfTotal})),
+              services: services.map(s => ({name: s.service, cost: s.cost, pct: s.pctOfTotal})),
+              envs: environments.map(e => ({name: e.environment, cost: e.cost, pct: e.pctOfTotal})),
+              storageShare: services.filter(s => ['AmazonEBS','AmazonS3','Block Storage','Object Storage'].includes(s.service)).reduce((a,b)=>a+b.pctOfTotal,0),
+              meta: `${products.length} tagged products / ${services.length} services`,
+            };
+          }
+          const plat = safeArray(activeData.platforms).find(p => p.platform === platform);
+          if (!plat) return null;
+          if (product === 'all') {
+            return {
+              cost: plat.cost,
+              products: safeArray(plat.products).map(p => ({name: p.product, cost: p.cost, pct: p.pctOfPlatform})),
+              services: safeArray(plat.services).map(s => ({name: s.service, cost: s.cost, pct: s.pctOfPlatform})),
+              envs: safeArray(plat.environments).map(e => ({name: e.environment, cost: e.cost, pct: e.pctOfPlatform})),
+              storageShare: safeArray(plat.services).filter(s => ['AmazonEBS','AmazonS3','Block Storage','Object Storage'].includes(s.service)).reduce((a,b)=>a+b.pctOfPlatform,0),
+              meta: `${safeArray(plat.products).length} products / ${safeArray(plat.services).length} services`,
+            };
+          }
+          const prodObj = safeArray(plat.products).find(p => p.product === product);
+          if (!prodObj) return null;
+          return {
+            cost: prodObj.cost,
+            products: [{name: prodObj.product, cost: prodObj.cost, pct: prodObj.pctOfPlatform}],
+            services: safeArray(prodObj.services).map(s => ({name: s.service, cost: s.cost, pct: s.pctOfPlatform})),
+            envs: safeArray(prodObj.environments).map(e => ({name: e.environment, cost: e.cost, pct: e.pctOfPlatform})),
+            storageShare: safeArray(prodObj.services).filter(s => ['AmazonEBS','AmazonS3','Block Storage','Object Storage'].includes(s.service)).reduce((a,b)=>a+b.pctOfPlatform,0),
+            meta: `${prodObj.product} / ${fmtPct(prodObj.pctOfPlatform)} of ${platform}`,
+          };
+        }
+
+        function renderFinops(platform, product) {
+          const scope = getScope(platform, product);
+          if (!scope) return;
+          document.getElementById('total-cost').textContent = fmtMoney(scope.cost);
+          document.getElementById('product-count').textContent = scope.meta;
+          renderBars(scope.products.map(p => ({name:p.name, cost:fmtMoney(p.cost), pct:p.pct})), document.querySelector('#products-table tbody'));
+          renderBars(scope.services.map(s => ({name:s.name, cost:fmtMoney(s.cost), pct:s.pct})), document.querySelector('#services-table tbody'));
+          renderBars(scope.envs.map(e => ({name:e.name, cost:fmtMoney(e.cost), pct:e.pct})), document.querySelector('#env-table tbody'));
+          document.getElementById('storage-share').textContent = fmtPct(scope.storageShare || 0);
+          document.getElementById('env-split').textContent = scope.envs.map(e => `${e.name}:${fmtPct(e.pct)}`).join(' / ');
+        }
+
+        finPlatSel.addEventListener('change', (e)=>{
+          setProductOptions(finProdSel, e.target.value);
+          finProdSel.value = 'all';
+          renderFinops(e.target.value, 'all');
+        });
+        finProdSel.addEventListener('change', ()=>renderFinops(finPlatSel.value, finProdSel.value));
+
         // Naming/platform filters
         const platSel = document.getElementById('platform-filter');
         const prodSel = document.getElementById('naming-product-filter');
-        setPlatformOptions(platSel);
-        setProductOptions(prodSel, 'all');
 
         function renderNaming(platform, product) {
           const resTbody = document.querySelector('#resnames-table tbody');
@@ -398,26 +612,26 @@
           if (platform === 'all') {
             let vcpuSum=0, ramSum=0, ebsSum=0, s3Sum=0, nicsSum=0;
             const skuAgg = {};
-            data.platforms.forEach(p => {
+            safeArray(activeData.platforms).forEach(p => {
               vcpuSum += p.vcpuTotal || 0;
               ramSum  += p.ramGiBTotal || 0;
               ebsSum  += p.ebsGbMo || 0;
               s3Sum   += p.s3GbMo || 0;
               nicsSum += p.nicCount || 0;
-              (p.ec2Skus || []).forEach(s => {
+              safeArray(p.ec2Skus).forEach(s => {
                 if (!skuAgg[s.sku]) skuAgg[s.sku] = { sku:s.sku, vcpu:s.vcpu, ramGiB:s.ramGiB, hours:0, instances:0 };
                 skuAgg[s.sku].hours += s.hours || 0;
                 skuAgg[s.sku].instances += s.instances || 0;
               });
             });
             platMeta.textContent = 'All platforms';
-            platCost.textContent = fmtMoney(data.totalCost);
+            platCost.textContent = fmtMoney(activeData.totalCost || 0);
             platVcpu.textContent = vcpuSum;
             platRam.textContent = ramSum.toFixed(2);
             platEbs.textContent = ebsSum.toFixed(2);
             platS3.textContent = s3Sum.toFixed(2);
             platNics.textContent = nicsSum;
-            data.resourceNames.forEach(r => {
+            safeArray(activeData.resourceNames).forEach(r => {
               const tr = document.createElement('tr');
               tr.innerHTML = `<td>${r.name}</td><td>${fmtMoney(r.cost)}</td><td>${fmtPct(r.pctOfTotal)}</td><td>${r.rows}</td>`;
               resTbody.appendChild(tr);
@@ -429,23 +643,23 @@
             });
             return;
           }
-          const plat = data.platforms.find(p => p.platform === platform);
+          const plat = safeArray(activeData.platforms).find(p => p.platform === platform);
           if (!plat) return;
 
           let scope = {
             cost: plat.cost, vcpu: plat.vcpuTotal, ram: plat.ramGiBTotal,
             ebs: plat.ebsGbMo, s3: plat.s3GbMo, nics: plat.nicCount,
             resnames: plat.resourceNames, ec2: plat.ec2Skus,
-            meta: `${platform} · ${fmtPct(plat.pctOfTotal)} of total · rows ${plat.rows}`
+            meta: `${platform} / ${fmtPct(plat.pctOfTotal)} of total / rows ${plat.rows}`
           };
           if (product !== 'all') {
-            const pr = plat.products.find(p => p.product === product);
+            const pr = safeArray(plat.products).find(p => p.product === product);
             if (pr) {
               scope = {
                 cost: pr.cost, vcpu: pr.vcpuTotal, ram: pr.ramGiBTotal,
                 ebs: pr.ebsGbMo, s3: pr.s3GbMo, nics: pr.nicCount,
                 resnames: pr.resourceNames, ec2: pr.ec2Skus,
-                meta: `${platform}/${product} · ${fmtPct(pr.pctOfPlatform)} of platform · rows ${pr.rows}`
+                meta: `${platform}/${product} / ${fmtPct(pr.pctOfPlatform)} of platform / rows ${pr.rows}`
               };
             }
           }
@@ -458,13 +672,13 @@
           platS3.textContent = scope.s3;
           platNics.textContent = scope.nics;
 
-          (scope.resnames || []).forEach(r => {
+          safeArray(scope.resnames).forEach(r => {
             const pct = r.pctOfPlatform ?? r.pctOfTotal ?? 0;
             const tr = document.createElement('tr');
             tr.innerHTML = `<td>${r.name}</td><td>${fmtMoney(r.cost)}</td><td>${fmtPct(pct)}</td><td>${r.rows}</td>`;
             resTbody.appendChild(tr);
           });
-          (scope.ec2 || []).forEach(s => {
+          safeArray(scope.ec2).forEach(s => {
             const tr = document.createElement('tr');
             tr.innerHTML = `<td>${s.sku}</td><td>${s.vcpu}</td><td>${s.ramGiB}</td><td>${s.hours}</td><td>${s.instances}</td>`;
             ec2Tbody.appendChild(tr);
@@ -473,7 +687,6 @@
 
         platSel.addEventListener('change', (e)=>{ setProductOptions(prodSel, e.target.value); prodSel.value='all'; renderNaming(e.target.value, 'all'); });
         prodSel.addEventListener('change', ()=>renderNaming(platSel.value, prodSel.value));
-        renderNaming('all','all');
 
         function renderAnomaly(platform, product) {
           const ec2Body = document.querySelector('#anomaly-ec2-table tbody');
@@ -501,7 +714,7 @@
           const aggSkus = (plats) => {
             const acc = {};
             plats.forEach(p => {
-              (p.ec2Skus || []).forEach(s => {
+              (p.vmSkus || []).forEach(s => {
                 const k = s.sku;
                 if (!acc[k]) acc[k] = { sku:k, vcpu:s.vcpu, ramGiB:s.ramGiB, hours:0, instances:0 };
                 acc[k].hours += s.hours || 0;
@@ -511,14 +724,14 @@
             return Object.values(acc).sort((a,b)=>b.hours - a.hours);
           };
 
-          let plats = data.platforms;
+          let plats = safeArray(activeData.platforms);
           if (platform !== 'all') {
-            const p = data.platforms.find(x => x.platform === platform);
+            const p = safeArray(activeData.platforms).find(x => x.platform === platform);
             if (!p) return;
             if (product !== 'all') {
-              const pr = p.products.find(pp => pp.product === product);
+              const pr = safeArray(p.products).find(pp => pp.product === product);
               if (!pr) return;
-              plats = [{ ...pr, ec2Skus: pr.ec2Skus, ebsBuckets: pr.ebsBuckets, s3Buckets: pr.s3Buckets }];
+              plats = [{ ...pr, vmSkus: pr.vmSkus, blockBuckets: pr.blockBuckets, objectBuckets: pr.objectBuckets }];
             } else {
               plats = [p];
             }
@@ -529,78 +742,108 @@
             tr.innerHTML = `<td>${s.sku}</td><td>${s.vcpu}</td><td>${s.ramGiB}</td><td>${s.hours.toFixed(2)}</td><td>${s.instances}</td>`;
             ec2Body.appendChild(tr);
           });
-          const ebsBuckets = aggBuckets(plats, 'ebsBuckets').sort((a,b)=>bucketOrder.indexOf(a.label) - bucketOrder.indexOf(b.label));
-          const s3Buckets = aggBuckets(plats, 's3Buckets').sort((a,b)=>bucketOrder.indexOf(a.label) - bucketOrder.indexOf(b.label));
-          ebsBuckets.forEach(b => {
+          const blockBuckets = aggBuckets(plats, 'blockBuckets').sort((a,b)=>bucketOrder.indexOf(a.label) - bucketOrder.indexOf(b.label));
+          const objectBuckets = aggBuckets(plats, 'objectBuckets').sort((a,b)=>bucketOrder.indexOf(a.label) - bucketOrder.indexOf(b.label));
+          blockBuckets.forEach(b => {
             const tr = document.createElement('tr');
             tr.innerHTML = `<td>${b.label}</td><td>${b.gbMo.toFixed(2)}</td><td>${b.resources}</td>`;
             ebsBody.appendChild(tr);
           });
-          s3Buckets.forEach(b => {
+          objectBuckets.forEach(b => {
             const tr = document.createElement('tr');
             tr.innerHTML = `<td>${b.label}</td><td>${b.gbMo.toFixed(2)}</td><td>${b.resources}</td>`;
             s3Body.appendChild(tr);
           });
 
           // Charts
-          const ec2Skus = aggSkus(plats);
+          const vmSkus = aggSkus(plats);
           if (window.Plotly) {
             const baseLayout = {
               paper_bgcolor: 'rgba(0,0,0,0)',
-              plot_bgcolor: 'rgba(15,20,45,0.7)',
-              font: {color: '#e9eefc', family: 'DM Sans, sans-serif'},
-              margin: {t: 40, l: 50, r: 20, b: 50},
+              plot_bgcolor: 'rgba(8, 12, 24, 0.55)',
+              font: {color: '#dbe7ff', family: 'DM Sans, sans-serif', size: 12},
+              margin: {t: 26, l: 50, r: 20, b: 56},
               height: 320,
-              xaxis: {gridcolor: 'rgba(255,255,255,0.05)'},
-              yaxis: {gridcolor: 'rgba(255,255,255,0.05)'},
+              xaxis: {
+                gridcolor: 'rgba(148, 163, 184, 0.12)',
+                tickangle: -22,
+                tickfont: {size: 11},
+                linecolor: 'rgba(148, 163, 184, 0.2)',
+                zerolinecolor: 'rgba(148, 163, 184, 0.12)',
+                automargin: true
+              },
+              yaxis: {
+                gridcolor: 'rgba(148, 163, 184, 0.12)',
+                tickfont: {size: 11},
+                zerolinecolor: 'rgba(148, 163, 184, 0.12)',
+                automargin: true
+              },
+              hoverlabel: {
+                bgcolor: 'rgba(15, 23, 42, 0.96)',
+                bordercolor: 'rgba(148, 163, 184, 0.4)',
+                font: {color: '#e8edf8'}
+              },
+              bargap: 0.35,
               showlegend: false
             };
 
             Plotly.newPlot(ec2Chart, [{
               type: 'bar',
-              x: ec2Skus.map(s => s.sku),
-              y: ec2Skus.map(s => s.hours),
-              text: ec2Skus.map(s => `Instances: ${s.instances}`),
+              x: vmSkus.map(s => s.sku),
+              y: vmSkus.map(s => s.hours),
+              text: vmSkus.map(s => `vCPU ${s.vcpu || '-'} / RAM ${s.ramGiB || '-'} GiB / Instances ${s.instances}`),
               hovertemplate: '%{x}<br>Hours %{y:.2f}<br>%{text}<extra></extra>',
-              marker: {color: '#6dd3ff'}
+              marker: {
+                color: chartPalette.vm,
+                line: {color: 'rgba(255,255,255,0.25)', width: 1},
+                opacity: 0.9
+              }
             }], {
               ...baseLayout,
               margin: {t: 10, l: 45, r: 20, b: 40},
               height: 260,
               title: '',
               yaxis: {...baseLayout.yaxis, title: 'Hours'},
-              xaxis: {...baseLayout.xaxis, title: 'SKU'}
+              xaxis: {...baseLayout.xaxis, title: 'Size'}
             }, {displayModeBar: false});
 
             Plotly.newPlot(ebsChart, [{
               type: 'bar',
-              x: ebsBuckets.map(b => b.label),
-              y: ebsBuckets.map(b => b.gbMo),
-              text: ebsBuckets.map(b => `${b.resources} resources`),
-              hovertemplate: '%{x}<br>GB-Mo %{y:.2f}<br>%{text}<extra></extra>',
-              marker: {color: '#f3b23a'}
+              x: blockBuckets.map(b => b.label),
+              y: blockBuckets.map(b => b.gbMo),
+              text: blockBuckets.map(b => `${b.resources} resources`),
+              hovertemplate: '%{x}<br>GB %{y:.2f}<br>%{text}<extra></extra>',
+              marker: {
+                color: chartPalette.block,
+                line: {color: 'rgba(255,255,255,0.2)', width: 1},
+                opacity: 0.9
+              }
             }], {
               ...baseLayout,
               margin: {t: 10, l: 45, r: 20, b: 40},
               height: 240,
               title: '',
-              yaxis: {...baseLayout.yaxis, title: 'GB-Mo'},
+              yaxis: {...baseLayout.yaxis, title: 'GB'},
               xaxis: {...baseLayout.xaxis, title: 'Bucket'}
             }, {displayModeBar: false});
 
             Plotly.newPlot(s3Chart, [{
               type: 'bar',
-              x: s3Buckets.map(b => b.label),
-              y: s3Buckets.map(b => b.gbMo),
-              text: s3Buckets.map(b => `${b.resources} buckets`),
-              hovertemplate: '%{x}<br>GB-Mo %{y:.2f}<br>%{text}<extra></extra>',
-              marker: {color: '#6de59a'}
+              x: objectBuckets.map(b => b.label),
+              y: objectBuckets.map(b => b.gbMo),
+              text: objectBuckets.map(b => `${b.resources} buckets`),
+              hovertemplate: '%{x}<br>GB %{y:.2f}<br>%{text}<extra></extra>',
+              marker: {
+                color: chartPalette.object,
+                line: {color: 'rgba(255,255,255,0.2)', width: 1},
+                opacity: 0.9
+              }
             }], {
               ...baseLayout,
               margin: {t: 10, l: 45, r: 20, b: 40},
               height: 240,
               title: '',
-              yaxis: {...baseLayout.yaxis, title: 'GB-Mo'},
+              yaxis: {...baseLayout.yaxis, title: 'GB'},
               xaxis: {...baseLayout.xaxis, title: 'Bucket'}
             }, {displayModeBar: false});
           }
@@ -608,7 +851,54 @@
 
         anPlatSel.addEventListener('change', (e)=>{ setProductOptions(anProdSel, e.target.value); anProdSel.value='all'; renderAnomaly(e.target.value, 'all'); });
         anProdSel.addEventListener('change', ()=>renderAnomaly(anPlatSel.value, anProdSel.value));
-        renderAnomaly('all','all');
+
+        function refreshAll() {
+          setPlatformOptions(finPlatSel);
+          setProductOptions(finProdSel, 'all');
+          setPlatformOptions(anPlatSel);
+          setProductOptions(anProdSel, 'all');
+          setPlatformOptions(platSel);
+          setProductOptions(prodSel, 'all');
+          finPlatSel.value = 'all';
+          finProdSel.value = 'all';
+          anPlatSel.value = 'all';
+          anProdSel.value = 'all';
+          platSel.value = 'all';
+          prodSel.value = 'all';
+          renderFinops('all','all');
+          renderNaming('all','all');
+          renderAnomaly('all','all');
+          renderPlatformsTable(activeData);
+          renderCooccurrence(activeData);
+          renderStackCards(activeData);
+          renderSharedStacks(activeData);
+          renderProviders(activeData);
+          renderNamingMeta();
+          updateSourceInfo();
+        }
+
+        if (reportSelect) {
+          reportSelect.innerHTML = '';
+          reportViews.forEach((report) => {
+            const opt = document.createElement('option');
+            opt.value = report.id;
+            opt.textContent = report.label;
+            reportSelect.appendChild(opt);
+          });
+          reportSelect.value = activeReport.id;
+          reportSelect.addEventListener('change', (e) => {
+            const next = reportViews.find(r => r.id === e.target.value);
+            if (!next) return;
+            activeReport = next;
+            activeData = next.data;
+            refreshAll();
+          });
+          if (reportViews.length <= 1 && reportCard) {
+            reportCard.style.display = 'none';
+          }
+        }
+
+        refreshAll();
       }).catch(err => {
         document.body.innerHTML = '<div style="padding:24px;color:#fff;font-family:monospace;">Failed to load report_data.json. Run `python cur_to_json.py` first.<br/><br/>' + err + '</div>';
       });
@@ -618,4 +908,3 @@
   </script>
 </body>
 </html>
-        const bucketOrder = ['0-100','100-500','500-1k','1k-5k','5k-10k','10k+'];
