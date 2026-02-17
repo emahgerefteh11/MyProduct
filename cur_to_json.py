@@ -417,6 +417,26 @@ def bucketize_resources(resources: Dict[str, float], include_resources: bool = F
     return agg
 
 
+def parse_gcp_labels(label_string: str) -> Dict[str, str]:
+    """Parses GCP label string like 'project:labels:{"env":"prod"}'."""
+    if not label_string:
+        return {}
+    # Try to find JSON-like content
+    match = re.search(r'\{.*\}', label_string)
+    if match:
+        try:
+            # Replace double double-quotes with single double-quotes if coming from CSV escaping
+            json_str = match.group(0).replace('""', '"')
+            data = json.loads(json_str)
+            return {
+                "product": data.get("product", ""),
+                "environment": data.get("environment", "") or data.get("env", ""),
+                "platform": data.get("platform", "")
+            }
+        except Exception:
+            pass
+    return {}
+
 def load_cur(path: pathlib.Path, naming_config: dict, naming_mode: str = "fallback"):
     prod_cost: Dict[str, float] = defaultdict(float)
     env_cost: Dict[str, float] = defaultdict(float)
@@ -540,6 +560,12 @@ def load_cur(path: pathlib.Path, naming_config: dict, naming_mode: str = "fallba
                 provider = schema.get("provider", "unknown")
 
             svc = normalize_service(provider, service_values, rid)
+
+            if provider == "gcp" and product_tag:
+                gcp_labels = parse_gcp_labels(product_tag)
+                product_tag = gcp_labels.get("product") or ""
+                env_tag = gcp_labels.get("environment") or ""
+                platform_tag = gcp_labels.get("platform") or "GCP"
 
             prod = select_dimension_value(fields.get("product"), product_tag, naming_mode) or "UnTagged"
             env = select_dimension_value(fields.get("environment"), env_tag, naming_mode) or "UnTagged"

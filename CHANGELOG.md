@@ -17,6 +17,7 @@ All notable changes to the **MyProduct** infrastructure analysis tool will be do
 - **Project Structure**: Promoted the rich UI `MyProduct/report.html` to `dashboard.html` in the root.
 
 ### Fixed
+- **GCP Label Parsing**: Fixed issue where GCP labels (Product/Environment) were read as raw JSON strings. Added parser to extracting values from the `project:labels:{...}` format.
 - **GCP VM Sizing**: Added heuristic logic to estimate GCP vCPU/RAM based on "Instance Core" usage types.
 - **Dashboard Paths**: Fixed dashboard resource loading to work from the repository root.
 
