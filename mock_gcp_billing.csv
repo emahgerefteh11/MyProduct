@@ -1,0 +1,4 @@
+Cost,LineItem,UsageStartDate,UsageUnit,UsageAmount,SkuDescription,ServiceDescription,Labels
+1.50,123456,2023-11-22T00:00:00Z,hour,1.0,"N1 Predefined Instance Core running in Americas",Compute Engine,"project:labels:{""environment"":""dev"",""product"":""ProductGCP""}"
+0.02,123457,2023-11-22T00:00:00Z,GB-Mo,10.0,"Standard Storage US Multi-region",Cloud Storage,"project:labels:{""environment"":""dev"",""product"":""ProductGCP""}"
+0.05,123458,2023-11-22T00:00:00Z,hour,1.0,"Cloud SQL for PostgreSQL: Instance Core",Cloud SQL,"project:labels:{""environment"":""prod"",""product"":""ProductGCP""}"

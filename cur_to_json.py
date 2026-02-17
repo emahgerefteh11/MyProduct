@@ -230,20 +230,35 @@ def infer_schema(fieldnames: List[str]) -> dict:
             "sku_name": None,
         }
     if pick("Cost") and pick("InstanceId", "ResourceId", "resourceId"):
-        service_fields = [pick("ServiceName"), pick("ConsumedService"), pick("MeterCategory")]
+        service_fields = [pick("ServiceName"), pick("ConsumedService"), pick("MeterCategory"), pick("MeterSubCategory")]
         return {
             "schema": "azure",
             "provider": "azure",
             "cost": pick("Cost"),
             "service_fields": [field for field in service_fields if field],
             "resource_id": pick("InstanceId", "ResourceId", "resourceId"),
-            "product_tag": pick("tags/Product"),
+            "product_tag": pick("tags/Product", "Tags"),
             "environment_tag": pick("tags/Environment"),
             "platform_tag": pick("tags/Platform"),
             "usage_unit": pick("UnitOfMeasure"),
             "usage_amount": pick("Quantity"),
-            "usage_type": pick("ServiceName"),
+            "usage_type": pick("ServiceName", "MeterName"),
             "sku_name": pick("SkuName", "MeterName"),
+        }
+    if pick("Cost") and pick("LineItem") and pick("UsageStartDate"):  # GCP Standard Export
+        return {
+            "schema": "gcp",
+            "provider": "gcp",
+            "cost": pick("Cost"),
+            "service_fields": [pick("ServiceDescription"), pick("SkuDescription")],
+            "resource_id": pick("LineItem"),  # Often just a generic ID or description in standard export
+            "product_tag": pick("Labels", "project.labels"),
+            "environment_tag": pick("Labels", "project.labels"),  # Logic to parse key:value needed
+            "platform_tag": pick("Labels", "project.labels"),
+            "usage_unit": pick("UsageUnit"),
+            "usage_amount": pick("UsageAmount"),
+            "usage_type": pick("SkuDescription"),
+            "sku_name": pick("SkuDescription"),
         }
     raise ValueError("Unsupported CSV schema: missing required cost/resource columns.")
 
@@ -292,13 +307,32 @@ AZURE_SERIES_RAM_PER_VCPU = {
 
 def normalize_service(provider: str, service_values: List[str], resource_id: str) -> str:
     raw = next((val for val in service_values if val), "")
-    if provider == "aws" and raw in AWS_SERVICE_MAP:
-        return AWS_SERVICE_MAP[raw]
+    
+    if provider == "aws":
+        if raw in AWS_SERVICE_MAP:
+            return AWS_SERVICE_MAP[raw]
+    
+    if provider == "gcp":
+        # GCP Service Descriptions can be verbose
+        if "compute engine" in raw.lower():
+            return "Compute/VM"
+        if "cloud storage" in raw.lower():
+            return "Object Storage"
+        if "cloud sql" in raw.lower() or "spanner" in raw.lower():
+            return "Database"
+        if "kubernetes" in raw.lower():
+            return "Container"
+        if "cloud functions" in raw.lower() or "cloud run" in raw.lower():
+            return "Serverless"
+        if "load balancing" in raw.lower():
+            return "Networking"
+        
     combined = " ".join([val for val in service_values if val] + ([resource_id] if resource_id else []))
     combined_lower = combined.lower()
     for category, keywords in SERVICE_CATEGORY_RULES:
         if any(keyword in combined_lower for keyword in keywords):
             return category
+            
     return raw or "UnknownService"
 
 
@@ -566,6 +600,18 @@ def load_cur(path: pathlib.Path, naming_config: dict, naming_mode: str = "fallba
                     platform_product_vm_combo_hours[platform][prod][combo] += usage_amount
                     platform_product_vm_combo_instances[platform][prod][combo].add(rid)
                     platform_product_vm_combo_specs[platform][prod][combo] = {"vcpu": vcpu, "ramGiB": ram}
+
+            elif provider == "gcp" and "core" in (usage_type or "").lower() and "hour" in (usage_unit or "").lower():
+                # GCP often splits vCPU and RAM billing. We track vCPU hours if we can infer it.
+                vcpu = 1  # Default placeholder since we can't easily parse "N1 Predefined Instance Core" without more logic
+                ram = 3.75 # Default ratio
+                combo = "GCP Instance (Estimated)"
+                platform_vm_combo_hours[platform][combo] += usage_amount
+                platform_vm_combo_instances[platform][combo].add(rid)
+                platform_vm_combo_specs[platform][combo] = {"vcpu": vcpu, "ramGiB": ram}
+                platform_product_vm_combo_hours[platform][prod][combo] += usage_amount
+                platform_product_vm_combo_instances[platform][prod][combo].add(rid)
+                platform_product_vm_combo_specs[platform][prod][combo] = {"vcpu": vcpu, "ramGiB": ram}
 
             if svc == "Block Storage" and is_size_unit(usage_unit):
                 platform_block_resources[platform][rid] += usage_amount
