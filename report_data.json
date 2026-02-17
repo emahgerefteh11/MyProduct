@@ -1,10 +1,32 @@
 {
-  "totalCost": 133951.95,
+  "totalCost": 233951.95,
   "products": [
+    {
+      "product": "project:labels:{\"environment\":\"dev\",\"product\":\"ProductGCP\"}",
+      "cost": 70000.0,
+      "pctOfTotal": 29.92,
+      "rows": 2,
+      "serviceCount": 2,
+      "services": [
+        {
+          "service": "Compute/VM",
+          "cost": 60000.0,
+          "pctOfProduct": 85.71,
+          "resourceCount": 1
+        },
+        {
+          "service": "Object Storage",
+          "cost": 10000.0,
+          "pctOfProduct": 14.29,
+          "resourceCount": 1
+        }
+      ],
+      "hhi": 0.755
+    },
     {
       "product": "MarketingSite",
       "cost": 32222.65,
-      "pctOfTotal": 24.06,
+      "pctOfTotal": 13.77,
       "rows": 256,
       "serviceCount": 5,
       "services": [
@@ -42,9 +64,25 @@
       "hhi": 0.336
     },
     {
+      "product": "project:labels:{\"environment\":\"prod\",\"product\":\"ProductGCP\"}",
+      "cost": 30000.0,
+      "pctOfTotal": 12.82,
+      "rows": 1,
+      "serviceCount": 1,
+      "services": [
+        {
+          "service": "Database",
+          "cost": 30000.0,
+          "pctOfProduct": 100.0,
+          "resourceCount": 1
+        }
+      ],
+      "hhi": 1.0
+    },
+    {
       "product": "InternalTools",
       "cost": 29230.05,
-      "pctOfTotal": 21.82,
+      "pctOfTotal": 12.49,
       "rows": 245,
       "serviceCount": 5,
       "services": [
@@ -84,7 +122,7 @@
     {
       "product": "Checkout",
       "cost": 26991.55,
-      "pctOfTotal": 20.15,
+      "pctOfTotal": 11.54,
       "rows": 250,
       "serviceCount": 5,
       "services": [
@@ -124,7 +162,7 @@
     {
       "product": "Search",
       "cost": 23284.95,
-      "pctOfTotal": 17.38,
+      "pctOfTotal": 9.95,
       "rows": 228,
       "serviceCount": 5,
       "services": [
@@ -164,7 +202,7 @@
     {
       "product": "DataPlatform",
       "cost": 22222.75,
-      "pctOfTotal": 16.59,
+      "pctOfTotal": 9.5,
       "rows": 221,
       "serviceCount": 5,
       "services": [
@@ -204,49 +242,66 @@
   ],
   "services": [
     {
+      "service": "Compute/VM",
+      "cost": 62698.19,
+      "pctOfTotal": 26.8
+    },
+    {
       "service": "Object Storage",
-      "cost": 46880.12,
-      "pctOfTotal": 35.0
+      "cost": 56880.12,
+      "pctOfTotal": 24.31
     },
     {
       "service": "Block Storage",
       "cost": 46224.61,
-      "pctOfTotal": 34.51
+      "pctOfTotal": 19.76
+    },
+    {
+      "service": "Database",
+      "cost": 45671.52,
+      "pctOfTotal": 19.52
     },
     {
       "service": "Networking",
       "cost": 22477.5,
-      "pctOfTotal": 16.78
-    },
-    {
-      "service": "Database",
-      "cost": 15671.52,
-      "pctOfTotal": 11.7
-    },
-    {
-      "service": "Compute/VM",
-      "cost": 2698.19,
-      "pctOfTotal": 2.01
+      "pctOfTotal": 9.61
     }
   ],
   "environments": [
     {
+      "environment": "project:labels:{\"environment\":\"dev\",\"product\":\"ProductGCP\"}",
+      "cost": 70000.0,
+      "pctOfTotal": 29.92
+    },
+    {
       "environment": "dev",
       "cost": 45311.55,
-      "pctOfTotal": 33.83
+      "pctOfTotal": 19.37
     },
     {
       "environment": "prod",
       "cost": 45257.28,
-      "pctOfTotal": 33.79
+      "pctOfTotal": 19.34
     },
     {
       "environment": "staging",
       "cost": 43383.11,
-      "pctOfTotal": 32.39
+      "pctOfTotal": 18.54
+    },
+    {
+      "environment": "project:labels:{\"environment\":\"prod\",\"product\":\"ProductGCP\"}",
+      "cost": 30000.0,
+      "pctOfTotal": 12.82
     }
   ],
   "coOccurrence": [
+    {
+      "pair": [
+        "Compute/VM",
+        "Object Storage"
+      ],
+      "products": 6
+    },
     {
       "pair": [
         "Block Storage",
@@ -286,13 +341,6 @@
       "pair": [
         "Compute/VM",
         "Networking"
-      ],
-      "products": 5
-    },
-    {
-      "pair": [
-        "Compute/VM",
-        "Object Storage"
       ],
       "products": 5
     },
@@ -338,47 +386,223 @@
   ],
   "resourceNames": [
     {
+      "name": "123456",
+      "cost": 60000.0,
+      "pctOfTotal": 25.65,
+      "rows": 1
+    },
+    {
       "name": "bucket",
       "cost": 46880.12,
-      "pctOfTotal": 35.0,
+      "pctOfTotal": 20.04,
       "rows": 219
     },
     {
       "name": "disk",
       "cost": 46224.61,
-      "pctOfTotal": 34.51,
+      "pctOfTotal": 19.76,
       "rows": 203
+    },
+    {
+      "name": "123458",
+      "cost": 30000.0,
+      "pctOfTotal": 12.82,
+      "rows": 1
     },
     {
       "name": "network",
       "cost": 21288.65,
-      "pctOfTotal": 15.89,
+      "pctOfTotal": 9.1,
       "rows": 183
     },
     {
       "name": "db",
       "cost": 15671.52,
-      "pctOfTotal": 11.7,
+      "pctOfTotal": 6.7,
       "rows": 212
+    },
+    {
+      "name": "123457",
+      "cost": 10000.0,
+      "pctOfTotal": 4.27,
+      "rows": 1
     },
     {
       "name": "vm",
       "cost": 2698.19,
-      "pctOfTotal": 2.01,
+      "pctOfTotal": 1.15,
       "rows": 200
     },
     {
       "name": "lb",
       "cost": 1188.84,
-      "pctOfTotal": 0.89,
+      "pctOfTotal": 0.51,
       "rows": 183
     }
   ],
   "platforms": [
     {
+      "platform": "project:labels:{\"environment\":\"dev\",\"product\":\"ProductGCP\"}",
+      "cost": 70000.0,
+      "pctOfTotal": 29.92,
+      "rows": 2,
+      "vcpuTotal": 0,
+      "ramGiBTotal": 0.0,
+      "ebsGbMo": 0.0,
+      "s3GbMo": 0.0,
+      "nicCount": 0,
+      "ec2Skus": [],
+      "vmSkus": [
+        {
+          "sku": "Unknown size",
+          "hours": 40000.0,
+          "instances": 1,
+          "vcpu": 0,
+          "ramGiB": 0,
+          "resourceIds": [
+            {
+              "id": "123456"
+            }
+          ]
+        }
+      ],
+      "resourceNames": [
+        {
+          "name": "123456",
+          "cost": 60000.0,
+          "pctOfTotal": 25.65,
+          "rows": 1
+        },
+        {
+          "name": "123457",
+          "cost": 10000.0,
+          "pctOfTotal": 4.27,
+          "rows": 1
+        }
+      ],
+      "ebsBuckets": [],
+      "s3Buckets": [],
+      "blockBuckets": [],
+      "objectBuckets": [
+        {
+          "label": "10k+",
+          "resources": 1,
+          "gbMo": 500000.0,
+          "resourceIds": [
+            {
+              "id": "123457",
+              "amount": 500000.0
+            }
+          ]
+        }
+      ],
+      "products": [
+        {
+          "product": "project:labels:{\"environment\":\"dev\",\"product\":\"ProductGCP\"}",
+          "cost": 70000.0,
+          "pctOfPlatform": 100.0,
+          "rows": 2,
+          "vcpuTotal": 0,
+          "ramGiBTotal": 0.0,
+          "ebsGbMo": 0.0,
+          "s3GbMo": 0.0,
+          "nicCount": 0,
+          "ec2Skus": [],
+          "vmSkus": [
+            {
+              "sku": "Unknown size",
+              "hours": 40000.0,
+              "instances": 1,
+              "vcpu": 0,
+              "ramGiB": 0,
+              "resourceIds": [
+                {
+                  "id": "123456"
+                }
+              ]
+            }
+          ],
+          "resourceNames": [
+            {
+              "name": "123456",
+              "cost": 60000.0,
+              "pctOfPlatform": 85.71,
+              "rows": 1
+            },
+            {
+              "name": "123457",
+              "cost": 10000.0,
+              "pctOfPlatform": 14.29,
+              "rows": 1
+            }
+          ],
+          "ebsBuckets": [],
+          "s3Buckets": [],
+          "blockBuckets": [],
+          "objectBuckets": [
+            {
+              "label": "10k+",
+              "resources": 1,
+              "gbMo": 500000.0,
+              "resourceIds": [
+                {
+                  "id": "123457",
+                  "amount": 500000.0
+                }
+              ]
+            }
+          ],
+          "services": [
+            {
+              "service": "Compute/VM",
+              "cost": 60000.0,
+              "pctOfPlatform": 85.71,
+              "rows": 1
+            },
+            {
+              "service": "Object Storage",
+              "cost": 10000.0,
+              "pctOfPlatform": 14.29,
+              "rows": 1
+            }
+          ],
+          "environments": [
+            {
+              "environment": "project:labels:{\"environment\":\"dev\",\"product\":\"ProductGCP\"}",
+              "cost": 70000.0,
+              "pctOfPlatform": 100.0,
+              "rows": 2
+            }
+          ]
+        }
+      ],
+      "services": [
+        {
+          "service": "Compute/VM",
+          "cost": 60000.0,
+          "pctOfPlatform": 85.71,
+          "rows": 1
+        },
+        {
+          "service": "Object Storage",
+          "cost": 10000.0,
+          "pctOfPlatform": 14.29,
+          "rows": 1
+        }
+      ],
+      "environments": [
+        {
+          "environment": "project:labels:{\"environment\":\"dev\",\"product\":\"ProductGCP\"}",
+          "cost": 70000.0,
+          "pctOfPlatform": 100.0,
+          "rows": 2
+        }
+      ]
+    },
+    {
       "platform": "PlatformE",
       "cost": 32222.65,
-      "pctOfTotal": 24.06,
+      "pctOfTotal": 13.77,
       "rows": 256,
       "vcpuTotal": 102,
       "ramGiBTotal": 264.0,
@@ -558,37 +782,37 @@
         {
           "name": "bucket",
           "cost": 14692.39,
-          "pctOfTotal": 10.97,
+          "pctOfTotal": 6.28,
           "rows": 53
         },
         {
           "name": "disk",
           "cost": 10586.88,
-          "pctOfTotal": 7.9,
+          "pctOfTotal": 4.53,
           "rows": 46
         },
         {
           "name": "db",
           "cost": 3469.87,
-          "pctOfTotal": 2.59,
+          "pctOfTotal": 1.48,
           "rows": 46
         },
         {
           "name": "network",
           "cost": 2745.33,
-          "pctOfTotal": 2.05,
+          "pctOfTotal": 1.17,
           "rows": 33
         },
         {
           "name": "vm",
           "cost": 505.07,
-          "pctOfTotal": 0.38,
+          "pctOfTotal": 0.22,
           "rows": 39
         },
         {
           "name": "lb",
           "cost": 223.09,
-          "pctOfTotal": 0.17,
+          "pctOfTotal": 0.1,
           "rows": 39
         }
       ],
@@ -2234,9 +2458,119 @@
       ]
     },
     {
+      "platform": "project:labels:{\"environment\":\"prod\",\"product\":\"ProductGCP\"}",
+      "cost": 30000.0,
+      "pctOfTotal": 12.82,
+      "rows": 1,
+      "vcpuTotal": 0,
+      "ramGiBTotal": 0.0,
+      "ebsGbMo": 0.0,
+      "s3GbMo": 0.0,
+      "nicCount": 0,
+      "ec2Skus": [],
+      "vmSkus": [
+        {
+          "sku": "GCP Instance (Estimated)",
+          "hours": 5000.0,
+          "instances": 1,
+          "vcpu": 1,
+          "ramGiB": 3.75,
+          "resourceIds": [
+            {
+              "id": "123458"
+            }
+          ]
+        }
+      ],
+      "resourceNames": [
+        {
+          "name": "123458",
+          "cost": 30000.0,
+          "pctOfTotal": 12.82,
+          "rows": 1
+        }
+      ],
+      "ebsBuckets": [],
+      "s3Buckets": [],
+      "blockBuckets": [],
+      "objectBuckets": [],
+      "products": [
+        {
+          "product": "project:labels:{\"environment\":\"prod\",\"product\":\"ProductGCP\"}",
+          "cost": 30000.0,
+          "pctOfPlatform": 100.0,
+          "rows": 1,
+          "vcpuTotal": 0,
+          "ramGiBTotal": 0.0,
+          "ebsGbMo": 0.0,
+          "s3GbMo": 0.0,
+          "nicCount": 0,
+          "ec2Skus": [],
+          "vmSkus": [
+            {
+              "sku": "GCP Instance (Estimated)",
+              "hours": 5000.0,
+              "instances": 1,
+              "vcpu": 1,
+              "ramGiB": 3.75,
+              "resourceIds": [
+                {
+                  "id": "123458"
+                }
+              ]
+            }
+          ],
+          "resourceNames": [
+            {
+              "name": "123458",
+              "cost": 30000.0,
+              "pctOfPlatform": 100.0,
+              "rows": 1
+            }
+          ],
+          "ebsBuckets": [],
+          "s3Buckets": [],
+          "blockBuckets": [],
+          "objectBuckets": [],
+          "services": [
+            {
+              "service": "Database",
+              "cost": 30000.0,
+              "pctOfPlatform": 100.0,
+              "rows": 1
+            }
+          ],
+          "environments": [
+            {
+              "environment": "project:labels:{\"environment\":\"prod\",\"product\":\"ProductGCP\"}",
+              "cost": 30000.0,
+              "pctOfPlatform": 100.0,
+              "rows": 1
+            }
+          ]
+        }
+      ],
+      "services": [
+        {
+          "service": "Database",
+          "cost": 30000.0,
+          "pctOfPlatform": 100.0,
+          "rows": 1
+        }
+      ],
+      "environments": [
+        {
+          "environment": "project:labels:{\"environment\":\"prod\",\"product\":\"ProductGCP\"}",
+          "cost": 30000.0,
+          "pctOfPlatform": 100.0,
+          "rows": 1
+        }
+      ]
+    },
+    {
       "platform": "PlatformD",
       "cost": 29230.05,
-      "pctOfTotal": 21.82,
+      "pctOfTotal": 12.49,
       "rows": 245,
       "vcpuTotal": 110,
       "ramGiBTotal": 272.0,
@@ -2419,37 +2753,37 @@
         {
           "name": "bucket",
           "cost": 11805.27,
-          "pctOfTotal": 8.81,
+          "pctOfTotal": 5.05,
           "rows": 48
         },
         {
           "name": "disk",
           "cost": 8359.86,
-          "pctOfTotal": 6.24,
+          "pctOfTotal": 3.57,
           "rows": 37
         },
         {
           "name": "network",
           "cost": 5065.82,
-          "pctOfTotal": 3.78,
+          "pctOfTotal": 2.17,
           "rows": 41
         },
         {
           "name": "db",
           "cost": 3171.48,
-          "pctOfTotal": 2.37,
+          "pctOfTotal": 1.36,
           "rows": 44
         },
         {
           "name": "vm",
           "cost": 585.87,
-          "pctOfTotal": 0.44,
+          "pctOfTotal": 0.25,
           "rows": 40
         },
         {
           "name": "lb",
           "cost": 241.75,
-          "pctOfTotal": 0.18,
+          "pctOfTotal": 0.1,
           "rows": 35
         }
       ],
@@ -3916,7 +4250,7 @@
     {
       "platform": "PlatformA",
       "cost": 26991.55,
-      "pctOfTotal": 20.15,
+      "pctOfTotal": 11.54,
       "rows": 250,
       "vcpuTotal": 114,
       "ramGiBTotal": 296.0,
@@ -4111,37 +4445,37 @@
         {
           "name": "disk",
           "cost": 9808.31,
-          "pctOfTotal": 7.32,
+          "pctOfTotal": 4.19,
           "rows": 41
         },
         {
           "name": "bucket",
           "cost": 8103.17,
-          "pctOfTotal": 6.05,
+          "pctOfTotal": 3.46,
           "rows": 40
         },
         {
           "name": "network",
           "cost": 4088.31,
-          "pctOfTotal": 3.05,
+          "pctOfTotal": 1.75,
           "rows": 33
         },
         {
           "name": "db",
           "cost": 4031.72,
-          "pctOfTotal": 3.01,
+          "pctOfTotal": 1.72,
           "rows": 53
         },
         {
           "name": "vm",
           "cost": 683.55,
-          "pctOfTotal": 0.51,
+          "pctOfTotal": 0.29,
           "rows": 44
         },
         {
           "name": "lb",
           "cost": 276.49,
-          "pctOfTotal": 0.21,
+          "pctOfTotal": 0.12,
           "rows": 39
         }
       ],
@@ -5676,7 +6010,7 @@
     {
       "platform": "PlatformC",
       "cost": 23284.95,
-      "pctOfTotal": 17.38,
+      "pctOfTotal": 9.95,
       "rows": 228,
       "vcpuTotal": 104,
       "ramGiBTotal": 268.0,
@@ -5850,37 +6184,37 @@
         {
           "name": "disk",
           "cost": 9304.85,
-          "pctOfTotal": 6.95,
+          "pctOfTotal": 3.98,
           "rows": 41
         },
         {
           "name": "bucket",
           "cost": 6216.68,
-          "pctOfTotal": 4.64,
+          "pctOfTotal": 2.66,
           "rows": 40
         },
         {
           "name": "network",
           "cost": 4625.56,
-          "pctOfTotal": 3.45,
+          "pctOfTotal": 1.98,
           "rows": 41
         },
         {
           "name": "db",
           "cost": 2399.8,
-          "pctOfTotal": 1.79,
+          "pctOfTotal": 1.03,
           "rows": 30
         },
         {
           "name": "vm",
           "cost": 505.77,
-          "pctOfTotal": 0.38,
+          "pctOfTotal": 0.22,
           "rows": 37
         },
         {
           "name": "lb",
           "cost": 232.29,
-          "pctOfTotal": 0.17,
+          "pctOfTotal": 0.1,
           "rows": 39
         }
       ],
@@ -7398,7 +7732,7 @@
     {
       "platform": "PlatformB",
       "cost": 22222.75,
-      "pctOfTotal": 16.59,
+      "pctOfTotal": 9.5,
       "rows": 221,
       "vcpuTotal": 106,
       "ramGiBTotal": 272.0,
@@ -7581,37 +7915,37 @@
         {
           "name": "disk",
           "cost": 8164.72,
-          "pctOfTotal": 6.1,
+          "pctOfTotal": 3.49,
           "rows": 38
         },
         {
           "name": "bucket",
           "cost": 6062.62,
-          "pctOfTotal": 4.53,
+          "pctOfTotal": 2.59,
           "rows": 38
         },
         {
           "name": "network",
           "cost": 4763.62,
-          "pctOfTotal": 3.56,
+          "pctOfTotal": 2.04,
           "rows": 35
         },
         {
           "name": "db",
           "cost": 2598.65,
-          "pctOfTotal": 1.94,
+          "pctOfTotal": 1.11,
           "rows": 39
         },
         {
           "name": "vm",
           "cost": 417.92,
-          "pctOfTotal": 0.31,
+          "pctOfTotal": 0.18,
           "rows": 40
         },
         {
           "name": "lb",
           "cost": 215.21,
-          "pctOfTotal": 0.16,
+          "pctOfTotal": 0.09,
           "rows": 31
         }
       ],
@@ -9140,7 +9474,7 @@
     {
       "provider": "aws",
       "cost": 133951.95,
-      "pctOfTotal": 100.0,
+      "pctOfTotal": 57.26,
       "rows": 1200,
       "resourceNames": [
         {
@@ -9178,6 +9512,32 @@
           "cost": 1188.84,
           "pctOfProvider": 0.89,
           "rows": 183
+        }
+      ]
+    },
+    {
+      "provider": "gcp",
+      "cost": 100000.0,
+      "pctOfTotal": 42.74,
+      "rows": 3,
+      "resourceNames": [
+        {
+          "name": "123456",
+          "cost": 60000.0,
+          "pctOfProvider": 60.0,
+          "rows": 1
+        },
+        {
+          "name": "123458",
+          "cost": 30000.0,
+          "pctOfProvider": 30.0,
+          "rows": 1
+        },
+        {
+          "name": "123457",
+          "cost": 10000.0,
+          "pctOfProvider": 10.0,
+          "rows": 1
         }
       ]
     }
@@ -9230,7 +9590,7 @@
   "reports": [
     {
       "id": "report-1",
-      "label": "mock_aws_cur_iaas_heavy_named20251122",
+      "label": "AWS",
       "source": "myproduct/mock_aws_cur_iaas_heavy_named20251122.csv",
       "summary": {
         "totalCost": 133951.95,
@@ -18417,7 +18777,412 @@
           }
         ]
       }
+    },
+    {
+      "id": "report-2",
+      "label": "GCP",
+      "source": "myproduct/mock_gcp_billing.csv",
+      "summary": {
+        "totalCost": 100000.0,
+        "products": [
+          {
+            "product": "project:labels:{\"environment\":\"dev\",\"product\":\"ProductGCP\"}",
+            "cost": 70000.0,
+            "pctOfTotal": 70.0,
+            "rows": 2,
+            "serviceCount": 2,
+            "services": [
+              {
+                "service": "Compute/VM",
+                "cost": 60000.0,
+                "pctOfProduct": 85.71,
+                "resourceCount": 1
+              },
+              {
+                "service": "Object Storage",
+                "cost": 10000.0,
+                "pctOfProduct": 14.29,
+                "resourceCount": 1
+              }
+            ],
+            "hhi": 0.755
+          },
+          {
+            "product": "project:labels:{\"environment\":\"prod\",\"product\":\"ProductGCP\"}",
+            "cost": 30000.0,
+            "pctOfTotal": 30.0,
+            "rows": 1,
+            "serviceCount": 1,
+            "services": [
+              {
+                "service": "Database",
+                "cost": 30000.0,
+                "pctOfProduct": 100.0,
+                "resourceCount": 1
+              }
+            ],
+            "hhi": 1.0
+          }
+        ],
+        "services": [
+          {
+            "service": "Compute/VM",
+            "cost": 60000.0,
+            "pctOfTotal": 60.0
+          },
+          {
+            "service": "Database",
+            "cost": 30000.0,
+            "pctOfTotal": 30.0
+          },
+          {
+            "service": "Object Storage",
+            "cost": 10000.0,
+            "pctOfTotal": 10.0
+          }
+        ],
+        "environments": [
+          {
+            "environment": "project:labels:{\"environment\":\"dev\",\"product\":\"ProductGCP\"}",
+            "cost": 70000.0,
+            "pctOfTotal": 70.0
+          },
+          {
+            "environment": "project:labels:{\"environment\":\"prod\",\"product\":\"ProductGCP\"}",
+            "cost": 30000.0,
+            "pctOfTotal": 30.0
+          }
+        ],
+        "coOccurrence": [
+          {
+            "pair": [
+              "Compute/VM",
+              "Object Storage"
+            ],
+            "products": 1
+          }
+        ],
+        "sharedStacks": [],
+        "resourceNames": [
+          {
+            "name": "123456",
+            "cost": 60000.0,
+            "pctOfTotal": 60.0,
+            "rows": 1
+          },
+          {
+            "name": "123458",
+            "cost": 30000.0,
+            "pctOfTotal": 30.0,
+            "rows": 1
+          },
+          {
+            "name": "123457",
+            "cost": 10000.0,
+            "pctOfTotal": 10.0,
+            "rows": 1
+          }
+        ],
+        "platforms": [
+          {
+            "platform": "project:labels:{\"environment\":\"dev\",\"product\":\"ProductGCP\"}",
+            "cost": 70000.0,
+            "pctOfTotal": 70.0,
+            "rows": 2,
+            "vcpuTotal": 0,
+            "ramGiBTotal": 0.0,
+            "ebsGbMo": 0.0,
+            "s3GbMo": 0.0,
+            "nicCount": 0,
+            "ec2Skus": [],
+            "vmSkus": [
+              {
+                "sku": "Unknown size",
+                "hours": 40000.0,
+                "instances": 1,
+                "vcpu": 0,
+                "ramGiB": 0,
+                "resourceIds": [
+                  {
+                    "id": "123456"
+                  }
+                ]
+              }
+            ],
+            "resourceNames": [
+              {
+                "name": "123456",
+                "cost": 60000.0,
+                "pctOfTotal": 60.0,
+                "rows": 1
+              },
+              {
+                "name": "123457",
+                "cost": 10000.0,
+                "pctOfTotal": 10.0,
+                "rows": 1
+              }
+            ],
+            "ebsBuckets": [],
+            "s3Buckets": [],
+            "blockBuckets": [],
+            "objectBuckets": [
+              {
+                "label": "10k+",
+                "resources": 1,
+                "gbMo": 500000.0,
+                "resourceIds": [
+                  {
+                    "id": "123457",
+                    "amount": 500000.0
+                  }
+                ]
+              }
+            ],
+            "products": [
+              {
+                "product": "project:labels:{\"environment\":\"dev\",\"product\":\"ProductGCP\"}",
+                "cost": 70000.0,
+                "pctOfPlatform": 100.0,
+                "rows": 2,
+                "vcpuTotal": 0,
+                "ramGiBTotal": 0.0,
+                "ebsGbMo": 0.0,
+                "s3GbMo": 0.0,
+                "nicCount": 0,
+                "ec2Skus": [],
+                "vmSkus": [
+                  {
+                    "sku": "Unknown size",
+                    "hours": 40000.0,
+                    "instances": 1,
+                    "vcpu": 0,
+                    "ramGiB": 0,
+                    "resourceIds": [
+                      {
+                        "id": "123456"
+                      }
+                    ]
+                  }
+                ],
+                "resourceNames": [
+                  {
+                    "name": "123456",
+                    "cost": 60000.0,
+                    "pctOfPlatform": 85.71,
+                    "rows": 1
+                  },
+                  {
+                    "name": "123457",
+                    "cost": 10000.0,
+                    "pctOfPlatform": 14.29,
+                    "rows": 1
+                  }
+                ],
+                "ebsBuckets": [],
+                "s3Buckets": [],
+                "blockBuckets": [],
+                "objectBuckets": [
+                  {
+                    "label": "10k+",
+                    "resources": 1,
+                    "gbMo": 500000.0,
+                    "resourceIds": [
+                      {
+                        "id": "123457",
+                        "amount": 500000.0
+                      }
+                    ]
+                  }
+                ],
+                "services": [
+                  {
+                    "service": "Compute/VM",
+                    "cost": 60000.0,
+                    "pctOfPlatform": 85.71,
+                    "rows": 1
+                  },
+                  {
+                    "service": "Object Storage",
+                    "cost": 10000.0,
+                    "pctOfPlatform": 14.29,
+                    "rows": 1
+                  }
+                ],
+                "environments": [
+                  {
+                    "environment": "project:labels:{\"environment\":\"dev\",\"product\":\"ProductGCP\"}",
+                    "cost": 70000.0,
+                    "pctOfPlatform": 100.0,
+                    "rows": 2
+                  }
+                ]
+              }
+            ],
+            "services": [
+              {
+                "service": "Compute/VM",
+                "cost": 60000.0,
+                "pctOfPlatform": 85.71,
+                "rows": 1
+              },
+              {
+                "service": "Object Storage",
+                "cost": 10000.0,
+                "pctOfPlatform": 14.29,
+                "rows": 1
+              }
+            ],
+            "environments": [
+              {
+                "environment": "project:labels:{\"environment\":\"dev\",\"product\":\"ProductGCP\"}",
+                "cost": 70000.0,
+                "pctOfPlatform": 100.0,
+                "rows": 2
+              }
+            ]
+          },
+          {
+            "platform": "project:labels:{\"environment\":\"prod\",\"product\":\"ProductGCP\"}",
+            "cost": 30000.0,
+            "pctOfTotal": 30.0,
+            "rows": 1,
+            "vcpuTotal": 0,
+            "ramGiBTotal": 0.0,
+            "ebsGbMo": 0.0,
+            "s3GbMo": 0.0,
+            "nicCount": 0,
+            "ec2Skus": [],
+            "vmSkus": [
+              {
+                "sku": "GCP Instance (Estimated)",
+                "hours": 5000.0,
+                "instances": 1,
+                "vcpu": 1,
+                "ramGiB": 3.75,
+                "resourceIds": [
+                  {
+                    "id": "123458"
+                  }
+                ]
+              }
+            ],
+            "resourceNames": [
+              {
+                "name": "123458",
+                "cost": 30000.0,
+                "pctOfTotal": 30.0,
+                "rows": 1
+              }
+            ],
+            "ebsBuckets": [],
+            "s3Buckets": [],
+            "blockBuckets": [],
+            "objectBuckets": [],
+            "products": [
+              {
+                "product": "project:labels:{\"environment\":\"prod\",\"product\":\"ProductGCP\"}",
+                "cost": 30000.0,
+                "pctOfPlatform": 100.0,
+                "rows": 1,
+                "vcpuTotal": 0,
+                "ramGiBTotal": 0.0,
+                "ebsGbMo": 0.0,
+                "s3GbMo": 0.0,
+                "nicCount": 0,
+                "ec2Skus": [],
+                "vmSkus": [
+                  {
+                    "sku": "GCP Instance (Estimated)",
+                    "hours": 5000.0,
+                    "instances": 1,
+                    "vcpu": 1,
+                    "ramGiB": 3.75,
+                    "resourceIds": [
+                      {
+                        "id": "123458"
+                      }
+                    ]
+                  }
+                ],
+                "resourceNames": [
+                  {
+                    "name": "123458",
+                    "cost": 30000.0,
+                    "pctOfPlatform": 100.0,
+                    "rows": 1
+                  }
+                ],
+                "ebsBuckets": [],
+                "s3Buckets": [],
+                "blockBuckets": [],
+                "objectBuckets": [],
+                "services": [
+                  {
+                    "service": "Database",
+                    "cost": 30000.0,
+                    "pctOfPlatform": 100.0,
+                    "rows": 1
+                  }
+                ],
+                "environments": [
+                  {
+                    "environment": "project:labels:{\"environment\":\"prod\",\"product\":\"ProductGCP\"}",
+                    "cost": 30000.0,
+                    "pctOfPlatform": 100.0,
+                    "rows": 1
+                  }
+                ]
+              }
+            ],
+            "services": [
+              {
+                "service": "Database",
+                "cost": 30000.0,
+                "pctOfPlatform": 100.0,
+                "rows": 1
+              }
+            ],
+            "environments": [
+              {
+                "environment": "project:labels:{\"environment\":\"prod\",\"product\":\"ProductGCP\"}",
+                "cost": 30000.0,
+                "pctOfPlatform": 100.0,
+                "rows": 1
+              }
+            ]
+          }
+        ],
+        "providers": [
+          {
+            "provider": "gcp",
+            "cost": 100000.0,
+            "pctOfTotal": 100.0,
+            "rows": 3,
+            "resourceNames": [
+              {
+                "name": "123456",
+                "cost": 60000.0,
+                "pctOfProvider": 60.0,
+                "rows": 1
+              },
+              {
+                "name": "123458",
+                "cost": 30000.0,
+                "pctOfProvider": 30.0,
+                "rows": 1
+              },
+              {
+                "name": "123457",
+                "cost": 10000.0,
+                "pctOfProvider": 10.0,
+                "rows": 1
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
-  "reportCount": 1
+  "reportCount": 2
 }
