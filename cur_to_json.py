@@ -279,14 +279,14 @@ AWS_SERVICE_MAP = {
 }
 
 SERVICE_CATEGORY_RULES = [
-    ("Compute/VM", ["ec2", "virtual machine", "virtual machines", "microsoft.compute", "compute engine", "vm", "vmss"]),
-    ("Block Storage", ["ebs", "managed disk", "managed disks", "disk", "persistent disk", "block storage"]),
+    ("Block Storage", ["ebs", "managed disk", "managed disks", "disk", "persistent disk", "block storage", "microsoft.compute/disks"]),
     ("Object Storage", ["s3", "blob", "object storage", "storage account", "storage accounts", "cloud storage", "gcs", "microsoft.storage"]),
     ("Database", ["rds", "sql database", "database", "cosmos", "dynamodb", "spanner", "cloud sql", "microsoft.sql"]),
     ("Cache", ["redis", "cache", "elasticache", "memorydb", "microsoft.cache"]),
     ("Container", ["kubernetes", "container service", "container", "aks", "eks", "gke", "ecs", "fargate", "microsoft.containerservice"]),
     ("Networking", ["vpc", "elasticloadbalancing", "load balancer", "network", "cdn", "front door", "nat", "gateway", "public ip"]),
     ("Serverless", ["lambda", "functions", "cloud functions", "app service", "cloud run"]),
+    ("Compute/VM", ["ec2", "virtual machine", "virtual machines", "microsoft.compute", "compute engine", "vm", "vmss"]),
 ]
 
 AZURE_VM_SKU_MAP = {
