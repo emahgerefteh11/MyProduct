@@ -1,31 +1,54 @@
 # Roadmap: MyProduct Infrastructure Platform
 
-Strategic roadmap based on key personas: Leadership, Finance, Engineering, and Governance.
+Strategic roadmap aligned with Leadership, Finance, Engineering, and Governance personas.
 
 ## Phase 1: The Multi-Cloud Foundation (✅ Completed)
-*Goal: Unified visibility across AWS, Azure, and GCP.*
-- [x] **Multi-Cloud Ingestion:** Support for AWS CUR, Azure Cost Export, and GCP Billing.
-- [x] **Service Normalization:** Map disparate CSP services to unified categories (Compute, Storage, etc.).
+*Persona Focus: Leadership (High-level visibility)*
+- [x] **Multi-Cloud Ingestion:** Unified support for AWS, Azure, and GCP billing data.
+- [x] **Service Normalization:** Map disparate CSP services (e.g., EC2, VMs, Compute Engine) to unified categories.
+- [x] **Resource Counts:** Aggregated counts of VMs and Storage buckets across all clouds.
 - [x] **Offline Dashboard:** Portable HTML/JS dashboard for "Anywhere" viewing.
 - [x] **Basic Vending:** Generate Terraform skeletons from existing billing footprints.
 
-## Phase 2: Temporal Intelligence (Leadership & Finance) 🚧
-*Goal: Tracking trends, growth, and direction over time.*
-- [ ] **Multi-Month Support:** Ingest multiple billing periods simultaneously.
-- [ ] **MoM Metrics:** Calculate Month-over-Month variance ($ and %) for top-level KPIs.
-- [ ] **Trend Visualization:** Line charts for Cost and Resource Counts over time.
-- [ ] **Forecast:** Simple linear projection of end-of-month spend.
+## Phase 2: Temporal Intelligence & Trends 🚧
+*Persona Focus: Leadership & Finance (Growth & Variance)*
+- [ ] **Multi-Month Ingestion:** Architecture to load sequential billing files (Jan, Feb, Mar) to establish a timeline.
+- [ ] **Month-over-Month (MoM) Growth:**
+    - Visual indicators for cost variance ($ and %).
+    - Service-level growth (e.g., "Database spend grew 20%").
+- [ ] **Trend Visualization:**
+    - Line charts for global spend over time.
+    - Stacked bar charts for Cloud Service Provider (CSP) mix over time.
+- [ ] **Forecasting:** Linear regression to predict end-of-month spend based on current run rate.
 
-## Phase 3: Governance & Compliance (Governance)
-*Goal: Enforcing standards and visibility.*
-- [ ] **Tagging Health Score:** Quantitative metric (% tagged) per Product/Platform.
-- [ ] **Compliance Reports:** CSV export of resources violating tagging policies.
-- [ ] **Naming Validation:** Regex-based audit of resource names against defined conventions.
-- [ ] **Budget Alerts:** Visual flags for budget overruns.
+## Phase 3: Governance & Compliance
+*Persona Focus: Governance (Standards & Tagging)*
+- [ ] **Tagging Health Score:**
+    - Grade (A-F) per Product based on coverage of mandatory tags (Owner, CostCenter, Env).
+    - "Unallocated" cost buckets for untagged resources.
+- [ ] **Naming Convention Audit:** Regex-based validation to flag resources violating standard naming patterns.
+- [ ] **Compliance Reports:** CSV export of "Offenders" for remediation.
 
-## Phase 4: Engineering Enablement (Product Owners)
-*Goal: Closing the loop from "Running" to "IaC".*
-- [ ] **Modular Terraform:** Update generator to use standardized modules (e.g., `terraform-aws-modules`).
-- [ ] **Right-Sizing Insights:** Highlight underutilized SKUs (e.g., huge VMs with low cost efficiency).
-- [ ] **Anomaly Detection:** Statistical detection of spend spikes at the Service/Product level.
-- [ ] **Workload Scoping:** Better grouping of resources into logical "Stacks" for Terraform export.
+## Phase 4: Engineering Enablement
+*Persona Focus: Product Owners & Engineering (Action & Build)*
+- [ ] **Utilization-Based Vending:** Only generate Terraform for active/heavy resources (ignore zombies).
+- [ ] **Modular Terraform:** Update generator to output industry-standard module usage (e.g., `terraform-aws-modules`) rather than raw resources.
+- [ ] **Anomaly Detection:** Statistical detection of SKU distribution outliers (e.g., "Why is Dev using x2large?").
+- [ ] **Drift Detection:** "What is billing" vs "What is in Git."
+
+## Phase 5: Unit Economics (The Holy Grail)
+*Persona Focus: Finance & Product Owners (Business Value)*
+- [ ] **Business Metric Ingestion:** Import "Daily Orders" or "Monthly Active Users" (MAU).
+- [ ] **Cost Per Unit:** Correlate cloud spend with business value (e.g., "Cost per Transaction").
+- [ ] **Profitability Analysis:** Margin analysis per product feature.
+
+## Phase 6: Sustainability & GreenOps
+*Persona Focus: Leadership (ESG) & Governance*
+- [ ] **Carbon Estimator:** Calculate CO2e emissions based on region carbon intensity.
+- [ ] **Green Optimization:** Recommendations to move workloads to lower-carbon regions.
+
+## Phase 7: "Click-to-Fix" (Active FinOps)
+*Persona Focus: Engineering (Remediation)*
+- [ ] **Zombie Hunter:** Identify orphaned resources (0 metrics) and queue for deletion.
+- [ ] **Spot Readiness:** Analyze workload patterns to recommend Spot Instances.
+- [ ] **Ticket Integration:** One-click JIRA/GitHub Issue creation for cost anomalies.
