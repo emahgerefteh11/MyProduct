@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Cost Atlas</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-body: #f3f4f6;
+            --bg-card: #ffffff;
+            --bg-sidebar: #111827;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --text-sidebar: #9ca3af;
+            --text-sidebar-hover: #ffffff;
+            --border: #e5e7eb;
+            --primary: #3b82f6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --radius: 12px;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg-body); color: var(--text-main); display: flex; min-height: 100vh; }
+
+        /* Sidebar */
+        aside { width: 260px; background: var(--bg-sidebar); color: var(--text-sidebar); display: flex; flex-direction: column; padding: 24px; position: fixed; height: 100vh; overflow-y: auto; }
+        .logo { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 40px; display: flex; align-items: center; gap: 10px; }
+        .logo span { color: var(--primary); }
+        nav a { display: block; padding: 12px 16px; border-radius: 8px; color: inherit; text-decoration: none; margin-bottom: 4px; transition: all 0.2s; font-weight: 500; cursor: pointer; }
+        nav a:hover, nav a.active { background: rgba(255,255,255,0.1); color: var(--text-sidebar-hover); }
+        nav a.active { border-left: 3px solid var(--primary); border-radius: 4px 8px 8px 4px; background: rgba(59, 130, 246, 0.15); color: var(--primary); }
+
+        /* Main Content */
+        main { flex: 1; margin-left: 260px; padding: 32px; max-width: 1600px; }
+        
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+        h1 { font-size: 24px; font-weight: 700; }
+        .subtitle { color: var(--text-muted); font-size: 14px; margin-top: 4px; }
+
+        /* KPI Grid */
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; margin-bottom: 32px; }
+        .card { background: var(--bg-card); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); border: 1px solid var(--border); }
+        .kpi-label { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+        .kpi-value { font-size: 28px; font-weight: 700; color: #111827; }
+        .kpi-sub { font-size: 13px; color: var(--text-muted); margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+        .trend-up { color: var(--danger); } /* Cost up is bad usually */
+        .trend-down { color: var(--success); }
+
+        /* Charts Section */
+        .section-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-bottom: 32px; }
+        .chart-container { position: relative; height: 300px; width: 100%; margin-top: 16px; }
+        
+        /* Table Styles */
+        .table-container { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+        th { text-align: left; padding: 12px 16px; color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase; border-bottom: 1px solid var(--border); background: #f9fafb; }
+        td { padding: 16px; border-bottom: 1px solid var(--border); font-size: 14px; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #f9fafb; }
+        
+        .badge { display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 9999px; font-size: 12px; font-weight: 500; }
+        .badge-blue { background: #dbeafe; color: #1e40af; }
+        .badge-green { background: #d1fae5; color: #065f46; }
+        .badge-gray { background: #f3f4f6; color: #374151; }
+        .badge-aws { background: #FF9900; color: white; }
+        .badge-gcp { background: #4285F4; color: white; }
+        .badge-azure { background: #0078D4; color: white; }
+
+        .filters { display: flex; gap: 12px; margin-bottom: 20px; }
+        select { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: white; font-family: inherit; font-size: 14px; outline: none; cursor: pointer; }
+        select:focus { border-color: var(--primary); ring: 2px solid rgba(59,130,246,0.2); }
+
+        .badge-demo { background: #f59e0b; color: white; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: 1px; }
+        .badge-live { background: #10b981; color: white; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: 1px; }
+
+        .no-data-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80vh; text-align: center; }
+        .no-data-screen h2 { font-size: 22px; margin-bottom: 12px; }
+        .no-data-screen p { color: var(--text-muted); max-width: 420px; line-height: 1.6; }
+        .no-data-screen code { display: inline-block; background: #1f2937; color: #e5e7eb; padding: 12px 20px; border-radius: 8px; font-size: 13px; margin-top: 20px; font-family: monospace; }
+        .no-data-screen .demo-link { margin-top: 20px; font-size: 14px; color: var(--text-muted); }
+        .no-data-screen .demo-link a { color: var(--primary); text-decoration: none; font-weight: 500; }
+        .icon-big { font-size: 56px; margin-bottom: 24px; }
+
+        /* Utilities */
+        .hidden { display: none; }
+        .full-width { grid-column: 1 / -1; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; }
+
+        @media (max-width: 1024px) {
+            aside { display: none; } /* TODO: Mobile menu */
+            main { margin-left: 0; }
+            .section-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<aside>
+    <div class="logo">☁️ Cloud<span>Atlas</span></div>
+    <div id="mode-badge-sidebar" style="margin-bottom: 20px; display: none;"></div>
+    <nav>
+        <a class="active" onclick="switchTab('overview', this)">Overview</a>
+        <a onclick="switchTab('products', this)">Product Cost</a>
+        <a onclick="switchTab('compute', this)">Compute & Anomalies</a>
+        <a onclick="switchTab('naming', this)">Naming Audit</a>
+    </nav>
+    <div style="margin-top: auto; font-size: 12px; color: #4b5563;">
+        <div id="sidebar-switch-link"></div>
+        <div style="margin-top: 8px;">v0.2.0</div>
+    </div>
+</aside>
+
+<main>
+    <header>
+        <div>
+            <h1 id="page-title">Infrastructure Overview</h1>
+            <div class="subtitle" id="last-updated">Loading data...</div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span id="mode-badge-header" style="display: none;"></span>
+            <select id="global-platform-filter" onchange="applyFilters()">
+                <option value="all">All Platforms</option>
+            </select>
+        </div>
+    </header>
+
+    <!-- Overview Tab -->
+    <div id="tab-overview" class="view-section">
+        <div class="kpi-grid">
+            <div class="card">
+                <div class="kpi-label">Total Monthly Cost</div>
+                <div class="kpi-value" id="kpi-total">--</div>
+                <div class="kpi-sub">Across 3 providers</div>
+            </div>
+            <div class="card">
+                <div class="kpi-label">Storage (Block+Obj)</div>
+                <div class="kpi-value" id="kpi-storage">--</div>
+                <div class="kpi-sub" id="kpi-storage-sub">% of total bill</div>
+            </div>
+            <div class="card">
+                <div class="kpi-label">Active Products</div>
+                <div class="kpi-value" id="kpi-products">--</div>
+                <div class="kpi-sub">Distinct workloads</div>
+            </div>
+            <div class="card">
+                <div class="kpi-label">Cloud Mix</div>
+                <div class="kpi-sub" id="kpi-mix" style="margin-top:8px; flex-wrap:wrap;"></div>
+            </div>
+        </div>
+
+        <div class="section-grid">
+            <div class="card">
+                <div class="flex-between">
+                    <h3>Cost by Provider</h3>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chart-provider"></canvas>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Cost by Platform</h3>
+                <div class="chart-container">
+                    <canvas id="chart-platform"></canvas>
+                </div>
+            </div>
+            <div class="card full-width">
+                <h3>Top Services</h3>
+                <div class="table-container">
+                    <table id="table-services">
+                        <thead><tr><th>Service Family</th><th>Provider Mix</th><th>Cost</th><th>% Total</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Products Tab -->
+    <div id="tab-products" class="view-section hidden">
+        <div class="card full-width">
+            <h3>Product Cost Breakdown</h3>
+            <div class="table-container">
+                <table id="table-products">
+                    <thead><tr><th>Product</th><th>Platform</th><th>Environment</th><th>Cost</th><th>Top Service</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Compute Tab -->
+    <div id="tab-compute" class="view-section hidden">
+        <div class="section-grid">
+            <div class="card full-width">
+                <h3>Compute SKU Distribution</h3>
+                <p class="subtitle">vCPU counts and instance sizes across clouds</p>
+                <div class="chart-container" style="height: 400px;">
+                    <canvas id="chart-skus"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Naming Tab -->
+    <div id="tab-naming" class="view-section hidden">
+        <div class="card">
+            <h3>Naming Convention</h3>
+            <p class="subtitle" id="naming-meta">--</p>
+            <div id="naming-pattern" style="margin-top: 12px; display: flex; gap: 8px;"></div>
+        </div>
+    </div>
+
+</main>
+
+<script>
+    let reportData = null;
+    const charts = {};
+
+    const fmtCurrency = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
+    const fmtPct = (n) => `${n.toFixed(1)}%`;
+
+    async function init() {
+        try {
+            // Demo mode: embeddedReportData injected by generate_dashboard.py
+            if (typeof embeddedReportData !== 'undefined') {
+                reportData = embeddedReportData;
+                setMode('demo');
+                populateFilters();
+                renderDashboard('all');
+                return;
+            }
+
+            // Live mode: fetch report_data.json produced by cur_to_json.py
+            document.getElementById('last-updated').textContent = 'Loading analysis results...';
+            const paths = ['report_data.json', 'MyProduct/report_data.json'];
+            let res;
+            for (const p of paths) {
+                res = await fetch(p).catch(() => null);
+                if (res && res.ok) break;
+            }
+            if (!res || !res.ok) { showNoDataState(); return; }
+
+            reportData = await res.json();
+            setMode('live');
+            populateFilters();
+            renderDashboard('all');
+        } catch (e) {
+            document.querySelector('main').innerHTML =
+                `<div class="no-data-screen"><div class="icon-big">&#9888;&#65039;</div><h2>Error Loading Data</h2><p>${e.message}</p></div>`;
+        }
+    }
+
+    function setMode(mode) {
+        const isDemo = mode === 'demo';
+        const badgeClass = isDemo ? 'badge-demo' : 'badge-live';
+        const badgeText = isDemo ? 'DEMO' : 'LIVE';
+        document.getElementById('last-updated').innerHTML = isDemo
+            ? `Demo data &mdash; ${new Date().toLocaleDateString()}`
+            : `Last analyzed: ${new Date().toLocaleDateString()}`;
+        const sb = document.getElementById('mode-badge-sidebar');
+        sb.innerHTML = `<span class="badge ${badgeClass}">${badgeText}</span>`;
+        sb.style.display = 'block';
+        const hb = document.getElementById('mode-badge-header');
+        hb.innerHTML = `<span class="badge ${badgeClass}">${badgeText}</span>`;
+        hb.style.display = 'inline';
+        document.getElementById('sidebar-switch-link').innerHTML = isDemo
+            ? '<a href="dashboard.html" style="color:#6b7280;text-decoration:none;font-size:12px;">&#8592; Switch to Live</a>'
+            : '<a href="dashboard_demo.html" style="color:#6b7280;text-decoration:none;font-size:12px;">View Demo &#8594;</a>';
+    }
+
+    function showNoDataState() {
+        document.getElementById('last-updated').textContent = 'No data loaded';
+        const sb = document.getElementById('mode-badge-sidebar');
+        sb.innerHTML = '<span class="badge badge-live">LIVE</span>';
+        sb.style.display = 'block';
+        document.getElementById('sidebar-switch-link').innerHTML =
+            '<a href="dashboard_demo.html" style="color:#6b7280;text-decoration:none;font-size:12px;">View Demo &#8594;</a>';
+        document.querySelector('main').innerHTML = `
+            <div class="no-data-screen">
+                <div class="icon-big">&#128202;</div>
+                <h2>No Analysis Data Yet</h2>
+                <p>Run a CUR analysis to generate your cloud cost report. The dashboard will populate automatically once the data is ready.</p>
+                <code>python cur_to_json.py your_billing.csv</code>
+                <p class="demo-link">Want to see it in action? <a href="dashboard_demo.html">View the demo dashboard</a></p>
+            </div>`;
+    }
+
+    function populateFilters() {
+        const sel = document.getElementById('global-platform-filter');
+        reportData.platforms.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.platform;
+            opt.textContent = p.platform;
+            sel.appendChild(opt);
+        });
+    }
+
+    function applyFilters() {
+        renderDashboard(document.getElementById('global-platform-filter').value);
+    }
+
+    function renderDashboard(platformFilter) {
+        let filteredCost = 0, filteredProducts = [], filteredServices = [];
+
+        if (platformFilter === 'all') {
+            filteredCost = reportData.totalCost;
+            filteredProducts = reportData.products;
+            filteredServices = reportData.services;
+        } else {
+            const plat = reportData.platforms.find(p => p.platform === platformFilter);
+            if (plat) {
+                filteredCost = plat.cost;
+                filteredProducts = plat.products.map(p => ({
+                    ...p, platform: plat.platform, pctOfTotal: p.pctOfPlatform
+                }));
+                filteredServices = plat.services;
+            }
+        }
+
+        document.getElementById('kpi-total').textContent = fmtCurrency(filteredCost);
+        document.getElementById('kpi-products').textContent = filteredProducts.length;
+
+        const storageCost = filteredServices
+            .filter(s => s.service.includes('Storage') || s.service.includes('S3') || s.service.includes('EBS') || s.service.includes('Disk'))
+            .reduce((acc, s) => acc + s.cost, 0);
+        document.getElementById('kpi-storage').textContent = fmtCurrency(storageCost);
+        document.getElementById('kpi-storage-sub').textContent = `${((storageCost / filteredCost) * 100).toFixed(1)}% of total`;
+
+        const mixDiv = document.getElementById('kpi-mix');
+        mixDiv.innerHTML = '';
+        reportData.providers.forEach(p => {
+            const span = document.createElement('span');
+            span.className = `badge badge-${p.provider.toLowerCase()}`;
+            span.style.cssText = 'margin-right:4px;margin-bottom:4px;';
+            span.textContent = `${p.provider}: ${fmtCurrency(p.cost)}`;
+            mixDiv.appendChild(span);
+        });
+
+        renderCharts(platformFilter);
+
+        const svcTbody = document.querySelector('#table-services tbody');
+        svcTbody.innerHTML = '';
+        filteredServices.slice(0, 8).forEach(s => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><span style="font-weight:600">${s.service}</span></td>
+                <td><span class="badge badge-gray">Multi</span></td>
+                <td>${fmtCurrency(s.cost)}</td>
+                <td>${fmtPct((s.cost / filteredCost) * 100)}</td>
+            `;
+            svcTbody.appendChild(tr);
+        });
+
+        const prodTbody = document.querySelector('#table-products tbody');
+        prodTbody.innerHTML = '';
+        let flatProds = [];
+        if (platformFilter === 'all') {
+            reportData.platforms.forEach(plat => {
+                plat.products.forEach(prod => flatProds.push({ ...prod, platform: plat.platform }));
+            });
+        } else {
+            flatProds = filteredProducts;
+        }
+        flatProds.sort((a, b) => b.cost - a.cost).forEach(p => {
+            const tr = document.createElement('tr');
+            const topSvc = p.services && p.services[0] ? p.services[0].service : 'N/A';
+            const envs = p.environments.map(e => `<span class="badge badge-gray">${e.environment}</span>`).join(' ');
+            tr.innerHTML = `
+                <td style="font-weight:600">${p.product}</td>
+                <td>${p.platform || platformFilter}</td>
+                <td>${envs}</td>
+                <td>${fmtCurrency(p.cost)}</td>
+                <td style="color:var(--text-muted)">${topSvc}</td>
+            `;
+            prodTbody.appendChild(tr);
+        });
+
+        document.getElementById('naming-meta').textContent = `Source: ${reportData.namingConvention?.source || 'Unknown'}`;
+        const patDiv = document.getElementById('naming-pattern');
+        patDiv.innerHTML = '';
+        (reportData.namingConvention?.pattern || []).forEach(pat => {
+            const d = document.createElement('div');
+            d.style.cssText = 'padding:4px 8px;background:#e5e7eb;border-radius:4px;font-size:13px;';
+            d.textContent = pat;
+            patDiv.appendChild(d);
+        });
+    }
+
+    function renderCharts(platformFilter) {
+        Object.values(charts).forEach(c => c.destroy());
+
+        charts.provider = new Chart(document.getElementById('chart-provider').getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: reportData.providers.map(p => p.provider),
+                datasets: [{ data: reportData.providers.map(p => p.cost), backgroundColor: ['#FF9900', '#0078D4', '#4285F4', '#374151'] }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+        });
+
+        charts.platform = new Chart(document.getElementById('chart-platform').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: reportData.platforms.map(p => p.platform),
+                datasets: [{ label: 'Cost', data: reportData.platforms.map(p => p.cost), backgroundColor: '#3b82f6', borderRadius: 4 }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true, grid: { borderDash: [2, 4] } }, x: { grid: { display: false } } },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        const skuMap = {};
+        const scopePlatforms = platformFilter === 'all'
+            ? reportData.platforms
+            : reportData.platforms.filter(p => p.platform === platformFilter);
+        scopePlatforms.forEach(p => {
+            (p.vmSkus || []).forEach(sku => {
+                if (!skuMap[sku.sku]) skuMap[sku.sku] = { hours: 0 };
+                skuMap[sku.sku].hours += sku.hours;
+            });
+        });
+        const sortedSkus = Object.entries(skuMap).sort((a, b) => b[1].hours - a[1].hours).slice(0, 10);
+
+        charts.skus = new Chart(document.getElementById('chart-skus').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: sortedSkus.map(s => s[0]),
+                datasets: [{ label: 'Run Hours', data: sortedSkus.map(s => s[1].hours), backgroundColor: '#10b981', borderRadius: 4 }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    }
+
+    window.switchTab = (tabId, el) => {
+        document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+        el.classList.add('active');
+        document.querySelectorAll('.view-section').forEach(div => div.classList.add('hidden'));
+        document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+        const titles = {
+            overview: 'Infrastructure Overview',
+            products: 'Product Cost Analysis',
+            compute: 'Compute & Anomalies',
+            naming: 'Naming Convention Audit'
+        };
+        document.getElementById('page-title').textContent = titles[tabId];
+    };
+
+    init();
+</script>
+
+</body>
+</html>

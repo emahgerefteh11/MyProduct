@@ -1,9 +1,47 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta http-equiv="refresh" content="0; url=dashboard.html" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Cost Atlas</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background: #f3f4f6; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+        .container { text-align: center; max-width: 640px; padding: 40px 24px; }
+        .logo { font-size: 32px; font-weight: 700; color: #111827; margin-bottom: 8px; }
+        .logo span { color: #3b82f6; }
+        .tagline { color: #6b7280; font-size: 16px; margin-bottom: 48px; }
+        .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .card { background: white; border-radius: 16px; padding: 32px 24px; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.07); text-decoration: none; color: inherit; transition: transform 0.15s, box-shadow 0.15s; display: block; }
+        .card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px -5px rgba(0,0,0,0.12); }
+        .card-icon { font-size: 36px; margin-bottom: 16px; }
+        .card-title { font-size: 18px; font-weight: 700; color: #111827; margin-bottom: 8px; }
+        .card-desc { font-size: 14px; color: #6b7280; line-height: 1.6; margin-bottom: 20px; }
+        .card-badge { display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
+        .badge-demo { background: #fef3c7; color: #92400e; }
+        .badge-live { background: #d1fae5; color: #065f46; }
+        @media (max-width: 480px) { .cards { grid-template-columns: 1fr; } }
+    </style>
 </head>
 <body>
-    <p><a href="dashboard.html">Redirecting to dashboard...</a></p>
+    <div class="container">
+        <div class="logo">&#9729;&#65039; Cloud<span>Atlas</span></div>
+        <p class="tagline">Multi-cloud infrastructure cost analysis &amp; FinOps visibility</p>
+        <div class="cards">
+            <a href="dashboard_demo.html" class="card">
+                <div class="card-icon">&#127912;</div>
+                <div class="card-title">Demo Dashboard</div>
+                <div class="card-desc">Pre-loaded with sample multi-cloud data. Always ready to present — no setup needed.</div>
+                <span class="card-badge badge-demo">DEMO DATA</span>
+            </a>
+            <a href="dashboard.html" class="card">
+                <div class="card-icon">&#128202;</div>
+                <div class="card-title">Live Dashboard</div>
+                <div class="card-desc">Connects to your CUR analysis output. Run <code style="font-size:12px;background:#f3f4f6;padding:2px 5px;border-radius:3px;">cur_to_json.py</code> first to populate.</div>
+                <span class="card-badge badge-live">LIVE DATA</span>
+            </a>
+        </div>
+    </div>
 </body>
 </html>

@@ -68,23 +68,22 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
-Write-Host "Done. Load report.html (it reads MyProduct/report_data.json by default)." -ForegroundColor Green
+Write-Host "Done. Opening live dashboard (dashboard.html fetches report_data.json automatically)." -ForegroundColor Green
 
-# Auto-open the report HTML
-$reportPath = Join-Path (Split-Path $OutputFull -Parent) "report.html"
-if (-not (Test-Path $reportPath)) {
-    # Fall back to known location if output is elsewhere
-    $reportPath = "MyProduct/report.html"
+# Auto-open the live dashboard
+$dashboardPath = Join-Path (Split-Path $OutputFull -Parent) "dashboard.html"
+if (-not (Test-Path $dashboardPath)) {
+    $dashboardPath = "dashboard.html"
 }
-if (Test-Path $reportPath) {
-    Write-Host "Opening report via http://localhost:8000/report.html ..."
-    $reportDir = Split-Path $reportPath -Parent
+if (Test-Path $dashboardPath) {
+    Write-Host "Starting local server and opening live dashboard..."
+    $repoRoot = (Resolve-Path ".").Path
     $listener = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue
     if (-not $listener) {
-        Start-Process -FilePath python -ArgumentList "-m","http.server","8000" -WorkingDirectory $reportDir | Out-Null
+        Start-Process -FilePath python -ArgumentList "-m","http.server","8000" -WorkingDirectory $repoRoot | Out-Null
         Start-Sleep -Seconds 1
     }
-    Start-Process "http://localhost:8000/report.html"
+    Start-Process "http://localhost:8000/dashboard.html"
 } else {
-    Write-Warning "Report HTML not found to open automatically."
+    Write-Warning "dashboard.html not found. Open it manually from the repo root."
 }
