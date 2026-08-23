@@ -213,6 +213,22 @@ def infer_schema(fieldnames: List[str]) -> dict:
                 return lower_map[lower]
         return None
 
+    if pick("BilledCost") or pick("EffectiveCost"):
+        service_fields = [pick("ServiceCategory"), pick("ServiceName")]
+        return {
+            "schema": "focus",
+            "provider": pick("ProviderName"),
+            "cost": pick("BilledCost", "EffectiveCost"),
+            "service_fields": [field for field in service_fields if field],
+            "resource_id": pick("ResourceId", "ResourceName"),
+            "product_tag": pick("Tags"),
+            "environment_tag": pick("Tags"),
+            "platform_tag": pick("Tags", "SubAccountId", "SubAccountName"),
+            "usage_unit": pick("PricingUnit"),
+            "usage_amount": pick("UsageQuantity"),
+            "usage_type": pick("SkuId", "SkuPriceId"),
+            "sku_name": pick("SkuId"),
+        }
     if pick("lineItem/UnblendedCost"):
         service_fields = [pick("lineItem/ProductCode")]
         return {
@@ -417,8 +433,8 @@ def bucketize_resources(resources: Dict[str, float], include_resources: bool = F
     return agg
 
 
-def parse_gcp_labels(label_string: str) -> Dict[str, str]:
-    """Parses GCP label string like 'project:labels:{"env":"prod"}'."""
+def parse_json_tags(label_string: str) -> Dict[str, str]:
+    """Parses JSON-like tag strings commonly found in GCP labels or FOCUS Tags."""
     if not label_string:
         return {}
     # Try to find JSON-like content
@@ -428,10 +444,13 @@ def parse_gcp_labels(label_string: str) -> Dict[str, str]:
             # Replace double double-quotes with single double-quotes if coming from CSV escaping
             json_str = match.group(0).replace('""', '"')
             data = json.loads(json_str)
+            
+            # Map keys flexibly
+            lower_data = {k.lower(): v for k, v in data.items()}
             return {
-                "product": data.get("product", ""),
-                "environment": data.get("environment", "") or data.get("env", ""),
-                "platform": data.get("platform", "")
+                "product": lower_data.get("product", ""),
+                "environment": lower_data.get("environment", "") or lower_data.get("env", ""),
+                "platform": lower_data.get("platform", "")
             }
         except Exception:
             pass
@@ -561,8 +580,20 @@ def load_cur(path: pathlib.Path, naming_config: dict, naming_mode: str = "fallba
 
             svc = normalize_service(provider, service_values, rid)
 
+            if schema["schema"] == "focus" and product_tag:
+                tags = parse_json_tags(product_tag)
+                product_tag = tags.get("product") or ""
+                env_tag = tags.get("environment") or env_tag
+                # Only overwrite platform tag if it's missing (as SubAccountId might be better)
+                if not platform_tag or platform_tag == "unknown":
+                    platform_tag = tags.get("platform") or "unknown"
+                if not provider or provider == "unknown":
+                    # For focus, provider is read dynamically if not infer_schema level
+                    provider = read_value(row, schema["provider"]) or "unknown"
+                    provider = provider.lower()
+
             if provider == "gcp" and product_tag:
-                gcp_labels = parse_gcp_labels(product_tag)
+                gcp_labels = parse_json_tags(product_tag)
                 product_tag = gcp_labels.get("product") or ""
                 env_tag = gcp_labels.get("environment") or ""
                 platform_tag = gcp_labels.get("platform") or "GCP"
@@ -854,8 +885,8 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
             share = 0.0 if math.isclose(prod_total, 0.0) else (svc_cost_val / prod_total * 100.0)
             services.append(
                 {
-                    "service": svc,
-                    "cost": round(svc_cost_val, 2),
+                    "ServiceCategory": svc,
+                    "BilledCost": round(svc_cost_val, 2),
                     "pctOfProduct": round(share, 2),
                     "resourceCount": len(prod_svc_res[prod][svc]),
                 }
@@ -866,8 +897,8 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
 
         products.append(
             {
-                "product": prod,
-                "cost": round(cost, 2),
+                "Product": prod,
+                "BilledCost": round(cost, 2),
                 "pctOfTotal": round(pct(cost), 2),
                 "rows": prod_rows[prod],
                 "serviceCount": len(prod_service_sets[prod]),
@@ -877,19 +908,19 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
         )
 
     services = [
-        {"service": svc, "cost": round(cost, 2), "pctOfTotal": round(pct(cost), 2)}
+        {"ServiceCategory": svc, "BilledCost": round(cost, 2), "pctOfTotal": round(pct(cost), 2)}
         for svc, cost in top_items(svc_cost, len(svc_cost))
     ]
 
     environments = [
-        {"environment": env, "cost": round(cost, 2), "pctOfTotal": round(pct(cost), 2)}
+        {"Environment": env, "BilledCost": round(cost, 2), "pctOfTotal": round(pct(cost), 2)}
         for env, cost in top_items(env_cost, len(env_cost))
     ]
 
     resource_names = [
         {
-            "name": name,
-            "cost": round(cost, 2),
+            "ResourceName": name,
+            "BilledCost": round(cost, 2),
             "pctOfTotal": round(pct(cost), 2),
             "rows": res_name_count[name],
         }
@@ -902,16 +933,16 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
         for rname, rcost in sorted(provider_res_name_cost.get(provider, {}).items(), key=lambda kv: kv[1], reverse=True):
             provider_resnames.append(
                 {
-                    "name": rname,
-                    "cost": round(rcost, 2),
+                    "ResourceName": rname,
+                    "BilledCost": round(rcost, 2),
                     "pctOfProvider": round((rcost / cost_val * 100) if cost_val else 0.0, 2),
                     "rows": provider_res_name_count[provider][rname],
                 }
             )
         providers.append(
             {
-                "provider": provider,
-                "cost": round(cost_val, 2),
+                "ProviderName": provider,
+                "BilledCost": round(cost_val, 2),
                 "pctOfTotal": round(pct(cost_val), 2),
                 "rows": provider_rows.get(provider, 0),
                 "resourceNames": provider_resnames,
@@ -967,8 +998,8 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
         for rname, rcost in sorted(platform_res_name_cost.get(name, {}).items(), key=lambda kv: kv[1], reverse=True):
             resnames.append(
                 {
-                    "name": rname,
-                    "cost": round(rcost, 2),
+                    "ResourceName": rname,
+                    "BilledCost": round(rcost, 2),
                     "pctOfTotal": round(pct(rcost), 2),
                     "rows": platform_res_name_count[name][rname],
                 }
@@ -976,8 +1007,8 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
 
         platforms.append(
             {
-                "platform": name,
-                "cost": round(cost_val, 2),
+                "Platform": name,
+                "BilledCost": round(cost_val, 2),
                 "pctOfTotal": round(pct_val, 2),
                 "rows": platform_rows.get(name, 0),
                 "vcpuTotal": vcpu_total,
@@ -995,8 +1026,8 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
                 "products": [],
                 "services": [
                     {
-                        "service": svc,
-                        "cost": round(val, 2),
+                        "ServiceCategory": svc,
+                        "BilledCost": round(val, 2),
                         "pctOfPlatform": round((val / cost_val * 100) if cost_val else 0.0, 2),
                         "rows": platform_service_rows[name].get(svc, 0),
                     }
@@ -1004,8 +1035,8 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
                 ],
                 "environments": [
                     {
-                        "environment": env,
-                        "cost": round(val, 2),
+                        "Environment": env,
+                        "BilledCost": round(val, 2),
                         "pctOfPlatform": round((val / cost_val * 100) if cost_val else 0.0, 2),
                         "rows": platform_env_rows[name].get(env, 0),
                     }
@@ -1061,8 +1092,8 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
             ):
                 prod_resnames.append(
                     {
-                        "name": rname,
-                        "cost": round(rcost, 2),
+                        "ResourceName": rname,
+                        "BilledCost": round(rcost, 2),
                         "pctOfPlatform": round((rcost / cost_val * 100) if cost_val else 0.0, 2),
                         "rows": platform_product_res_name_count[name][prod][rname],
                     }
@@ -1074,8 +1105,8 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
             ):
                 prod_services.append(
                     {
-                        "service": svc,
-                        "cost": round(sval, 2),
+                        "ServiceCategory": svc,
+                        "BilledCost": round(sval, 2),
                         "pctOfPlatform": round((sval / cost_val * 100) if cost_val else 0.0, 2),
                         "rows": platform_service_rows[name].get(svc, 0),
                     }
@@ -1087,8 +1118,8 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
             ):
                 prod_envs.append(
                     {
-                        "environment": env,
-                        "cost": round(eval_, 2),
+                        "Environment": env,
+                        "BilledCost": round(eval_, 2),
                         "pctOfPlatform": round((eval_ / cost_val * 100) if cost_val else 0.0, 2),
                         "rows": platform_env_rows[name].get(env, 0),
                     }
@@ -1096,8 +1127,8 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
 
             platforms[-1]["products"].append(
                 {
-                    "product": prod,
-                    "cost": round(pcost, 2),
+                    "Product": prod,
+                    "BilledCost": round(pcost, 2),
                     "pctOfPlatform": round((pcost / cost_val * 100) if cost_val else 0.0, 2),
                     "rows": platform_product_rows[name].get(prod, 0),
                     "vcpuTotal": vcpu_p,
@@ -1149,7 +1180,7 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
             shared_stacks.append({"products": sorted(prods), "services": sorted(stack)})
 
     return {
-        "totalCost": round(total_cost, 2),
+        "TotalBilledCost": round(total_cost, 2),
         "products": products,
         "services": services,
         "environments": environments,
@@ -1197,7 +1228,7 @@ def main():
         "--output",
         "-o",
         type=pathlib.Path,
-        default=pathlib.Path("MyProduct/report_data.json"),
+        default=pathlib.Path("report_data.json"),
         help="Path to write JSON summary",
     )
     parser.add_argument(
@@ -1221,7 +1252,7 @@ def main():
     args = parser.parse_args()
 
     naming_config = load_naming_convention(args.naming)
-    input_paths = args.input or [pathlib.Path("MyProduct/mock_aws_cur_iaas_heavy.csv")]
+    input_paths = args.input or [pathlib.Path("mock_aws_cur_iaas_heavy_named20251122.csv")]
     labels = list(args.label or [])
     if len(labels) < len(input_paths):
         labels += [p.stem for p in input_paths[len(labels) :]]
@@ -1247,7 +1278,7 @@ def main():
     summary["reports"] = reports
     summary["reportCount"] = len(reports)
     args.output.write_text(json.dumps(summary, indent=2))
-    print(f"Wrote {args.output} with totalCost=${summary['totalCost']:,.2f}")
+    print(f"Wrote {args.output} with TotalBilledCost=${summary['TotalBilledCost']:,.2f}")
 
 
 if __name__ == "__main__":

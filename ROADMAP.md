@@ -1,54 +1,139 @@
-# Roadmap: MyProduct Infrastructure Platform
+# Strategic Roadmap: Cloud Infrastructure & FinOps Platform
 
-Strategic roadmap aligned with Leadership, Finance, Engineering, and Governance personas.
+A holistic, multi-phase roadmap aligned with the **FinOps Foundation Framework (Inform, Optimize, Operate)** and tailored for **Leadership, Finance, Platform/Engineering, Governance, and Product** personas.
 
-## Phase 1: The Multi-Cloud Foundation (✅ Completed)
-*Persona Focus: Leadership (High-level visibility)*
-- [x] **Multi-Cloud Ingestion:** Unified support for AWS, Azure, and GCP billing data.
-- [x] **Service Normalization:** Map disparate CSP services (e.g., EC2, VMs, Compute Engine) to unified categories.
-- [x] **Resource Counts:** Aggregated counts of VMs and Storage buckets across all clouds.
-- [x] **Offline Dashboard:** Portable HTML/JS dashboard for "Anywhere" viewing.
-- [x] **Basic Vending:** Generate Terraform skeletons from existing billing footprints.
+---
 
-## Phase 2: Temporal Intelligence & Trends 🚧
-*Persona Focus: Leadership & Finance (Growth & Variance)*
-- [ ] **Multi-Month Ingestion:** Architecture to load sequential billing files (Jan, Feb, Mar) to establish a timeline.
-- [ ] **Month-over-Month (MoM) Growth:**
-    - Visual indicators for cost variance ($ and %).
-    - Service-level growth (e.g., "Database spend grew 20%").
-- [ ] **Trend Visualization:**
-    - Line charts for global spend over time.
-    - Stacked bar charts for Cloud Service Provider (CSP) mix over time.
-- [ ] **Forecasting:** Linear regression to predict end-of-month spend based on current run rate.
+## Phase 1: Multi-Cloud Foundation & Ingestion Parity (✅ Completed)
+*Persona Focus: Leadership & Platform Engineering (Multi-Cloud Visibility)*
+- [x] **Unified Multi-Cloud Ingestion:** Ingestion support for AWS Cost and Usage Reports (CUR), Azure Cost Management exports, and GCP Standard Billing exports.
+- [x] **Cross-Cloud Service Normalization:** Mapping disparate CSP service lines into 8 unified functional families (Compute/VM, Block Storage, Object Storage, Database, Cache, Container, Networking, Serverless).
+- [x] **Hardware & Sizing Introspection:** Aggregation of vCPU, RAM GiB, and storage GB-Mo from cloud billing SKUs.
+- [x] **Zero-Dependency Offline Dashboard:** Portable HTML5/JS single-page application with dual-mode architecture (Live dynamic fetch + embedded demo).
+- [x] **Initial IaC Vending:** Automatic generation of Terraform baseline skeletons from discovered billing topology.
 
-## Phase 3: Governance & Compliance
-*Persona Focus: Governance (Standards & Tagging)*
-- [ ] **Tagging Health Score:**
-    - Grade (A-F) per Product based on coverage of mandatory tags (Owner, CostCenter, Env).
-    - "Unallocated" cost buckets for untagged resources.
-- [ ] **Naming Convention Audit:** Regex-based validation to flag resources violating standard naming patterns.
-- [ ] **Compliance Reports:** CSV export of "Offenders" for remediation.
+---
 
-## Phase 4: Engineering Enablement
-*Persona Focus: Product Owners & Engineering (Action & Build)*
-- [ ] **Utilization-Based Vending:** Only generate Terraform for active/heavy resources (ignore zombies).
-- [ ] **Modular Terraform:** Update generator to output industry-standard module usage (e.g., `terraform-aws-modules`) rather than raw resources.
-- [ ] **Anomaly Detection:** Statistical detection of SKU distribution outliers (e.g., "Why is Dev using x2large?").
-- [ ] **Drift Detection:** "What is billing" vs "What is in Git."
+## Phase 2: Open Standards & High-Performance Data Pipeline 🚀 *(Next Up)*
+*Persona Focus: Platform Engineering & Enterprise Architecture*
+- [ ] **FOCUS (FinOps Open Cost & Usage Specification) 1.0/1.1 Adoption:**
+  - Standardize internal data schemas on the Linux Foundation / FinOps Foundation FOCUS open specification (`ChargeCategory`, `BilledCost`, `EffectiveCost`, `PricingQuantity`, `ProviderName`, `ResourceId`, `ServiceName`, `SubAccountId`).
+  - Native export capability to FOCUS-compliant CSV/Parquet for interoperability with standard FinOps tooling.
+- [ ] **Scalable Columnar Query Engine (DuckDB & Parquet):**
+  - Replace memory-bound CSV parsing with an embedded **DuckDB** / **Apache Arrow** query engine to process 10M+ row enterprise billing files (5GB–50GB+) in seconds.
+  - Automatic conversion of raw CSV dumps to partitioned, compressed Parquet files for fast query execution.
+- [ ] **Multi-Currency & FX Normalization:**
+  - Ingestion of non-USD billing currencies (EUR, GBP, JPY, CAD) with automated or configurable FX exchange rate conversion.
 
-## Phase 5: Unit Economics (The Holy Grail)
-*Persona Focus: Finance & Product Owners (Business Value)*
-- [ ] **Business Metric Ingestion:** Import "Daily Orders" or "Monthly Active Users" (MAU).
-- [ ] **Cost Per Unit:** Correlate cloud spend with business value (e.g., "Cost per Transaction").
-- [ ] **Profitability Analysis:** Margin analysis per product feature.
+---
 
-## Phase 6: Sustainability & GreenOps
-*Persona Focus: Leadership (ESG) & Governance*
-- [ ] **Carbon Estimator:** Calculate CO2e emissions based on region carbon intensity.
-- [ ] **Green Optimization:** Recommendations to move workloads to lower-carbon regions.
+## Phase 3: Temporal Intelligence, Trends & Forecasting 🚧
+*Persona Focus: Leadership & Finance (Growth, Budgeting & Variance)*
+- [ ] **Multi-Month Timeline Ingestion:**
+  - Multi-period sequential billing ingestion (e.g. Q1, Q2, H1) to establish longitudinal cost trends.
+- [ ] **Month-over-Month (MoM) Variance Engine:**
+  - Visual delta indicators for spend variance ($ and %) by platform, product, service family, and account.
+  - Drill-down variance explanations (e.g., "Platform A Database spend grew +$14.2k due to Aurora cluster scaling").
+- [ ] **Advanced Spend Visualization:**
+  - Historical spend trajectory line charts and stacked multi-cloud CSP mix breakdowns over time.
+- [ ] **Predictive Forecasting & Run-Rate Modeling:**
+  - Exponential smoothing and linear regression algorithms to project end-of-month (EOM) and quarterly cloud run-rates based on consumption velocity.
+  - Budget vs. Actual tracking with predictive burn-rate threshold alerts.
 
-## Phase 7: "Click-to-Fix" (Active FinOps)
-*Persona Focus: Engineering (Remediation)*
-- [ ] **Zombie Hunter:** Identify orphaned resources (0 metrics) and queue for deletion.
-- [ ] **Spot Readiness:** Analyze workload patterns to recommend Spot Instances.
-- [ ] **Ticket Integration:** One-click JIRA/GitHub Issue creation for cost anomalies.
+---
+
+## Phase 4: Governance, Tagging Quality & Compliance
+*Persona Focus: Governance, Security & FinOps Practitioners*
+- [ ] **Tagging Health & Coverage Scoring:**
+  - Automated A–F grade per Platform/Product based on mandatory tag coverage (`Owner`, `CostCenter`, `Environment`, `Service`).
+  - Identification and isolation of "Unallocated / Untagged" spend pools.
+- [ ] **Naming Convention Audit & Enforcement:**
+  - Regex-based rule engine validating resource names against standard patterns (e.g., Microsoft Azure CAF, AWS Enterprise tagging).
+  - Identification of naming convention outliers and misclassified resources.
+- [ ] **Compliance & Remediation Exports:**
+  - Actionable CSV and JSON reports detailing non-compliant resources for automated ticketing or team notifications.
+
+---
+
+## Phase 5: Rate & Commitment Optimization (FinOps "Optimize")
+*Persona Focus: Finance, Procurement & FinOps Practitioners*
+- [ ] **Commitment Portfolio Visibility:**
+  - Tracking of AWS Savings Plans / Reserved Instances (RIs), Azure Reservations / Savings Plans, and GCP Committed Use Discounts (CUDs).
+- [ ] **Coverage & Utilization Analytics:**
+  - **Commitment Coverage:** % of eligible compute/database hours running under discount commitments vs On-Demand rates.
+  - **Commitment Utilization:** Identification of underutilized or expiring commitments (avoiding wasted reservation dollars).
+- [ ] **Effective Savings Rate (ESR) Computation:**
+  - True financial discount rate achieved across all clouds compared to list On-Demand rates.
+- [ ] **Unblended vs. Amortized Cost Views:**
+  - Support for amortized cost accounting (spreading upfront commitment payments evenly across consumption).
+
+---
+
+## Phase 6: Modern Workload FinOps: Kubernetes & GenAI
+*Persona Focus: Engineering Leads, ML Platform Engineers & DevOps*
+- [ ] **Container & Kubernetes Cost Allocation (K8s FinOps):**
+  - Integration with **OpenCost** / **Kubecost** or Prometheus metrics to disaggregate monolithic EKS, AKS, and GKE cluster node costs into Kubernetes namespaces, daemonsets, pods, and microservices.
+  - Allocation of shared cluster overhead and idle capacity costs.
+- [ ] **GenAI & GPU Workload Intelligence:**
+  - Dedicated tracking for high-cost AI infrastructure (NVIDIA H100, A100, L4, T4 GPU instances).
+  - Ingestion and cost attribution for managed AI services (AWS Bedrock / SageMaker, Azure OpenAI, GCP Vertex AI).
+  - Cost-per-token and cost-per-inference unit metrics.
+
+---
+
+## Phase 7: Intelligent Infrastructure as Code (IaC) Vending & Drift
+*Persona Focus: Platform Engineers & DevOps*
+- [ ] **SKU-Aware Modular Terraform Vending:**
+  - Generate production-ready Terraform modules (`main.tf`, `variables.tf`, `outputs.tf`, `terraform.tfvars`) mapped to exact discovered hardware SKUs, storage tiers, and network topology.
+  - Modular support for verified ecosystem modules (e.g., `terraform-aws-modules`).
+- [ ] **Utilization-Filtered Vending:**
+  - Filter out zombie/orphaned resources from generated IaC skeletons (vending only active, healthy infrastructure).
+- [ ] **GitOps Drift Detection ("Billing vs. Git"):**
+  - Compare discovered active cloud resources against committed Terraform/OpenTofu state files in Git to identify shadow IT and unmanaged cloud sprawl.
+
+---
+
+## Phase 8: Shift-Left "Cost-as-Code" & CI/CD Integration
+*Persona Focus: Software Developers & Platform Engineering*
+- [ ] **Pull Request Cost Estimation (Shift-Left FinOps):**
+  - GitHub Actions / GitLab CI runner that analyzes Terraform plan outputs on pull requests and computes the delta against current platform baselines.
+- [ ] **Policy-as-Code Guardrails:**
+  - Integration with Open Policy Agent (OPA) / Conftest to block PRs that exceed team budget thresholds or provision banned/oversized instance types.
+- [ ] **FinOps Slack/Teams Notifications:**
+  - Automated deployment cost summaries delivered to squad channels upon merged infrastructure PRs.
+
+---
+
+## Phase 9: Unit Economics & Sustainability (GreenOps)
+*Persona Focus: Executive Leadership (CFO/CTO/ESG) & Product Management*
+- [ ] **Unit Economics & Business Metric Ingestion:**
+  - Ingest business metrics (e.g., Daily Active Users, Checkout Transactions, API Calls, ML Training Runs).
+  - Calculate real-time **Cost per Business Unit** (e.g., "$0.0034 per payment transaction").
+- [ ] **Product Feature Margin Analysis:**
+  - Correlate cloud infrastructure spend with product revenue to determine gross margins by platform feature.
+- [ ] **GreenOps & Carbon Estimator (CO2e):**
+  - Estimate embodied and operational carbon emissions (MTCO2e) based on regional grid carbon intensity and hardware power profiles.
+  - Recommend greener region migrations (e.g., shifting non-latency-sensitive batch compute to low-carbon regions).
+
+---
+
+## Phase 10: "Click-to-Fix" Active FinOps & Automated Remediation
+*Persona Focus: Engineering & Operations*
+- [ ] **Zombie Hunter & Idle Resource Killer:**
+  - Automated detection of unattached EBS/Managed Disks, unassociated Elastic IPs, orphaned snapshots, and 0-metric idle compute.
+- [ ] **Spot & Graviton/ARM Migration Advisor:**
+  - Workload analysis to identify stateless compute candidates for Spot instances or AWS Graviton / Azure ARM processor migration (saving 20–40%).
+- [ ] **ITSM Ticketing Integration:**
+  - One-click Jira, ServiceNow, or GitHub Issue generation with pre-populated resource IDs, cost savings estimates, and remediation playbooks.
+
+---
+
+## Persona Value Matrix
+
+| Persona | Core Benefits & Key Features |
+| :--- | :--- |
+| **Executive Leadership (CEO/CTO/CFO)** | Single-pane-of-glass multi-cloud cost visibility, cloud mix distribution, ESG carbon tracking, unit economics margin analysis. |
+| **Finance & Procurement** | MoM variance reporting, predictive run-rate forecasting, commitment coverage (RI/SP/CUD), amortized cost accounting. |
+| **Platform & DevOps Engineering** | Automated Terraform module vending, GitOps drift detection, shift-left PR cost estimation, Kubernetes container cost allocation. |
+| **Governance & Security** | Tagging health grades (A–F), CAF naming convention audit, orphan resource detection, data masking and team RBAC. |
+| **Product Owners** | Clear cost-per-feature and cost-per-user metrics, enabling data-driven roadmap prioritization and pricing strategy. |

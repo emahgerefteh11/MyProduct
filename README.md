@@ -1,69 +1,193 @@
-This is a personal project I am working on. The intent is to be an all-in-one place for infrastructure: analyzing existing infrastructure, breaking down cost by platform/product, categorizing SKUs per platform/product, providing FinOps views, and eventually producing Terraform to provision future builds. Currently it's AWS-only with mock data.
+# Cloud Cost Atlas (MyProduct)
 
-## Naming conventions
-The report can derive product/platform/environment from resource names. If you do not provide a naming convention file, it falls back to the Microsoft CAF pattern: `<resource_type>-<workload>-<environment>-<region>-<instance>`.
+[![Multi-Cloud](https://img.shields.io/badge/Multi--Cloud-AWS%20%7C%20Azure%20%7C%20GCP-blue)](https://github.com/emahgerefteh11/MyProduct)
+[![FinOps](https://img.shields.io/badge/FinOps-Foundation%20Aligned-green)](https://www.finops.org/)
+[![IaC](https://img.shields.io/badge/IaC-Terraform%20Vending-purple)](https://www.terraform.io/)
+[![Zero-Dependency](https://img.shields.io/badge/Dashboard-Offline%20HTML5%20%2F%20JS-orange)](dashboard.html)
 
-Examples:
-- `python cur_to_json.py --input MyProduct/mock_aws_cur_iaas_heavy.csv --output MyProduct/report_data.json --naming naming_convention.sample.json`
-- `.\run_cur_report.ps1 -CsvPath MyProduct/mock_aws_cur_iaas_heavy.csv -NamingPath .\naming_convention.sample.json`
-- `python cur_to_json.py --input jan.csv --input feb.csv --label Jan --label Feb --output MyProduct/report_data.json`
-- `.\run_cur_report.ps1 -CsvPath jan.csv,feb.csv -Label Jan,Feb`
+**Cloud Cost Atlas** is an all-in-one multi-cloud infrastructure intelligence and FinOps platform. It ingests raw billing exports from **AWS**, **Microsoft Azure**, and **Google Cloud Platform (GCP)**, normalizes disparate services into a unified taxonomy, extracts hardware sizing and naming conventions, generates interactive executive dashboards, and vends production-ready Terraform infrastructure skeletons based on discovered cloud footprints.
 
-Tip: when using `-File` with PowerShell, pass comma-separated lists as a single string (example: `-CsvPath "jan.csv,feb.csv"`).
+---
 
-By default, tag values win when present. To force naming conventions to override tags, add `--naming-mode override` (or `-NamingMode override` for the PowerShell script).
+## Key Capabilities
 
-## Service normalization
-Service costs are normalized into shared families (ex: AWS EC2 + Azure Virtual Machines -> `Compute/VM`, EBS + Managed Disks -> `Block Storage`) so cross-cloud dashboards aggregate comparable offerings.
+```
+                       ┌─────────────────────────────────────────────────────────┐
+                       │               Multi-Cloud Billing Ingestion             │
+                       │   AWS CUR  │  Azure Cost Management  │  GCP Standard   │
+                       └────────────────────────────┬────────────────────────────┘
+                                                    │
+                                                    ▼
+                       ┌─────────────────────────────────────────────────────────┐
+                       │          Service Normalization & Naming Parser          │
+                       │   • 8 Unified Functional Families (Compute, Storage...) │
+                       │   • Microsoft CAF Naming Convention Engine              │
+                       │   • Tag & Dimension Reconciliation (Fallback/Override)  │
+                       └────────────────────────────┬────────────────────────────┘
+                                                    │
+                                                    ▼
+                       ┌─────────────────────────────────────────────────────────┐
+                       │            Hardware & FinOps Metric Engine              │
+                       │   • vCPU, RAM GiB, and Storage GB-Mo Sizing             │
+                       │   • HHI Concentration & Shared Stack Signatures         │
+                       │   • Multi-Period Sequential Timeline Aggregation        │
+                       └─────────────────────┬──────────────────┬────────────────┘
+                                             │                  │
+                      ┌──────────────────────▼───┐          ┌───▼──────────────────────┐
+                      │    Visual Dashboards     │          │    Terraform Vending     │
+                      │  • Live (dashboard.html) │          │  • Modular Stacks        │
+                      │  • Demo (Self-contained) │          │  • SKU-Mapped Resources  │
+                      └──────────────────────────┘          └──────────────────────────┘
+```
 
-Azure VM size breakdowns are derived from `SkuName` (or `MeterName`) when available; unknown sizes fall back to `Unknown size`.
+1. **Unified Multi-Cloud Ingestion:** Ingests native billing exports across AWS CUR, Azure Cost Management, and GCP Standard Billing without requiring external SaaS dependencies.
+2. **Cross-Cloud Service Normalization:** Maps vendor-specific service lines (e.g., EC2 vs Azure VMs vs Compute Engine, EBS vs Managed Disks vs Persistent Disks) into 8 standardized functional categories.
+3. **Enterprise Naming Convention Engine:** Derives product, platform, environment, and region from resource identifiers using the **Microsoft Azure Cloud Adoption Framework (CAF)** standard or custom JSON schemas.
+4. **Hardware Capacity Introspection:** Translates cloud billing SKUs into tangible compute specs (vCPU count, RAM GiB) and storage capacity (GB-Mo) for capacity planning.
+5. **Dual-Mode Interactive Dashboard:** 
+   - **Live Mode (`dashboard.html`):** Dynamically fetches `report_data.json` generated by the analysis engine.
+   - **Demo Mode (`dashboard_demo.html`):** Self-contained, zero-dependency HTML file with embedded data—ready for presentations and GitHub Pages deployment.
+6. **Intelligent Terraform Vending (`terraform_generator.py`):** Automatically scaffolds modular Terraform configurations (`main.tf`, `variables.tf`, `outputs.tf`, `terraform.tfvars`) parameterized with discovered instance types, storage allocations, and tags.
 
-## Release Roadmap (draft)
-- **AWS (current):** CUR ingestion, FinOps overview, platform/product filters, resource naming breakdown, anomalies/distributions (EC2 SKUs, EBS/S3 buckets).
-- **Upcoming:** 
-  - GCP & Azure analysis parity (billing ingestion, SKU mapping, platform/product breakdowns).
-  - Terraform buildouts: generate TF skeletons for discovered stacks (networking, compute, storage) per platform/product.
-  - Resource naming convention inputs: input resource naming conventions related to products/platforms to produce reports by product/platform.
-  - Resource naming convention analysis: determining resource naming conventions as they relate to platforms/products without inputs.
+---
 
-AWS data in this repo is mock and AI-generated.
+## Service Normalization Taxonomy
+
+Disparate CSP offerings are normalized into 8 shared categories so cross-cloud dashboards aggregate comparable workloads:
+
+| Unified Family | AWS Equivalent | Azure Equivalent | GCP Equivalent |
+| :--- | :--- | :--- | :--- |
+| **Compute/VM** | Amazon EC2 | Virtual Machines, VMSS | Compute Engine |
+| **Block Storage** | Amazon EBS | Managed Disks | Persistent Disks |
+| **Object Storage** | Amazon S3 | Blob Storage, Storage Accounts | Cloud Storage (GCS) |
+| **Database** | Amazon RDS, DynamoDB | Azure SQL, Cosmos DB | Cloud SQL, Spanner |
+| **Cache** | Amazon ElastiCache, MemoryDB | Azure Cache for Redis | Cloud Memorystore |
+| **Container** | Amazon EKS, ECS, ECR | Azure Kubernetes Service (AKS) | Google Kubernetes Engine (GKE) |
+| **Networking** | Amazon VPC, ELB, NAT Gateway | Virtual Network, Load Balancer | Cloud VPC, Cloud Load Balancing |
+| **Serverless** | AWS Lambda | Azure Functions, App Service | Cloud Functions, Cloud Run |
+
+---
+
+## Naming Convention Parsing
+
+The analysis engine extracts `product`, `platform`, `environment`, `resource_type`, `region`, and `instance` directly from resource identifiers.
+
+### Default Microsoft CAF Pattern
+```
+<resource_type>-<workload/product>-<environment>-<region>-<instance>
+```
+
+### Custom Naming Conventions
+Provide a custom JSON configuration via `--naming` to override token patterns per cloud provider:
+
+```json
+{
+  "version": 1,
+  "default": {
+    "delimiter": "-",
+    "pattern": ["resource_type", "platform", "product", "environment", "region", "instance"]
+  },
+  "providers": {
+    "aws": {
+      "pattern": ["resource_type", "platform", "product", "environment", "instance"]
+    }
+  }
+}
+```
+
+### Tag Precedence Modes
+- **Fallback (`--naming-mode fallback`, default):** Uses tag values if present; falls back to parsed resource names when tags are missing or `UnTagged`.
+- **Override (`--naming-mode override`):** Strictly enforces naming convention values over tag metadata for auditing and standardization.
+
+---
+
+## Quick Start & CLI Usage
+
+### 1. Run Analysis on Single or Multiple Cloud Billing Files
+
+```bash
+# Single AWS CUR export
+python cur_to_json.py --input mock_aws_cur_iaas_heavy_named20251122.csv --output report_data.json --naming naming_convention.sample.json
+
+# Multi-Cloud ingestion (AWS + Azure + GCP)
+python cur_to_json.py \
+  --input mock_aws_cur_iaas_heavy_named20251122.csv \
+  --input mock_cost_management_billing_50000_with_meter_sku.csv \
+  --input mock_gcp_billing.csv \
+  --output report_data.json \
+  --naming naming_convention.sample.json
+
+# Multi-Month timeline comparison
+python cur_to_json.py \
+  --input jan.csv --label Jan \
+  --input feb.csv --label Feb \
+  --input mar.csv --label Mar \
+  --output report_data.json
+```
+
+### 2. PowerShell Orchestration (Windows / Mac / Linux)
+
+```powershell
+# Run analysis, start local HTTP server, and open dashboard in browser
+.\run_cur_report.ps1 -CsvPath mock_aws_cur_iaas_heavy_named20251122.csv -NamingPath .\naming_convention.sample.json
+```
+
+### 3. Generate Offline Demo Dashboard
+
+```bash
+# Injects report_data.json into dashboard.html to produce self-contained dashboard_demo.html
+python generate_dashboard.py
+```
+
+### 4. Vend Modular Terraform Skeletons
+
+```bash
+# Generates modular Terraform configurations per platform/product/environment
+python terraform_generator.py --input report_data.json --output-dir terraform_generated
+```
+
+---
 
 ## File Reference
 
-### Core Scripts
+### Core Engine & Scripts
 | File | Description |
-|------|-------------|
-| `cur_to_json.py` | Main analysis engine. Reads one or more billing CSVs (AWS CUR, Azure Cost Management, GCP billing), normalizes services into shared families (e.g. EC2 + Azure VMs → `Compute/VM`), parses resource naming conventions to extract product/platform/environment, and outputs `report_data.json`. |
-| `cur_analysis.py` | Earlier/standalone analysis script. Predecessor to `cur_to_json.py`; may still be useful for one-off exploration. |
-| `generate_dashboard.py` | Builds `dashboard_demo.html` by injecting `report_data.json` directly into `dashboard.html` as an embedded JS constant. Run after `cur_to_json.py` to regenerate the demo dashboard. |
-| `terraform_generator.py` | Reads `report_data.json` and generates Terraform skeleton files (AWS, Azure, GCP providers) based on discovered infrastructure. Early-stage; part of the planned Terraform buildout feature. |
-| `run_cur_report.ps1` | PowerShell orchestration script. Accepts CSV paths, labels, and naming config as parameters; runs `cur_to_json.py`, then starts a local Python HTTP server and opens the live dashboard in the browser. |
+| :--- | :--- |
+| [`cur_to_json.py`](cur_to_json.py) | **Primary Analysis Engine.** Multi-cloud schema ingestion, service normalization, CAF naming parsing, hardware specs extraction, and JSON reporting. |
+| [`terraform_generator.py`](terraform_generator.py) | **IaC Vending Engine.** Generates parameterized, modular Terraform stacks (`main.tf`, `variables.tf`, `outputs.tf`, `terraform.tfvars`) from discovered infrastructure. |
+| [`generate_dashboard.py`](generate_dashboard.py) | **Demo Build Tool.** Compiles `dashboard.html` + `report_data.json` into the standalone `dashboard_demo.html`. |
+| [`cur_analysis.py`](cur_analysis.py) | Standalone CLI analysis script for one-off exploration. |
+| [`run_cur_report.ps1`](run_cur_report.ps1) | PowerShell orchestration script for automated end-to-end processing and local preview. |
 
-### Dashboards
+### Visualization & Dashboards
 | File | Description |
-|------|-------------|
-| `index.html` | Landing page. Two cards: one linking to `dashboard_demo.html` (pre-loaded demo data) and one linking to `dashboard.html` (live data). Entry point when serving the repo root. |
-| `dashboard.html` | Live dashboard. Fetches `report_data.json` at runtime via `fetch()`. Shows a "No Analysis Data Yet" screen if no data is found, with instructions to run `cur_to_json.py`. |
-| `dashboard_demo.html` | Demo dashboard. Generated by `generate_dashboard.py` — contains the full `dashboard.html` UI with `report_data.json` embedded as a JS constant. Always has data ready; no server-side dependencies. |
-| `dashboard_clean_template.html` | Source template used to build `dashboard.html`. Kept as a clean reference copy before data injection. |
+| :--- | :--- |
+| [`index.html`](index.html) | Landing portal directing users to the Demo Dashboard or Live Dashboard. |
+| [`dashboard.html`](dashboard.html) | Live interactive dashboard fetching `report_data.json` dynamically via `fetch()`. |
+| [`dashboard_demo.html`](dashboard_demo.html) | Standalone offline dashboard with embedded JSON data for zero-setup demos and static hosting. |
+| [`dashboard_clean_template.html`](dashboard_clean_template.html) | Reference template for dashboard layout. |
 
 ### Configuration & Data
 | File | Description |
-|------|-------------|
-| `naming_convention.sample.json` | Sample naming convention config. Defines the token order (e.g. `resource_type-platform-product-environment-region-instance`) per cloud provider. Pass to `cur_to_json.py` via `--naming`. |
-| `report_data.json` | Output of `cur_to_json.py`. JSON summary of cost by provider, platform, product, service, and VM SKU. Consumed by `dashboard.html` at runtime and embedded into `dashboard_demo.html` at build time. |
+| :--- | :--- |
+| [`naming_convention.sample.json`](naming_convention.sample.json) | Configuration schema defining token patterns and delimiter rules per cloud provider. |
+| [`report_data.json`](report_data.json) | Complete aggregated JSON output consumed by the dashboard and Terraform generator. |
+| [`ROADMAP.md`](ROADMAP.md) | 10-phase strategic FinOps and Platform Engineering roadmap. |
+| [`CHANGELOG.md`](CHANGELOG.md) | Release history and version milestones. |
 
-### Mock Data
-| File | Description |
-|------|-------------|
-| `MyProduct/mock_aws_cur_iaas_heavy.csv` | Mock AWS Cost and Usage Report (CUR) with IaaS-heavy workloads. Primary sample dataset. |
-| `mock_aws_cur_iaas_heavy_named20251122.csv` | Variant of the AWS mock CUR with resource names following a naming convention, used to test naming convention parsing. |
-| `mock_cost_management_billing_50000_with_meter_sku.csv` | Mock Azure Cost Management export (50,000 rows) with `MeterName` and `SkuName` fields for VM size extraction. |
-| `mock_gcp_billing.csv` | Mock GCP billing export for testing GCP ingestion and service normalization. |
+---
 
-### Documentation
-| File | Description |
-|------|-------------|
-| `README.md` | This file. Project overview, usage examples, and file reference. |
-| `CHANGELOG.md` | Version history and notable changes. |
-| `ROADMAP.md` | Planned features and release milestones. |
+## Roadmap Overview
+
+See [`ROADMAP.md`](ROADMAP.md) for the full 10-phase strategic plan aligned with the FinOps Foundation lifecycle:
+
+- **Phase 1 (Completed):** Multi-Cloud Foundation & Service Normalization
+- **Phase 2:** FOCUS 1.0/1.1 Standard & Scalable Columnar Engine (DuckDB / Parquet)
+- **Phase 3:** Temporal Intelligence, MoM Variance & Predictive Forecasting
+- **Phase 4:** Tagging Health Scoring (A–F) & Naming Compliance Audits
+- **Phase 5:** Rate & Commitment Optimization (RIs, Savings Plans, CUDs, Amortization)
+- **Phase 6:** Modern Workloads: Kubernetes (OpenCost) & GenAI/GPU Cost Intelligence
+- **Phase 7:** Intelligent Modular IaC Vending & GitOps Drift Detection
+- **Phase 8:** Shift-Left CI/CD Cost-as-Code & PR Guardrails
+- **Phase 9:** Unit Economics & Sustainability (GreenOps Carbon Tracking)
+- **Phase 10:** "Click-to-Fix" Active FinOps & Automated Remediation
