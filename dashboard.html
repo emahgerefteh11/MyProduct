@@ -160,26 +160,37 @@
         </div>
     </header>
 
+    <div class="card" style="margin-bottom:24px; border-left:4px solid var(--primary);">
+        <details>
+            <summary style="cursor:pointer;font-weight:600;">Report provenance &amp; data quality</summary>
+            <p id="report-provenance" class="subtitle" style="margin-top:12px;"></p>
+            <p id="report-quality" class="subtitle" style="margin-top:8px;"></p>
+            <ul id="report-warnings" style="margin:12px 0 0 20px;color:#92400e;"></ul>
+        </details>
+        <p id="evidence-notice" class="subtitle" style="margin-top:8px;"></p>
+        <p id="chart-status" class="subtitle" hidden></p>
+    </div>
+
     <!-- Overview Tab -->
     <div id="tab-overview" class="view-section">
         <div class="kpi-grid">
             <div class="card">
-                <div class="kpi-label">Total Billed Cost</div>
+                <div class="kpi-label" id="kpi-total-label">Total Reported Cost</div>
                 <div class="kpi-value" id="kpi-total">--</div>
                 <div class="kpi-sub" id="kpi-providers-count">Aggregated multi-cloud spend</div>
             </div>
             <div class="card">
                 <div class="kpi-label">Avg Cost per Product</div>
                 <div class="kpi-value" id="kpi-unit-cost">--</div>
-                <div class="kpi-sub" id="kpi-mom-growth">Unit Economics</div>
+                <div class="kpi-sub" id="kpi-mom-growth">Period comparison unavailable</div>
             </div>
             <div class="card">
-                <div class="kpi-label">Est. Wasted Spend</div>
+                <div class="kpi-label">Estimated Savings</div>
                 <div class="kpi-value" id="kpi-wasted" style="color: #c2410c">--</div>
-                <div class="kpi-sub">Target for FinOps optimization</div>
+                <div class="kpi-sub" id="kpi-wasted-note">Requires verified optimization evidence</div>
             </div>
             <div class="card">
-                <div class="kpi-label">Multi-Cloud Mix</div>
+                <div class="kpi-label">Multi-Cloud Mix (All Platforms)</div>
                 <div class="kpi-sub" id="kpi-mix" style="margin-top:8px; flex-wrap:wrap; gap:4px;"></div>
             </div>
         </div>
@@ -208,7 +219,7 @@
                 </div>
                 <div class="table-container">
                     <table id="table-services">
-                        <thead><tr><th>Service Family</th><th>Provider Mix</th><th>Monthly Spend</th><th>% of Total</th></tr></thead>
+                        <thead><tr><th>Service Family</th><th>Classification</th><th>Reported Spend</th><th>% of Total</th></tr></thead>
                         <tbody></tbody>
                     </table>
                 </div>
@@ -228,7 +239,7 @@
             </div>
             <div class="table-container">
                 <table id="table-products">
-                    <thead><tr><th>Product Name</th><th>Platform</th><th>Environments</th><th>Monthly Spend</th><th>Status</th></tr></thead>
+                    <thead><tr><th>Product Name</th><th>Platform</th><th>Environments</th><th>Reported Spend</th><th>Status</th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -241,7 +252,7 @@
             <div class="card" style="border-left: 4px solid #10b981;">
                 <div class="kpi-label">Est. Total Potential Savings</div>
                 <div class="kpi-value" id="finops-total-savings" style="color: #10b981;">--</div>
-                <div class="kpi-sub">Across all optimization vectors</div>
+                <div class="kpi-sub" id="finops-evidence">Requires resource and utilization evidence</div>
             </div>
             <div class="card">
                 <div class="kpi-label">Critical Opportunities</div>
@@ -255,7 +266,7 @@
                 <div class="flex-between" style="margin-bottom: 12px; align-items: center;">
                     <div>
                         <h3>Actionable Optimization Recommendations</h3>
-                        <p class="subtitle">Resource-level FinOps backlog generated from discovered footprints</p>
+                        <p class="subtitle" id="recommendation-subtitle">Only evidence-backed findings should inform infrastructure changes</p>
                     </div>
                     <div style="display: flex; gap: 8px;">
                         <button class="badge badge-gray" onclick="filterFinops('all')" style="cursor:pointer; border:none;">All</button>
@@ -274,7 +285,7 @@
                 <div class="flex-between" style="margin-bottom: 12px;">
                     <div>
                         <h3>Reserved Instance & Savings Plan Coverage</h3>
-                        <p class="subtitle">Simulated coverage analysis for discovered compute SKUs</p>
+                        <p class="subtitle" id="coverage-subtitle">Requires commitment purchase and covered-usage records</p>
                     </div>
                 </div>
                 <div class="table-container">
@@ -334,7 +345,7 @@
             <!-- Builder Config -->
             <div class="card">
                 <h3>Vending Machine Configuration</h3>
-                <p class="subtitle">Scaffold modular IaC directly from discovered workloads</p>
+                <p class="subtitle">Suggested starter templates. Provider, region, SKU defaults, and topology require review; billing data does not establish a deployable architecture.</p>
                 <div style="margin-top: 24px; display: flex; flex-direction: column; gap: 16px;">
                     <div>
                         <label style="font-size: 13px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 8px;">Target Product / Workload</label>
@@ -363,7 +374,7 @@
                         <input type="text" id="iac-sku" style="width: 100%;" onkeyup="updateIacPreview()" placeholder="e.g. t3.medium (Leave blank for auto-detect)">
                     </div>
                     <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
-                        <button onclick="downloadIac()" style="background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; cursor: pointer;">Download main.tf</button>
+                        <button id="iac-download" onclick="downloadIac()" style="background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; cursor: pointer;">Download main.tf</button>
                         <span id="iac-status" style="font-size: 13px; color: var(--text-muted);"></span>
                     </div>
                 </div>
@@ -376,7 +387,7 @@
                         <h3>Code Preview</h3>
                         <div id="iac-pattern-badge" style="margin-top: 4px; font-size: 11px; font-weight: 600; color: #10b981; display: none;">Detected: 3-Tier Web Application</div>
                     </div>
-                    <button onclick="copyIacToClipboard()" style="background: #f1f5f9; color: var(--text-main); border: 1px solid var(--border); padding: 4px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">Copy to Clipboard</button>
+                    <button id="iac-copy" onclick="copyIacToClipboard()" style="background: #f1f5f9; color: var(--text-main); border: 1px solid var(--border); padding: 4px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">Copy to Clipboard</button>
                 </div>
                 <div style="margin-top: 16px; flex: 1; background: #0f172a; border-radius: 6px; padding: 16px; overflow: auto; min-height: 300px;">
                     <pre style="margin: 0; font-family: monospace; font-size: 13px; color: #e2e8f0; line-height: 1.5; white-space: pre-wrap;" id="iac-preview">Select a product to preview code...</pre>
@@ -389,9 +400,14 @@
 
 <script>
     let reportData = null;
+    let isDemoMode = false;
     const charts = {};
 
-    const fmtCurrency = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
+    const fmtCurrency = (n) => {
+        const currency = reportData?.analysis?.currency || (isDemoMode ? 'USD' : null);
+        const options = currency ? { style: 'currency', currency } : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+        return new Intl.NumberFormat('en-US', options).format(n);
+    };
     const fmtPct = (n) => `${n.toFixed(1)}%`;
 
     async function init() {
@@ -416,7 +432,7 @@
             if (!res || !res.ok) { showNoDataState(); return; }
 
             reportData = await res.json();
-            setMode('live');
+            setMode(reportData.sampleData === true ? 'demo' : 'live');
             populateFilters();
             renderDashboard('all');
         } catch (e) {
@@ -427,11 +443,14 @@
 
     function setMode(mode) {
         const isDemo = mode === 'demo';
+        isDemoMode = isDemo;
         const badgeClass = isDemo ? 'badge-demo' : 'badge-live';
-        const badgeText = isDemo ? 'DEMO DATA' : 'LIVE DATA';
-        document.getElementById('last-updated').innerHTML = isDemo
-            ? `Self-contained demo &mdash; ${new Date().toLocaleDateString()}`
-            : `Last analyzed: ${new Date().toLocaleDateString()}`;
+        const badgeText = isDemo ? 'DEMO DATA' : 'REPORT DATA';
+        const generatedAt = reportData?.analysis?.generatedAt;
+        const validDate = generatedAt && Number.isFinite(Date.parse(generatedAt));
+        document.getElementById('last-updated').textContent = isDemo
+            ? 'Illustrative demo — simulated insights are not operational findings'
+            : validDate ? `Analyzed: ${new Date(generatedAt).toLocaleString()}` : 'Analysis time unavailable — regenerate the report to add provenance';
         const sb = document.getElementById('mode-badge-sidebar');
         sb.innerHTML = `<span class="badge ${badgeClass}">${badgeText}</span>`;
         sb.style.display = 'block';
@@ -441,12 +460,44 @@
         document.getElementById('sidebar-switch-link').innerHTML = isDemo
             ? '<a href="dashboard.html" style="color:#9ca3af;text-decoration:none;font-size:12px;">&#8592; Switch to Live</a>'
             : '<a href="dashboard_demo.html" style="color:#9ca3af;text-decoration:none;font-size:12px;">View Demo &#8594;</a>';
+        renderProvenance();
+    }
+
+    function renderProvenance() {
+        const analysis = reportData?.analysis;
+        document.getElementById('evidence-notice').textContent = isDemoMode
+            ? 'DEMO: savings, month-over-month changes, and commitment coverage below are simulated examples. Unspecified demo currency is illustrated in USD.'
+            : 'Costs reflect the imported report. Savings, trends, and commitment coverage are unavailable until supporting evidence is provided.';
+        document.getElementById('kpi-total-label').textContent = analysis?.costBasis === 'effective' ? 'Total Effective Cost' : 'Total Reported Cost';
+        const warnings = document.getElementById('report-warnings');
+        warnings.innerHTML = '';
+        if (!analysis) {
+            document.getElementById('report-provenance').textContent = 'This report has no source, date, or currency metadata. Regenerate it with the current analysis engine.';
+            document.getElementById('report-quality').textContent = 'Source reconciliation unavailable. Report amounts are not assumed to be USD.';
+            return;
+        }
+        const sources = (analysis.sources || []).map(source => `${source.file} (${source.schema}, ${source.rows} rows; SHA-256: ${source.sha256 || 'unavailable'})`).join('; ');
+        const period = analysis.usagePeriod || {};
+        const periodText = `${period.start || 'unknown start'} → ${period.end || 'unknown end'}${period.complete ? '' : ' (incomplete)'}`;
+        document.getElementById('report-provenance').textContent = `${analysis.sourceCount} source(s), ${analysis.rowCount} rows. Currency: ${analysis.currency || 'unspecified'}. Cost basis: ${analysis.costBasis}. Observed usage: ${periodText}. Sources: ${sources}`;
+        const reconciliation = analysis.reconciliation;
+        document.getElementById('report-quality').textContent = reconciliation
+            ? `Source sum: ${fmtCurrency(reconciliation.sourceTotal)} · Report sum: ${fmtCurrency(reconciliation.reportTotal)} · Difference: ${fmtCurrency(reconciliation.difference)}. Reconciliation checks imported amounts, not completeness against your cloud invoice.`
+            : 'Source reconciliation unavailable.';
+        if (reportData.allocation) {
+            document.getElementById('report-quality').textContent += ` Unallocated product spend: ${fmtCurrency(reportData.allocation.unallocatedProductCost)}; unallocated platform spend: ${fmtCurrency(reportData.allocation.unallocatedPlatformCost)}.`;
+        }
+        (analysis.warnings || []).forEach(message => {
+            const item = document.createElement('li');
+            item.textContent = message;
+            warnings.appendChild(item);
+        });
     }
 
     function showNoDataState() {
         document.getElementById('last-updated').textContent = 'No data loaded';
         const sb = document.getElementById('mode-badge-sidebar');
-        sb.innerHTML = '<span class="badge badge-live">LIVE DATA</span>';
+        sb.innerHTML = '<span class="badge badge-live">REPORT DATA</span>';
         sb.style.display = 'block';
         document.getElementById('sidebar-switch-link').innerHTML =
             '<a href="dashboard_demo.html" style="color:#9ca3af;text-decoration:none;font-size:12px;">View Demo &#8594;</a>';
@@ -499,16 +550,17 @@
         const avgUnitCost = filteredProducts.length ? (filteredCost / filteredProducts.length) : 0;
         document.getElementById('kpi-unit-cost').textContent = fmtCurrency(avgUnitCost);
         
-        // MoM Growth (Mock)
-        // Use string hash of platformFilter to get deterministic growth
-        const hash = platformFilter.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0);
-        const mockMom = (((Math.abs(hash) % 100) / 10) - 2).toFixed(1);
-        const isUp = mockMom > 0;
-        document.getElementById('kpi-mom-growth').innerHTML = `<span style="color: ${isUp ? '#c2410c' : '#047857'}">${isUp ? '▲' : '▼'} ${Math.abs(mockMom)}%</span> &nbsp; vs last month`;
-
-        // Mock Wasted Spend (FinOps standard rule-of-thumb ~12-15%)
-        const wastedSpend = filteredCost * 0.125;
-        document.getElementById('kpi-wasted').textContent = fmtCurrency(wastedSpend);
+        if (isDemoMode) {
+            const hash = platformFilter.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0);
+            const mockMom = (((Math.abs(hash) % 100) / 10) - 2).toFixed(1);
+            document.getElementById('kpi-mom-growth').textContent = `Demo: ${mockMom}% vs last month (simulated)`;
+            document.getElementById('kpi-wasted').textContent = fmtCurrency(filteredCost * 0.125);
+            document.getElementById('kpi-wasted-note').textContent = 'Demo assumption: 12.5% of reported spend';
+        } else {
+            document.getElementById('kpi-mom-growth').textContent = 'Period comparison unavailable';
+            document.getElementById('kpi-wasted').textContent = 'Unavailable';
+            document.getElementById('kpi-wasted-note').textContent = 'Requires resource and utilization evidence';
+        }
 
         const mixDiv = document.getElementById('kpi-mix');
         mixDiv.innerHTML = '';
@@ -582,8 +634,7 @@
             const envs = (p.environments || []).map(e => `<span class="badge badge-gray">${e.Environment}</span>`).join(' ');
             
             // Status tag logic
-            let statusTag = '<span class="badge badge-green">Healthy</span>';
-            if (p.BilledCost > 15000) statusTag = '<span class="badge badge-aws" style="color:#b45309;background:#fef3c7;border-color:#fde68a">Review</span>';
+            const statusTag = '<span class="badge badge-gray">Cost reported</span>';
             
             tr.innerHTML = `
                 <td style="font-weight:600">${p.Product}</td>
@@ -602,6 +653,14 @@
         const tbody = document.querySelector('#table-recommendations tbody');
         tbody.innerHTML = '';
         const recs = category === 'all' ? window.finopsRecommendations : window.finopsRecommendations.filter(r => r.category === category);
+        if (!recs.length) {
+            const row = document.createElement('tr');
+            const cell = document.createElement('td');
+            cell.colSpan = 5;
+            cell.textContent = isDemoMode ? 'No demo examples in this category.' : 'No verified findings available. Billing exports alone cannot prove idle resources, unattached disks, or rightsizing opportunities.';
+            row.appendChild(cell);
+            tbody.appendChild(row);
+        }
         
         recs.forEach(r => {
             const tr = document.createElement('tr');
@@ -618,6 +677,16 @@
 
     function renderFinopsSection(platformFilter, totalCost, filteredProducts) {
         window.finopsRecommendations = [];
+        document.getElementById('finops-evidence').textContent = isDemoMode ? 'Simulated demo savings — not verified' : 'Requires resource and utilization evidence';
+        document.getElementById('recommendation-subtitle').textContent = isDemoMode ? 'Simulated examples with illustrative resource IDs' : 'Only evidence-backed findings should inform infrastructure changes';
+        document.getElementById('coverage-subtitle').textContent = isDemoMode ? 'Simulated demo coverage — not measured' : 'Requires commitment purchase and covered-usage records';
+        if (!isDemoMode) {
+            document.getElementById('finops-total-savings').textContent = 'Unavailable';
+            document.getElementById('finops-critical-count').textContent = 'Unavailable';
+            filterFinops('all');
+            document.querySelector('#table-ri-coverage tbody').innerHTML = '<tr><td colspan="5">Coverage unavailable. No commitment purchase or covered-usage evidence was analyzed.</td></tr>';
+            return;
+        }
         let totalSavings = 0;
         let criticalCount = 0;
 
@@ -807,6 +876,12 @@
     }
 
     function renderCharts(platformFilter) {
+        if (typeof Chart === 'undefined') {
+            const status = document.getElementById('chart-status');
+            status.hidden = false;
+            status.textContent = 'Charts are unavailable because the chart library could not load. Cost tables and analysis remain available.';
+            return;
+        }
         Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
         Chart.defaults.color = '#64748b';
         Chart.defaults.scale.grid.color = '#f1f5f9';
@@ -948,6 +1023,19 @@
         const pLower = platformName.toLowerCase();
         if (pLower.includes('azure')) provider = 'azure';
         if (pLower.includes('gcp') || pLower.includes('google')) provider = 'gcp';
+        document.getElementById('iac-download').disabled = false;
+        document.getElementById('iac-copy').disabled = false;
+        if (prodData.providers) {
+            const providers = [...new Set(prodData.providers.map(item => item.ProviderName))];
+            if (providers.length !== 1 || !['aws', 'azure', 'gcp'].includes(providers[0])) {
+                document.getElementById('iac-preview').textContent = 'This product has multiple or unknown providers. Use a report scoped to one provider before generating a starter template.';
+                document.getElementById('iac-pattern-badge').style.display = 'none';
+                document.getElementById('iac-download').disabled = true;
+                document.getElementById('iac-copy').disabled = true;
+                return;
+            }
+            provider = providers[0];
+        }
 
         let sku = skuOverride;
         if (!sku) {
@@ -977,7 +1065,7 @@
         if (hasCompute && hasDb && hasNet) patternName = '3-Tier Web Application';
         else if (hasContainer) patternName = 'Containerized Microservices';
         else if (hasServerless && hasObject) patternName = 'Serverless Data Pipeline';
-        else {
+        else if (isDemoMode) {
             // Mock a pattern for the demo if it's not clear
             const hash = cleanP.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0);
             if (Math.abs(hash) % 2 === 0) patternName = '3-Tier Web Application';
@@ -987,7 +1075,7 @@
         const badge = document.getElementById('iac-pattern-badge');
         if (patternName !== 'Single Compute Instance') {
             badge.style.display = 'block';
-            badge.textContent = `Detected: ${patternName}`;
+            badge.textContent = `${isDemoMode ? 'Demo suggestion' : 'Suggested starter pattern'}: ${patternName}`;
         } else {
             badge.style.display = 'none';
         }

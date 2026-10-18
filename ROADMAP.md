@@ -2,6 +2,15 @@
 
 A holistic, multi-phase roadmap aligned with the **FinOps Foundation Framework (Inform, Optimize, Operate)** and tailored for **Leadership, Finance, Platform/Engineering, Governance, and Product** personas.
 
+## Current delivery sequence
+
+1. **Trustworthy reporting (implemented in this iteration):** fix provider/tag attribution; expose report provenance, currency assumptions, source reconciliation, and unallocated spend; reject invalid or incompatible inputs; keep simulated insights in demo mode.
+2. **Guided import:** billing-file upload, schema/column mapping, validation preview, and an explicit path from sample data to a customer's first report.
+3. **Explain and assign spend:** actual billing-period comparisons, cost-change drivers, ownership rules, and shared-cost allocation.
+4. **Verify and act:** inventory/utilization-backed findings, savings status and measurement, and reviewed changes to existing infrastructure.
+
+The longer-term phases below remain directional. Partial FOCUS input handling and labeled multi-file summaries already exist; they do not yet provide full FOCUS conformance or real monthly comparison. The infrastructure builder produces starter templates with assumptions that need review.
+
 ---
 
 ## Phase 1: Multi-Cloud Foundation & Ingestion Parity (✅ Completed)

@@ -2,6 +2,23 @@
 
 All notable changes to the **MyProduct** infrastructure analysis tool will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Report provenance: actual analysis time, source fingerprints, row counts, currency assumptions, observed dates, cost basis, reconciliation, and unallocated spend.
+- Explicit `--currency` handling for missing source currencies; rejection of incompatible currencies and billed/effective cost bases.
+- Validation for invalid amounts and duplicate input files, plus Python/JavaScript regression checks and GitHub Actions.
+
+### Fixed
+- Native AWS resource-tag columns, Azure JSON tag attribution, FOCUS provider values, and GCP/FOCUS label arrays.
+- Report mode no longer generates simulated savings, resource IDs, month-over-month changes, reservation coverage, or arbitrary architecture patterns. Demo simulations are clearly labeled.
+- Legacy reports no longer claim today's date as their analysis time or silently assume USD.
+- Bundled sample data is explicitly labeled, and new per-product provider attribution is used by both IaC builders; ambiguous provider choices require user selection.
+- Dashboard tables remain available when the chart CDN cannot load. Demo generation escapes inline-script terminators and fails when its injection anchor is missing.
+
+### Scope
+- This iteration establishes trustworthy reporting. Guided import, real period comparisons, owner workflows, verified savings, and validated infrastructure changes remain future work.
+
 ## [v0.2.0] - 2026-02-17
 
 ### Added

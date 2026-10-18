@@ -20,8 +20,9 @@ def inject_data(html_path, json_path, output_path):
 
     print(f"Reading JSON from {json_path}...")
     with open(json_path, 'r', encoding='utf-8') as f:
-        json_content = f.read()
-        json.loads(json_content)  # validate
+        data = json.load(f)
+        # Keep imported labels from terminating the inline script element.
+        json_content = json.dumps(data, indent=2, allow_nan=False).replace('<', '\\u003c')
 
     print("Injecting data into HTML...")
 
@@ -34,7 +35,7 @@ def inject_data(html_path, json_path, output_path):
     if anchor in html_content:
         html_content = html_content.replace(anchor, injection + anchor, 1)
     else:
-        print("Warning: Could not find anchor 'let reportData = null;' — data not injected.")
+        raise ValueError("Could not find anchor 'let reportData = null;'; no demo was generated.")
 
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(html_content)

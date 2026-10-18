@@ -8,6 +8,8 @@ import re
 from collections import defaultdict
 from typing import Dict, List, Set, Tuple, Optional
 
+from billing_provenance import SourceAudit, build_analysis, numeric_value
+
 
 DEFAULT_NAMING_CONVENTION = {
     "version": 1,
@@ -171,8 +173,26 @@ def resolve_naming_fields(token_map: Dict[str, str], field_map: Dict[str, str]) 
     }
 
 
-def parse_resource_naming(resource_id: str, naming_config: dict) -> dict:
-    provider = detect_provider(resource_id)
+def is_opaque_resource_name(name: str) -> bool:
+    """Cloud-generated IDs are identifiers, not ownership naming conventions."""
+    return bool(re.fullmatch(
+        r"(?:i|vol|snap|ami|eni|vpc|subnet|sg)-[0-9a-f]+|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}|\d+",
+        name, re.IGNORECASE,
+    ))
+
+
+def normalize_provider(value: str) -> str:
+    key = (value or "").strip().lower()
+    return {
+        "amazon web services": "aws", "amazon web services, inc.": "aws", "amazon": "aws",
+        "microsoft": "azure", "microsoft azure": "azure",
+        "google": "gcp", "google cloud": "gcp", "google cloud platform": "gcp",
+    }.get(key, key or "unknown")
+
+
+def parse_resource_naming(resource_id: str, naming_config: dict, provider: str = "unknown") -> dict:
+    if provider == "unknown":
+        provider = detect_provider(resource_id)
     resource_name = normalize_resource_name(resource_id, provider)
     convention = select_convention(naming_config, provider)
     delimiter = convention.get("delimiter", "-")
@@ -184,7 +204,7 @@ def parse_resource_naming(resource_id: str, naming_config: dict) -> dict:
     field_map = {normalize_token(k): normalize_token(v) for k, v in field_map_raw.items() if k and v}
 
     token_map: Dict[str, str] = {}
-    if resource_name and pattern and delimiter:
+    if resource_name and pattern and delimiter and not is_opaque_resource_name(resource_name):
         parts = split_name_parts(resource_name, delimiter)
         token_map = map_parts_to_tokens(parts, pattern, delimiter)
 
@@ -217,15 +237,24 @@ def infer_schema(fieldnames: List[str]) -> dict:
         service_fields = [pick("ServiceCategory"), pick("ServiceName")]
         return {
             "schema": "focus",
-            "provider": pick("ProviderName"),
+            "provider": "unknown",
+            "provider_column": pick("ProviderName"),
             "cost": pick("BilledCost", "EffectiveCost"),
             "service_fields": [field for field in service_fields if field],
             "resource_id": pick("ResourceId", "ResourceName"),
-            "product_tag": pick("Tags"),
-            "environment_tag": pick("Tags"),
-            "platform_tag": pick("Tags", "SubAccountId", "SubAccountName"),
-            "usage_unit": pick("PricingUnit"),
-            "usage_amount": pick("UsageQuantity"),
+            "product_tag": pick("tags/Product"),
+            "environment_tag": pick("tags/Environment"),
+            "platform_tag": pick("tags/Platform"),
+            "json_tags": pick("Tags"),
+            "account": pick("SubAccountName", "SubAccountId"),
+            "currency": pick("BillingCurrency"),
+            "usage_start": pick("ChargePeriodStart"),
+            "usage_end": pick("ChargePeriodEnd"),
+            "billing_start": pick("BillingPeriodStart"),
+            "billing_end": pick("BillingPeriodEnd"),
+            "cost_basis": "billed" if pick("BilledCost") else "effective",
+            "usage_unit": pick("ConsumedUnit", "UsageUnit"),
+            "usage_amount": pick("ConsumedQuantity", "UsageQuantity"),
             "usage_type": pick("SkuId", "SkuPriceId"),
             "sku_name": pick("SkuId"),
         }
@@ -237,9 +266,14 @@ def infer_schema(fieldnames: List[str]) -> dict:
             "cost": pick("lineItem/UnblendedCost"),
             "service_fields": [field for field in service_fields if field],
             "resource_id": pick("resourceId", "lineItem/ResourceId"),
-            "product_tag": pick("tags/Product"),
-            "environment_tag": pick("tags/Environment"),
-            "platform_tag": pick("tags/Platform"),
+            "product_tag": pick("resourceTags/user:Product", "tags/Product"),
+            "environment_tag": pick("resourceTags/user:Environment", "tags/Environment"),
+            "platform_tag": pick("resourceTags/user:Platform", "tags/Platform"),
+            "currency": pick("lineItem/CurrencyCode"),
+            "usage_start": pick("lineItem/UsageStartDate"),
+            "usage_end": pick("lineItem/UsageEndDate"),
+            "billing_start": pick("bill/BillingPeriodStartDate"),
+            "billing_end": pick("bill/BillingPeriodEndDate"),
             "usage_unit": pick("lineItem/UsageUnit"),
             "usage_amount": pick("lineItem/UsageAmount"),
             "usage_type": pick("lineItem/UsageType"),
@@ -253,9 +287,15 @@ def infer_schema(fieldnames: List[str]) -> dict:
             "cost": pick("Cost"),
             "service_fields": [field for field in service_fields if field],
             "resource_id": pick("InstanceId", "ResourceId", "resourceId"),
-            "product_tag": pick("tags/Product", "Tags"),
+            "product_tag": pick("tags/Product"),
             "environment_tag": pick("tags/Environment"),
             "platform_tag": pick("tags/Platform"),
+            "json_tags": pick("Tags"),
+            "currency": pick("BillingCurrencyCode", "BillingCurrency", "Currency"),
+            "usage_start": pick("Date", "UsageDateTime", "UsageStartDate"),
+            "usage_end": pick("UsageEndDate"),
+            "billing_start": pick("BillingPeriodStartDate"),
+            "billing_end": pick("BillingPeriodEndDate"),
             "usage_unit": pick("UnitOfMeasure"),
             "usage_amount": pick("Quantity"),
             "usage_type": pick("ServiceName", "MeterName"),
@@ -268,9 +308,13 @@ def infer_schema(fieldnames: List[str]) -> dict:
             "cost": pick("Cost"),
             "service_fields": [pick("ServiceDescription"), pick("SkuDescription")],
             "resource_id": pick("LineItem"),  # Often just a generic ID or description in standard export
-            "product_tag": pick("Labels", "project.labels"),
-            "environment_tag": pick("Labels", "project.labels"),  # Logic to parse key:value needed
-            "platform_tag": pick("Labels", "project.labels"),
+            "product_tag": pick("tags/Product"),
+            "environment_tag": pick("tags/Environment"),
+            "platform_tag": pick("tags/Platform"),
+            "json_tags": pick("Labels", "project.labels"),
+            "currency": pick("Currency", "BillingCurrency"),
+            "usage_start": pick("UsageStartDate"),
+            "usage_end": pick("UsageEndDate"),
             "usage_unit": pick("UsageUnit"),
             "usage_amount": pick("UsageAmount"),
             "usage_type": pick("SkuDescription"),
@@ -378,13 +422,18 @@ def vm_combo_label(vcpu: int, ram_gib: float) -> str:
     return "Unknown size"
 
 def select_dimension_value(naming_value: str, tag_value: str, mode: str) -> str:
-    naming_value = naming_value or ""
-    tag_value = tag_value or ""
+    naming_value = clean_dimension(naming_value)
+    tag_value = clean_dimension(tag_value)
     if mode == "override":
         return naming_value or tag_value
-    if tag_value and tag_value != "UnTagged":
+    if tag_value:
         return tag_value
     return naming_value or tag_value
+
+
+def clean_dimension(value) -> str:
+    text = str(value).strip() if isinstance(value, (str, int, float)) else ""
+    return "" if text.lower() in {"", "untagged", "unknown", "unallocated", "none", "null"} else text
 
 
 def classify_resource_name(resource_id: str) -> str:
@@ -402,7 +451,7 @@ def classify_resource_name(resource_id: str) -> str:
 
 def extract_platform(resource_id: str) -> str:
     """Heuristic to extract a platform marker from a resource name like 'disk-PlatformB-dev-0001'."""
-    if not resource_id:
+    if not resource_id or is_opaque_resource_name(resource_id):
         return "unknown"
     parts = resource_id.split("-")
     if len(parts) >= 2:
@@ -434,29 +483,29 @@ def bucketize_resources(resources: Dict[str, float], include_resources: bool = F
 
 
 def parse_json_tags(label_string: str) -> Dict[str, str]:
-    """Parses JSON-like tag strings commonly found in GCP labels or FOCUS Tags."""
+    """Read tag objects, key/value label arrays, and prefixed GCP label objects."""
     if not label_string:
         return {}
-    # Try to find JSON-like content
-    match = re.search(r'\{.*\}', label_string)
-    if match:
-        try:
-            # Replace double double-quotes with single double-quotes if coming from CSV escaping
-            json_str = match.group(0).replace('""', '"')
-            data = json.loads(json_str)
-            
-            # Map keys flexibly
-            lower_data = {k.lower(): v for k, v in data.items()}
-            return {
-                "product": lower_data.get("product", ""),
-                "environment": lower_data.get("environment", "") or lower_data.get("env", ""),
-                "platform": lower_data.get("platform", "")
-            }
-        except Exception:
-            pass
-    return {}
+    try:
+        text = label_string.strip()
+        if not text.startswith(("{", "[")):
+            text = text[text.index("{"):]
+        data = json.loads(text)
+        if isinstance(data, list):
+            data = {item["key"]: item.get("value") for item in data if isinstance(item, dict) and "key" in item}
+        if not isinstance(data, dict):
+            return {}
+        tags = {str(key).lower(): clean_dimension(value) for key, value in data.items()}
+        return {
+            "product": tags.get("product", ""),
+            "environment": tags.get("environment") or tags.get("env", ""),
+            "platform": tags.get("platform", ""),
+        }
+    except (ValueError, TypeError):
+        return {}
 
-def load_cur(path: pathlib.Path, naming_config: dict, naming_mode: str = "fallback"):
+
+def load_cur(path: pathlib.Path, naming_config: dict, naming_mode: str = "fallback", assumed_currency: Optional[str] = None):
     prod_cost: Dict[str, float] = defaultdict(float)
     env_cost: Dict[str, float] = defaultdict(float)
     svc_cost: Dict[str, float] = defaultdict(float)
@@ -481,6 +530,7 @@ def load_cur(path: pathlib.Path, naming_config: dict, naming_mode: str = "fallba
 
     platform_rows: Dict[str, int] = defaultdict(int)
     platform_product_cost: Dict[str, Dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    product_provider_cost = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
     platform_env_cost: Dict[str, Dict[str, float]] = defaultdict(lambda: defaultdict(float))
     platform_service_cost: Dict[str, Dict[str, float]] = defaultdict(lambda: defaultdict(float))
     platform_product_rows: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
@@ -549,18 +599,23 @@ def load_cur(path: pathlib.Path, naming_config: dict, naming_mode: str = "fallba
         "t3.medium": {"vcpu": 2, "ram_gib": 4},
     }
 
-    with path.open(newline="") as f:
+    with path.open(newline="", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         schema = infer_schema(reader.fieldnames or [])
+        audit = SourceAudit(path, schema, assumed_currency)
 
         def read_value(row_data, key):
-            return row_data.get(key, "") if key else ""
+            return (row_data.get(key) or "").strip() if key else ""
 
         for row in reader:
-            cost = float(read_value(row, schema["cost"]) or 0)
+            if None in row:
+                raise ValueError(f"{path.name}: row {reader.line_num}: extra columns; check CSV quoting.")
+            cost_decimal = numeric_value(read_value(row, schema["cost"]), path, reader.line_num, schema["cost"])
+            cost = float(cost_decimal)
+            audit.observe(row, cost_decimal, reader.line_num)
             rid = read_value(row, schema["resource_id"]) or ""
             usage_unit = read_value(row, schema["usage_unit"])
-            usage_amount = float(read_value(row, schema["usage_amount"]) or 0)
+            usage_amount = float(numeric_value(read_value(row, schema["usage_amount"]), path, reader.line_num, schema["usage_amount"], optional=True))
             usage_type = read_value(row, schema["usage_type"]) or ""
             sku_name = read_value(row, schema.get("sku_name"))
 
@@ -571,38 +626,27 @@ def load_cur(path: pathlib.Path, naming_config: dict, naming_mode: str = "fallba
             env_tag = read_value(row, schema["environment_tag"])
             platform_tag = read_value(row, schema["platform_tag"])
 
-            naming = parse_resource_naming(rid, naming_config)
-            fields = naming["fields"]
-
-            provider = naming["provider"]
+            provider = normalize_provider(read_value(row, schema.get("provider_column")) or schema.get("provider"))
             if provider == "unknown":
-                provider = schema.get("provider", "unknown")
+                provider = detect_provider(rid)
+            naming = parse_resource_naming(rid, naming_config, provider)
+            fields = naming["fields"]
 
             svc = normalize_service(provider, service_values, rid)
 
-            if schema["schema"] == "focus" and product_tag:
-                tags = parse_json_tags(product_tag)
-                product_tag = tags.get("product") or ""
-                env_tag = tags.get("environment") or env_tag
-                # Only overwrite platform tag if it's missing (as SubAccountId might be better)
-                if not platform_tag or platform_tag == "unknown":
-                    platform_tag = tags.get("platform") or "unknown"
-                if not provider or provider == "unknown":
-                    # For focus, provider is read dynamically if not infer_schema level
-                    provider = read_value(row, schema["provider"]) or "unknown"
-                    provider = provider.lower()
-
-            if provider == "gcp" and product_tag:
-                gcp_labels = parse_json_tags(product_tag)
-                product_tag = gcp_labels.get("product") or ""
-                env_tag = gcp_labels.get("environment") or ""
-                platform_tag = gcp_labels.get("platform") or "GCP"
+            raw_tags = read_value(row, schema.get("json_tags"))
+            tags = parse_json_tags(raw_tags)
+            if raw_tags and not tags:
+                audit.invalid_tag_rows += 1
+            product_tag = clean_dimension(product_tag) or tags.get("product", "")
+            env_tag = clean_dimension(env_tag) or tags.get("environment", "")
+            platform_tag = clean_dimension(platform_tag) or tags.get("platform", "")
 
             prod = select_dimension_value(fields.get("product"), product_tag, naming_mode) or "UnTagged"
-            env = select_dimension_value(fields.get("environment"), env_tag, naming_mode) or "UnTagged"
+            env = normalize_environment(select_dimension_value(fields.get("environment"), env_tag, naming_mode)) or "UnTagged"
             platform_value = select_dimension_value(fields.get("platform"), platform_tag, naming_mode)
             if not platform_value:
-                platform_value = extract_platform(naming["resource_name"] or rid)
+                platform_value = read_value(row, schema.get("account")) or extract_platform(naming["resource_name"] or rid)
             platform = platform_value or "unknown"
 
             prod_cost[prod] += cost
@@ -623,6 +667,7 @@ def load_cur(path: pathlib.Path, naming_config: dict, naming_mode: str = "fallba
             platform_res_name_count[platform][res_key] += 1
             platform_rows[platform] += 1
             platform_product_cost[platform][prod] += cost
+            product_provider_cost[platform][prod][provider] += cost
             platform_env_cost[platform][env] += cost
             platform_service_cost[platform][svc] += cost
             platform_product_rows[platform][prod] += 1
@@ -708,6 +753,7 @@ def load_cur(path: pathlib.Path, naming_config: dict, naming_mode: str = "fallba
                         platform_product_vm_types[platform][prod][rid] = sku
 
     return {
+        "sourceMetadata": [audit.finish()],
         "prod_cost": prod_cost,
         "env_cost": env_cost,
         "svc_cost": svc_cost,
@@ -729,6 +775,7 @@ def load_cur(path: pathlib.Path, naming_config: dict, naming_mode: str = "fallba
         "instance_info": instance_info,
         "platform_rows": platform_rows,
         "platform_product_cost": platform_product_cost,
+        "product_provider_cost": product_provider_cost,
         "platform_env_cost": platform_env_cost,
         "platform_service_cost": platform_service_cost,
         "platform_product_rows": platform_product_rows,
@@ -804,6 +851,9 @@ def merge_cur_states(states: List[dict]) -> dict:
     merged: Dict[str, object] = {}
     for state in states:
         for key, value in state.items():
+            if key == "sourceMetadata":
+                merged.setdefault(key, []).extend(value)
+                continue
             if key == "instance_info":
                 if "instance_info" not in merged:
                     merged["instance_info"] = value
@@ -1128,6 +1178,10 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
             platforms[-1]["products"].append(
                 {
                     "Product": prod,
+                    "providers": [
+                        {"ProviderName": provider, "BilledCost": round(amount, 2)}
+                        for provider, amount in sorted(cur["product_provider_cost"][name][prod].items())
+                    ],
                     "BilledCost": round(pcost, 2),
                     "pctOfPlatform": round((pcost / cost_val * 100) if cost_val else 0.0, 2),
                     "rows": platform_product_rows[name].get(prod, 0),
@@ -1180,6 +1234,12 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
             shared_stacks.append({"products": sorted(prods), "services": sorted(stack)})
 
     return {
+        "analysis": build_analysis(cur["sourceMetadata"], round(total_cost, 2)),
+        "allocation": {
+            "unallocatedProductCost": round(sum(cost for name, cost in prod_cost.items() if not clean_dimension(name)), 2),
+            "unallocatedPlatformCost": round(sum(cost for name, cost in platform_cost.items() if not clean_dimension(name)), 2),
+            "unallocatedEnvironmentCost": round(sum(cost for name, cost in env_cost.items() if not clean_dimension(name)), 2),
+        },
         "TotalBilledCost": round(total_cost, 2),
         "products": products,
         "services": services,
@@ -1244,6 +1304,10 @@ def main():
         help="Optional report label for each input (repeatable)",
     )
     parser.add_argument(
+        "--currency",
+        help="Explicit currency assumption for rows without a currency (e.g. USD). Does not convert or overwrite source currencies.",
+    )
+    parser.add_argument(
         "--naming-mode",
         choices=["fallback", "override"],
         default="fallback",
@@ -1260,25 +1324,44 @@ def main():
 
     states = []
     reports = []
+    seen_sources = set()
     for idx, path in enumerate(input_paths):
-        cur = load_cur(path, naming_config, args.naming_mode)
+        try:
+            cur = load_cur(path, naming_config, args.naming_mode, args.currency)
+        except (ValueError, OSError) as error:
+            parser.error(str(error))
+        fingerprint = cur["sourceMetadata"][0]["sha256"]
+        if fingerprint in seen_sources:
+            parser.error(f"Duplicate billing input: {path.name}. The same file contents cannot be counted twice.")
+        seen_sources.add(fingerprint)
         states.append(cur)
+        try:
+            source_summary = build_summary(cur)
+        except ValueError as error:
+            parser.error(str(error))
         reports.append(
             {
                 "id": f"report-{idx + 1}",
                 "label": labels[idx],
-                "source": str(path),
-                "summary": build_summary(cur),
+                "source": path.name,
+                "summary": source_summary,
             }
         )
 
     aggregate_state = merge_cur_states(states) if len(states) > 1 else states[0]
-    summary = build_summary(aggregate_state)
+    try:
+        summary = build_summary(aggregate_state)
+    except ValueError as error:
+        parser.error(str(error))
     summary["namingConvention"] = build_naming_metadata(naming_config, args.naming, args.naming_mode)
     summary["reports"] = reports
     summary["reportCount"] = len(reports)
-    args.output.write_text(json.dumps(summary, indent=2))
-    print(f"Wrote {args.output} with TotalBilledCost=${summary['TotalBilledCost']:,.2f}")
+    summary["sampleData"] = False
+    args.output.write_text(json.dumps(summary, indent=2, allow_nan=False), encoding="utf-8")
+    currency_label = summary["analysis"]["currency"] or "currency unspecified"
+    print(f"Wrote {args.output} with {summary['TotalBilledCost']:,.2f} ({currency_label}; {summary['analysis']['costBasis']} cost)")
+    for warning in summary["analysis"]["warnings"]:
+        print(f"Warning: {warning}")
 
 
 if __name__ == "__main__":

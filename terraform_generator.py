@@ -31,6 +31,11 @@ def sanitize_name(name: str) -> str:
 
 def detect_stack_provider(platform_name: str, product_data: dict, default_provider: str = "aws") -> str:
     """Infer the primary cloud provider from platform/product metadata or discovered services."""
+    if "providers" in product_data:
+        providers = {item["ProviderName"] for item in product_data["providers"]}
+        if len(providers) == 1 and providers <= {"aws", "azure", "gcp"}:
+            return next(iter(providers))
+        raise ValueError("This product has multiple or unknown providers. Select --provider explicitly before generating a starter template.")
     plat_lower = platform_name.lower()
     prod_lower = product_data.get("Product", "").lower()
     
