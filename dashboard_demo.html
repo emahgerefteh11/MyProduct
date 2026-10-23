@@ -308,7 +308,7 @@
         <div class="section-grid">
             <div class="card full-width">
                 <h3>Compute SKU Run Hours</h3>
-                <p class="subtitle">Aggregated instance run-hours and sizing across AWS, Azure, and GCP</p>
+                <p class="subtitle" id="compute-scope">Aggregated instance run-hours and sizing across AWS, Azure, and GCP</p>
                 <div class="chart-container" style="height: 320px;">
                     <canvas id="chart-skus"></canvas>
                 </div>
@@ -333,11 +333,11 @@
             <div id="naming-pattern" style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap;"></div>
         </div>
         <div class="card full-width">
-            <h3>Discovered Resource Types</h3>
-            <p class="subtitle">Resource tokens parsed from naming patterns and infrastructure IDs</p>
+            <h3 id="resource-title">Discovered Resource Types</h3>
+            <p class="subtitle" id="resource-description">Resource tokens parsed from naming patterns and infrastructure IDs</p>
             <div class="table-container">
                 <table id="table-naming-resources">
-                    <thead><tr><th>Parsed Resource Type / Token</th><th>Matched Rows</th><th>Total Spend</th><th>% of Total</th></tr></thead>
+                    <thead><tr><th id="resource-column">Parsed Resource Type / Token</th><th>Matched Rows</th><th>Total Spend</th><th>% of Total</th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -18919,6 +18919,13 @@
 
     function renderProvenance() {
         const analysis = reportData?.analysis;
+        const browserImport = analysis?.importMethod === 'browser';
+        document.getElementById('compute-scope').textContent = browserImport
+            ? 'Hardware sizing and run-hours are not analyzed by browser import. Use the command-line analyzer for supported SKU details.'
+            : 'Aggregated instance run-hours and sizing across AWS, Azure, and GCP';
+        document.getElementById('resource-title').textContent = browserImport ? 'Reported Resource Identifiers' : 'Discovered Resource Types';
+        document.getElementById('resource-description').textContent = browserImport ? 'Resource IDs or names as supplied in the mapped column; no naming-pattern inference.' : 'Resource tokens parsed from naming patterns and infrastructure IDs';
+        document.getElementById('resource-column').textContent = browserImport ? 'Resource ID / Name' : 'Parsed Resource Type / Token';
         document.getElementById('evidence-notice').textContent = isDemoMode
             ? 'DEMO: savings, month-over-month changes, and commitment coverage below are simulated examples. Unspecified demo currency is illustrated in USD.'
             : 'Costs reflect the imported report. Savings, trends, and commitment coverage are unavailable until supporting evidence is provided.';
