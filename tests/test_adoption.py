@@ -184,7 +184,7 @@ class PlanTests(unittest.TestCase):
 
             with patch.object(adoption, "saved_plan", return_value=review), patch.object(adoption, "engine_run", side_effect=run):
                 result = adoption.adopt(folder, confirm=True)
-            self.assertEqual(calls[0:2], [["state", "list"], ["state", "pull"]])
+            self.assertEqual(calls[0], ["state", "pull"])
             self.assertIn(["apply", "-input=false", "adoption.tfplan"], calls)
             self.assertEqual(calls[-2:], [["plan", "-input=false", "-detailed-exitcode"], ["show", "-json"]])
             self.assertEqual(result["resources"][0]["status"], "imported")
@@ -229,6 +229,20 @@ class PlanTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "partial imports"):
                     adoption.adopt(folder, confirm=True)
             self.assertEqual(adoption.read_json(folder / "inventory.json")["resources"][0]["status"], "import-state-unknown")
+
+    def test_new_workspace_needs_no_backup_and_backend_failure_blocks_adoption(self):
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            with patch.object(adoption, "engine_run", return_value="") as run:
+                self.assertIsNone(adoption.backup_state(folder))
+                run.assert_called_once_with("terraform", folder, ["state", "pull"], capture=True)
+            review = {"planSha256": "same", "resources": []}
+            adoption.write_json(folder / "adoption-plan-review.json", review)
+            with patch.object(adoption, "saved_plan", return_value=review), patch.object(adoption, "engine_run", side_effect=ValueError("Backend denied")) as run:
+                with self.assertRaisesRegex(ValueError, "Backend denied"):
+                    adoption.adopt(folder, confirm=True)
+                self.assertEqual(run.call_count, 1)
+                self.assertEqual(run.call_args.args[2], ["state", "pull"])
 
     def test_clean_plan_alone_cannot_verify_missing_or_wrong_state_identity(self):
         for actual in [[], [{"address": self.expected[0]["address"], "values": {"id": "wrong"}}]]:

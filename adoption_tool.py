@@ -388,6 +388,20 @@ def plan_adoption(directory, engine="terraform"):
     return review
 
 
+def backup_state(directory, engine="terraform"):
+    # state pull succeeds with no output when no state exists. Unlike state
+    # list, it therefore supports a brand-new organization/workspace while
+    # still failing closed on backend/authentication/read errors.
+    backup = engine_run(engine, directory, ["state", "pull"], capture=True)
+    if not backup.strip():
+        return None
+    json.loads(backup)  # Never keep a non-JSON response as a state backup.
+    backup_path = directory / ("state-backup-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f") + ".json")
+    with os.fdopen(os.open(backup_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w", encoding="utf-8") as stream:
+        stream.write(backup)
+    return backup_path
+
+
 def adopt(directory, engine="terraform", confirm=False):
     if not confirm:
         raise ValueError("Confirm these resources are not owned by another IaC state using --confirm-unmanaged after your review.")
@@ -396,14 +410,7 @@ def adopt(directory, engine="terraform", confirm=False):
     review = saved_plan(directory, engine)
     if receipt.get("planSha256") != review["planSha256"]:
         raise ValueError("The saved plan changed after review. Run plan and review again.")
-    # State pull may report no state for a new local/backend workspace. First use
-    # state list to distinguish an empty workspace from a failed state read.
-    listed = engine_run(engine, directory, ["state", "list"], capture=True)
-    if listed.strip():
-        backup = engine_run(engine, directory, ["state", "pull"], capture=True)
-        backup_path = directory / ("state-backup-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f") + ".json")
-        with os.fdopen(os.open(backup_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w", encoding="utf-8") as stream:
-            stream.write(backup)
+    backup_state(directory, engine)
     inventory = read_json(directory / "inventory.json")
     imported = {r["address"] for r in review["resources"]}
     for r in inventory["resources"]:

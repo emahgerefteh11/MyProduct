@@ -8,7 +8,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from adoption_tool import alias, classify, repository_files
+from adoption_tool import alias, backup_state, classify, repository_files
 
 
 def main():
@@ -38,6 +38,7 @@ def main():
         (folder / "validation_resources.tf").write_text("\n".join(stubs))
         for args in [["fmt", "-recursive"], ["init", "-backend=false", "-input=false", "-no-color"], ["validate", "-no-color"]]:
             subprocess.run(["terraform", f"-chdir={folder}"] + args, check=True, timeout=300)
+        assert backup_state(folder) is None, "A first adoption must work before any state file exists."
 
 
 if __name__ == "__main__":
