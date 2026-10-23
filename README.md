@@ -55,6 +55,8 @@ New reports preserve provider attribution per platform/product. The IaC builders
 
 For organizations with existing Terraform/OpenTofu, the planned workflow is to connect their repositories and workspaces, reconcile managed resources with cloud inventory and billing, and propose changes to their existing modules through pull requests and their normal CI/CD process. Start with read-only cost attribution by module/workspace; state/plan collection should run inside the customer's environment and export only allowlisted metadata. Existing-infrastructure discovery, reconciliation, and PR generation are **not yet implemented**. See [Build on Existing Infrastructure as Code](ROADMAP.md#phase-7-build-on-existing-infrastructure-as-code).
 
+For organizations with **no IaC**, a separate planned adoption flow starts from AWS CUR/GCP billing reports, enriches resource candidates with current cloud configuration, and generates Terraform/OpenTofu definitions plus import blocks for the infrastructure already running. It includes repository/state-backend onboarding and staged imports validated by a plan showing no resource changes, followed by a clean post-import plan. Billing files alone support draft generation and gap reporting; the current starter-template builders do not import existing resources or provide this migration workflow. See [From billing reports to managed IaC](ROADMAP.md#from-billing-reports-to-managed-iac).
+
 ### Regression checks
 
 The analysis engine and its tests use the Python standard library. Dashboard behavior checks use Node.js and a minimal DOM harness; they do not require a browser or CDN access.

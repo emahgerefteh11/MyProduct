@@ -9,7 +9,7 @@ A holistic, multi-phase roadmap aligned with the **FinOps Foundation Framework (
 3. **Modern dashboard UI:** substantially refresh the visual design, navigation, charts, and responsive layouts to give the product a polished, modern feel.
 4. **Native billing reports and direct cloud connections:** expand AWS CUR/GCP billing-report coverage and add connected-account ingestion that generates and refreshes the reporting dashboard without manual file uploads. Prioritize AWS and GCP, then Azure.
 5. **Explain and assign spend:** actual billing-period comparisons, cost-change drivers, ownership rules, and shared-cost allocation.
-6. **Verify and act:** inventory/utilization-backed findings, savings status and measurement, and reviewed changes through an organization's existing IaC repositories, modules, workspaces, and deployment pipelines.
+6. **Adopt IaC, verify, and act:** help organizations move from no IaC to managed infrastructure through billing discovery, cloud configuration enrichment, generated definitions, and reviewed imports; then deliver inventory/utilization-backed findings and changes through their IaC repositories and deployment pipelines.
 
 The longer-term phases below remain directional. Partial FOCUS input handling and labeled multi-file summaries already exist; they do not yet provide full FOCUS conformance or real monthly comparison. The infrastructure builder produces starter templates with assumptions that need review.
 
@@ -126,7 +126,7 @@ The longer-term phases below remain directional. Partial FOCUS input handling an
 ## Phase 7: Build on Existing Infrastructure as Code
 *Persona Focus: Platform Engineers & DevOps*
 
-**Preferred workflow for existing estates:** connect the organization's repository and Terraform/OpenTofu workspaces, map managed resources to cloud inventory and billing, and propose changes to the code they already maintain. Their existing deployment pipeline remains responsible for applying approved changes. Starter-template generation remains available for new infrastructure.
+**For organizations already using IaC:** connect the organization's repository and Terraform/OpenTofu workspaces, map managed resources to cloud inventory and billing, and propose changes to the code they already maintain. Their existing deployment pipeline remains responsible for applying approved changes. Organizations without IaC use the adoption workflow below. Starter-template generation remains available for new infrastructure.
 
 - [ ] **Read-Only Repository and Workspace Discovery:** identify IaC roots, modules, provider aliases, lockfiles, environments, and state/workspace boundaries. Record the repository commit, workspace, account/project, and collection time for every snapshot.
 - [ ] **Customer-Run CI Collector:** start with a collector inside the organization's existing Terraform/OpenTofu pipeline. Read structured state and plan data there and export only allowlisted resource addresses, provider resource IDs, module relationships, and required non-secret attributes. Raw state and plan JSON can contain secrets even when fields are marked sensitive; keep them out of the browser, public artifacts, and this repository.
@@ -135,10 +135,25 @@ The longer-term phases below remain directional. Partial FOCUS input handling an
 - [ ] **Verified Drift and Coverage:** use read-only cloud inventory and refreshed Terraform plan evidence to identify drift or resources outside the connected states. Distinguish desired configuration, the last recorded state, current observations, and historical billing; billing alone does not establish drift or unmanaged status.
 - [ ] **Changes to Existing Modules:** use utilization and pricing evidence to propose focused edits to existing module inputs or resource definitions. Preserve module structure, provider constraints, naming, and state addresses. Where code ownership or resource mapping is ambiguous, provide a recommendation for review rather than generating a competing resource definition.
 - [ ] **Pull Requests Through Existing CI:** include the evidence, estimated cost impact, and affected resources with each proposed change. Run validation and a fresh plan in the customer's trusted pipeline; highlight replacements, deletions, and data-loss risks. Apply through the organization's existing approval and deployment process, then measure realized savings separately from estimates.
-- [ ] **Adopt Unmanaged Resources Deliberately:** offer draft Terraform import blocks and configuration for resources confirmed outside connected management boundaries. Require a reviewed plan before adoption; discovery must not automatically change state or create replacement resources.
+- [ ] **Adopt Unmanaged Resources Deliberately:** implement the billing-report-to-IaC workflow below for resources confirmed outside existing management boundaries. Discovery must not automatically change state or create replacement resources.
 - [ ] **New Infrastructure Starter Templates:** retain modular Terraform starter generation for new deployments, using verified SKU and inventory evidence where available and explicit assumptions elsewhere. Filter unused resources only when supporting utilization evidence exists.
 
 **First deliverable:** a read-only Terraform/OpenTofu collector and a cost-by-module/workspace dashboard with source links and unmatched-resource reporting. Add recommendation-to-PR workflows after resource identity and allocation are reliable.
+
+### From billing reports to managed IaC
+
+**Product requirement:** enable organizations with no IaC to use AWS CUR or GCP billing reports as the starting point for bringing their existing infrastructure under Terraform/OpenTofu management.
+
+Billing reports identify services, costs, and some resource IDs; they do not contain a complete deployable configuration. With billing files alone, produce a clearly labeled draft and a list of missing information. Preparing existing resources for adoption requires read-only cloud discovery or equivalent verified inventory supplied by the organization.
+
+- [ ] **Discover and Prioritize:** extract candidate resources from uploaded or connected billing reports and group them by account/project, region, service, application, and spend. Identify stale/deleted resources, charges without resource IDs, and resources already managed elsewhere; do not treat a billing line as proof that a resource still exists or is unmanaged.
+- [ ] **Enrich the Configuration:** retrieve current resource settings and dependencies through scoped cloud APIs, including networking, storage attachments, security settings, and identity references where supported. Record source evidence and unresolved attributes. Keep secret values out of generated code and use existing secret references or explicit placeholders.
+- [ ] **Generate an Adoption Repository:** create supported Terraform/OpenTofu resource definitions, variables, outputs, provider constraints, dependency references, and import blocks using the actual provider import IDs. Preserve existing names and configuration; show unsupported resource types and missing dependencies for manual resolution. Offer modules after a faithful baseline is established.
+- [ ] **Bootstrap the Management Workflow:** guide repository setup, environment boundaries, a protected remote state backend with locking and versioning, scoped CI identity, and plan/review steps for organizations that do not yet have an IaC pipeline.
+- [ ] **Preview and Import in Stages:** show the resource-to-code mapping and planned imports for a selected application or environment. Require a reviewed adoption plan with zero resource creates, updates, replacements, or deletes before executing imports through the customer's approved workflow. Verify a subsequent clean plan and retain a state backup. Resolve configuration differences before adoption; optimize after the baseline is stable.
+- [ ] **Track Adoption Coverage:** report discovered, eligible, generated, imported, verified, and unresolved resources with ownership and attributable spend. Keep unmatched billing charges visible. Prevent the same resource from being adopted into multiple states.
+
+**First adoption deliverable:** a narrow, tested set of AWS/GCP resource types with a discovery preview, explicit configuration gaps, generated definitions/import blocks, and a guided path to a verified baseline. Full automatic reconstruction from billing data alone is not an acceptance criterion.
 
 ---
 
