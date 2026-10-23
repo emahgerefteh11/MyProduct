@@ -4,7 +4,7 @@
 .batch-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 20px 0 12px; font-size: 12px; }
 .batch-toolbar button { padding: 7px 12px; font-size: 12px; }
 .inventory-table { max-height: 540px; }
-.inventory-table th:first-child, .inventory-table td:first-child { min-width: 50px; width: 50px; }
+.inventory-table th:first-child, .inventory-table td:first-child { min-width: 65px; width: 65px; white-space: nowrap; }
 .inventory-table input { width: 17px; height: 17px; accent-color: var(--accent); }
 .inventory-table td:nth-child(2) { min-width: 220px; }
 .inventory-table td:nth-child(5) { min-width: 180px; }

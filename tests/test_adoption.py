@@ -175,17 +175,18 @@ class PlanTests(unittest.TestCase):
             review = {"planSha256": "same", "resources": [{"address": self.expected[0]["address"]}]}
             adoption.write_json(folder / "adoption-plan-review.json", review)
             adoption.write_json(folder / "inventory.json", {"resources": [{**self.expected[0], "status": "verified"}]})
+            adoption.write_json(folder / "adoption.json", {"resources": self.expected[:1]})
             calls = []
 
             def run(engine, directory, args, capture=False):
                 calls.append(args)
-                return 'existing.resource\n' if args == ["state", "list"] else '{"private": "state"}' if args == ["state", "pull"] else None
+                return 'existing.resource\n' if args == ["state", "list"] else '{"private": "state"}' if args == ["state", "pull"] else json.dumps({"values": {"root_module": {"resources": [{"address": self.expected[0]["address"], "values": {"id": self.expected[0]["importId"]}}]}}}) if args == ["show", "-json"] else None
 
             with patch.object(adoption, "saved_plan", return_value=review), patch.object(adoption, "engine_run", side_effect=run):
                 result = adoption.adopt(folder, confirm=True)
             self.assertEqual(calls[0:2], [["state", "list"], ["state", "pull"]])
             self.assertIn(["apply", "-input=false", "adoption.tfplan"], calls)
-            self.assertEqual(calls[-1], ["plan", "-input=false", "-detailed-exitcode"])
+            self.assertEqual(calls[-2:], [["plan", "-input=false", "-detailed-exitcode"], ["show", "-json"]])
             self.assertEqual(result["resources"][0]["status"], "imported")
             backups = list(folder.glob("state-backup-*.json"))
             self.assertEqual(len(backups), 1)
@@ -206,9 +207,33 @@ class PlanTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     adoption.adopt(folder, confirm=True)
             self.assertEqual(adoption.read_json(folder / "inventory.json")["resources"][0]["status"], "imported-needs-review")
-            with patch.object(adoption, "engine_run", return_value=None):
+            adoption.write_json(folder / "adoption.json", {"resources": [{"address": "test.resource", "importId": "expected"}]})
+            state = json.dumps({"values": {"root_module": {"resources": [{"address": "test.resource", "values": {"id": "expected"}}]}}})
+            with patch.object(adoption, "engine_run", return_value=state):
                 result = adoption.verify_baseline(folder)
             self.assertEqual(result["resources"][0]["status"], "imported")
+
+    def test_partial_apply_failure_is_recorded_and_cannot_look_unmanaged(self):
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            review = {"planSha256": "same", "resources": [{"address": self.expected[0]["address"]}]}
+            adoption.write_json(folder / "adoption-plan-review.json", review)
+            adoption.write_json(folder / "inventory.json", {"resources": [{**self.expected[0], "status": "verified"}]})
+
+            def run(engine, directory, args, capture=False):
+                if "apply" in args:
+                    raise ValueError("Interrupted")
+                return ""
+
+            with patch.object(adoption, "saved_plan", return_value=review), patch.object(adoption, "engine_run", side_effect=run):
+                with self.assertRaisesRegex(ValueError, "partial imports"):
+                    adoption.adopt(folder, confirm=True)
+            self.assertEqual(adoption.read_json(folder / "inventory.json")["resources"][0]["status"], "import-state-unknown")
+
+    def test_clean_plan_alone_cannot_verify_missing_or_wrong_state_identity(self):
+        for actual in [[], [{"address": self.expected[0]["address"], "values": {"id": "wrong"}}]]:
+            with self.assertRaises(ValueError):
+                adoption.check_baseline_state({"values": {"root_module": {"resources": actual}}}, self.expected)
 
 
 class BillingIntegrationTests(unittest.TestCase):

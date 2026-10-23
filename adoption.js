@@ -50,7 +50,7 @@
     }
     function manifest(report, selected) {
         if (report.sampleData) throw new Error('Import your own billing report before preparing an adoption batch. Sample resources cannot be adopted.');
-        if (!selected.length || selected.length > MAX_BATCH || selected.some(r => r.status !== 'candidate' || ['imported', 'imported-needs-review', 'already-managed'].includes(r.discovery?.status))) throw new Error(`Choose 1–${MAX_BATCH} unmanaged resources ready for discovery.`);
+        if (!selected.length || selected.length > MAX_BATCH || selected.some(r => r.status !== 'candidate' || ['imported', 'imported-needs-review', 'import-state-unknown', 'already-managed'].includes(r.discovery?.status))) throw new Error(`Choose 1–${MAX_BATCH} unmanaged resources ready for discovery.`);
         if (new Set(selected.map(identity)).size !== selected.length) throw new Error('Select each cloud resource only once.');
         return {schemaVersion: 1, kind: 'atlas-adoption-manifest', generatedAt: new Date().toISOString(),
             billing: {generatedAt: report.analysis?.generatedAt || null, currency: report.analysis?.currency || null, costBasis: report.analysis?.costBasis || null},
@@ -58,7 +58,7 @@
     }
     function results(inventory, items) {
         if (inventory?.schemaVersion !== 1 || inventory?.kind !== 'atlas-adoption-inventory' || !Array.isArray(inventory.resources) || inventory.resources.length > MAX_BATCH) throw new Error('Choose inventory.json produced by the Atlas adoption tool. Raw Terraform plan/state files are not accepted.');
-        const allowed = new Set(['verified', 'imported', 'imported-needs-review', 'already-managed', 'not-found', 'error', 'dependency-review']);
+        const allowed = new Set(['verified', 'imported', 'imported-needs-review', 'import-state-unknown', 'already-managed', 'not-found', 'error', 'dependency-review']);
         const map = new Map();
         for (const r of inventory.resources) {
             const canonical = classify(r);
@@ -78,9 +78,9 @@
         for (const [path, content] of Object.entries(files)) {
             if (!/^[a-zA-Z0-9_.-]+$/.test(path)) throw new Error('Package filenames must be simple relative names.');
             const name = encoder.encode(path), data = encoder.encode(content), crc = crc32(data);
-            const header = bytes(30, [[0, 0x04034b50, 4], [4, 20, 2], [6, 0x800, 2], [14, crc, 4], [18, data.length, 4], [22, data.length, 4], [26, name.length, 2]]);
+            const header = bytes(30, [[0, 0x04034b50, 4], [4, 20, 2], [6, 0x800, 2], [12, 33, 2], [14, crc, 4], [18, data.length, 4], [22, data.length, 4], [26, name.length, 2]]);
             local.push(header, name, data);
-            central.push(bytes(46, [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, 0x800, 2], [16, crc, 4], [20, data.length, 4], [24, data.length, 4], [28, name.length, 2], [42, offset, 4]]), name);
+            central.push(bytes(46, [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, 0x800, 2], [14, 33, 2], [16, crc, 4], [20, data.length, 4], [24, data.length, 4], [28, name.length, 2], [42, offset, 4]]), name);
             offset += header.length + name.length + data.length;
         }
         const size = central.reduce((n, part) => n + part.length, 0), count = Object.keys(files).length;

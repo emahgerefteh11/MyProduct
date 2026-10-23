@@ -251,6 +251,11 @@ differences without changing infrastructure and run:
 
     python adoption_tool.py verify --directory adoption
 
+If apply fails or is interrupted, inventory records import-state-unknown because
+some imports may already exist. Inspect state and recover through your normal
+Terraform workflow before retrying. Verification checks both a clean plan and
+the original resource IDs in state.
+
 Only resources verified as unmanaged by
 your organization belong here. Use --managed-ids during discovery to exclude a
 known inventory; discovery cannot detect all external Terraform states.
@@ -397,11 +402,24 @@ def adopt(directory, engine="terraform", confirm=False):
     if listed.strip():
         backup = engine_run(engine, directory, ["state", "pull"], capture=True)
         backup_path = directory / ("state-backup-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f") + ".json")
-        backup_path.write_text(backup, encoding="utf-8")
-        backup_path.chmod(0o600)
-    engine_run(engine, directory, ["apply", "-input=false", "adoption.tfplan"])
+        with os.fdopen(os.open(backup_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w", encoding="utf-8") as stream:
+            stream.write(backup)
     inventory = read_json(directory / "inventory.json")
     imported = {r["address"] for r in review["resources"]}
+    for r in inventory["resources"]:
+        if r["address"] in imported:
+            r.update(status="import-state-unknown", message="Import step started; inspect state if this process does not complete.", checkedAt=stamp())
+    write_json(directory / "inventory.json", inventory)
+    try:
+        engine_run(engine, directory, ["apply", "-input=false", "adoption.tfplan"])
+    except (ValueError, KeyboardInterrupt) as exc:
+        # An interrupted apply can already have imported some resources. Never
+        # present that batch as fresh/unmanaged or automatically retry it.
+        for r in inventory["resources"]:
+            if r["address"] in imported:
+                r.update(status="import-state-unknown", message="Import failed or was interrupted; state may contain partial imports. Inspect state before retrying this batch.", checkedAt=stamp())
+        write_json(directory / "inventory.json", inventory)
+        raise ValueError("Import failed; partial imports may exist. Inspect your Terraform state and inventory.json before retrying. After recovery, run verify to check the baseline.") from exc
     for r in inventory["resources"]:
         if r["address"] in imported:
             r.update(status="imported-needs-review", message="Import completed. A clean subsequent plan is required to verify the baseline.", checkedAt=stamp())
@@ -412,18 +430,28 @@ def adopt(directory, engine="terraform", confirm=False):
 def verify_baseline(directory, engine="terraform"):
     directory = Path(directory).resolve()
     inventory = read_json(directory / "inventory.json")
-    if not any(r.get("status") in {"imported", "imported-needs-review"} for r in inventory.get("resources", [])):
+    if not any(r.get("status") in {"imported", "imported-needs-review", "import-state-unknown"} for r in inventory.get("resources", [])):
         raise ValueError("No completed imports are recorded. Run the guarded adoption step first.")
     # Exit code 2 (changes) is deliberately a failure for baseline verification.
     try:
         engine_run(engine, directory, ["plan", "-input=false", "-detailed-exitcode"])
     except ValueError as exc:
-        raise ValueError("Resources were imported, but baseline verification failed. Review the local plan and configuration; run verify again after resolving differences. inventory.json records imported-needs-review.") from exc
+        raise ValueError("Baseline verification failed. Review the local plan, state and configuration; run verify again after resolving differences. The inventory retains the unresolved import status.") from exc
+    expected = read_json(directory / "adoption.json")["resources"]
+    state = json.loads(engine_run(engine, directory, ["show", "-json"], capture=True))
+    check_baseline_state(state, expected)
     for r in inventory["resources"]:
-        if r.get("status") in {"imported", "imported-needs-review"}:
+        if r.get("status") in {"imported", "imported-needs-review", "import-state-unknown"}:
             r.update(status="imported", message="Imported and verified by a clean subsequent plan.", checkedAt=stamp())
     write_json(directory / "inventory.json", inventory)
     return inventory
+
+
+def check_baseline_state(state, expected):
+    resources = state.get("values", {}).get("root_module", {}).get("resources", [])
+    actual = {r.get("address"): r.get("values", {}).get("id") for r in resources}
+    if not expected or any(actual.get(r["address"]) != r["importId"] for r in expected):
+        raise ValueError("Baseline state does not contain every expected resource with its original import ID. Inspect state before marking adoption complete.")
 
 
 def main():

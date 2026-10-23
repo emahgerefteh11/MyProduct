@@ -92,6 +92,7 @@ class BrowserImport(unittest.TestCase):
             self.page.locator('#download-package').click()
         with zipfile.ZipFile(info.value.path()) as package:
             self.assertIsNone(package.testzip())
+            self.assertTrue(all(entry.date_time[:3] == (1980, 1, 1) for entry in package.infolist()))
             self.assertEqual(set(package.namelist()), {'candidates.json', 'adoption_tool.py', 'README.md'})
             self.assertEqual(package.read('adoption_tool.py'), (ROOT / 'adoption_tool.py').read_bytes())
             manifest = json.loads(package.read('candidates.json'))

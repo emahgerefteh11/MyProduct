@@ -2,7 +2,7 @@
 (() => {
     const $ = id => document.getElementById(id);
     let report = null, items = [], selected = new Set(), inventory = null, busy = false;
-    const labels = {candidate: 'Ready for discovery', unresolved: 'Needs review', verified: 'Live resource verified', imported: 'Imported · clean plan', 'imported-needs-review': 'Imported · baseline needs review', 'already-managed': 'Already managed', 'not-found': 'No longer found', error: 'Discovery failed', 'dependency-review': 'Review disk ownership'};
+    const labels = {candidate: 'Ready for discovery', unresolved: 'Needs review', verified: 'Live resource verified', imported: 'Imported · clean plan', 'imported-needs-review': 'Imported · baseline needs review', 'import-state-unknown': 'Inspect partial import state', 'already-managed': 'Already managed', 'not-found': 'No longer found', error: 'Discovery failed', 'dependency-review': 'Review disk ownership'};
     function node(tag, value, className) { const el = document.createElement(tag); if (value != null) el.textContent = value; if (className) el.className = className; return el; }
     function error(message) { $('error').textContent = message; $('error').hidden = false; $('error').focus(); }
     function money(amount) { return new Intl.NumberFormat(undefined, report?.analysis?.currency ? {style: 'currency', currency: report.analysis.currency} : {minimumFractionDigits: 2, maximumFractionDigits: 2}).format(amount); }
@@ -12,7 +12,7 @@
         const filtered = items.filter(r => $('resource-filter').value === 'all' || r.status === $('resource-filter').value);
         for (const item of filtered.slice(0, 500)) {
             const tr = node('tr'), choice = node('td'), checkbox = node('input'); checkbox.type = 'checkbox'; checkbox.setAttribute('aria-label', `Select ${item.resourceId}`);
-            const key = Adoption.identity(item); checkbox.disabled = item.status !== 'candidate' || !!report.sampleData || ['imported', 'imported-needs-review', 'already-managed'].includes(item.discovery?.status); checkbox.checked = selected.has(key) && !checkbox.disabled;
+            const key = Adoption.identity(item); checkbox.disabled = item.status !== 'candidate' || !!report.sampleData || ['imported', 'imported-needs-review', 'import-state-unknown', 'already-managed'].includes(item.discovery?.status); checkbox.checked = selected.has(key) && !checkbox.disabled;
             checkbox.onchange = () => { if (checkbox.checked) { if (selected.size >= Adoption.MAX_BATCH) { checkbox.checked = false; error('Use at most 200 resources per batch.'); return; } selected.add(key); } else selected.delete(key); controls(); }; choice.append(checkbox);
             const resource = node('td'); resource.append(node('span', item.resourceId || 'Missing resource ID', 'resource-id'), node('span', [item.provider, item.account || 'Account/project missing', item.zone || item.region || 'Region missing'].join(' · '), 'scope-text'));
             const type = node('td'); type.append(node('span', item.resourceType || 'Unresolved'), node('span', `${item.rows.toLocaleString()} billing row(s) · ${item.sourceHashes.length} source(s)`, 'scope-text'));
@@ -59,7 +59,7 @@
     }); };
     $('apply-scope').onclick = () => action('Updating resource scope…', async () => { rebuild(); });
     $('resource-filter').onchange = renderRows;
-    $('select-ready').onclick = () => { if (report?.sampleData) return; selected = new Set(items.filter(r => r.status === 'candidate' && !['imported', 'imported-needs-review', 'already-managed'].includes(r.discovery?.status)).slice(0, Adoption.MAX_BATCH).map(Adoption.identity)); renderRows(); };
+    $('select-ready').onclick = () => { if (report?.sampleData) return; selected = new Set(items.filter(r => r.status === 'candidate' && !['imported', 'imported-needs-review', 'import-state-unknown', 'already-managed'].includes(r.discovery?.status)).slice(0, Adoption.MAX_BATCH).map(Adoption.identity)); renderRows(); };
     $('clear-selection').onclick = () => { selected.clear(); renderRows(); };
     $('download-package').onclick = () => action('Preparing your adoption package…', async () => {
         const manifest = Adoption.manifest(report, items.filter(r => selected.has(Adoption.identity(r))));

@@ -65,6 +65,7 @@ test('ZIP package is a valid extractable archive with exact tool contents and no
     const blob = adoption.zip({'adoption_tool.py': tool, 'candidates.json': JSON.stringify(adoption.manifest(report([aws()]), adoption.candidates(report([aws()])))), 'README.md': 'Resources → IaC'});
     const bytes = Buffer.from(await blob.arrayBuffer());
     assert.equal(bytes.readUInt32LE(0), 0x04034b50);
+    assert.equal(bytes.readUInt16LE(12), 33); // Valid DOS date: 1980-01-01.
     const filenameLength = bytes.readUInt16LE(26), dataLength = bytes.readUInt32LE(18);
     assert.equal(bytes.subarray(30, 30 + filenameLength).toString(), 'adoption_tool.py');
     assert.equal(bytes.subarray(30 + filenameLength, 30 + filenameLength + dataLength).toString(), tool);
