@@ -9,6 +9,7 @@ from collections import defaultdict
 from typing import Dict, List, Set, Tuple, Optional
 
 from billing_provenance import SourceAudit, build_analysis, numeric_value
+from adoption_tool import inventory_rows
 
 
 DEFAULT_NAMING_CONVENTION = {
@@ -301,20 +302,20 @@ def infer_schema(fieldnames: List[str]) -> dict:
             "usage_type": pick("ServiceName", "MeterName"),
             "sku_name": pick("SkuName", "MeterName"),
         }
-    if pick("Cost") and pick("LineItem") and pick("UsageStartDate"):  # GCP Standard Export
+    if pick("Cost") and ((pick("LineItem") and pick("UsageStartDate")) or pick("service.description")):  # Flat GCP export
         return {
             "schema": "gcp",
             "provider": "gcp",
             "cost": pick("Cost"),
-            "service_fields": [pick("ServiceDescription"), pick("SkuDescription")],
-            "resource_id": pick("LineItem"),  # Often just a generic ID or description in standard export
+            "service_fields": [pick("ServiceDescription", "service.description"), pick("SkuDescription", "sku.description")],
+            "resource_id": pick("resource.global_name", "resource.name", "LineItem"),
             "product_tag": pick("tags/Product"),
             "environment_tag": pick("tags/Environment"),
             "platform_tag": pick("tags/Platform"),
             "json_tags": pick("Labels", "project.labels"),
             "currency": pick("Currency", "BillingCurrency"),
-            "usage_start": pick("UsageStartDate"),
-            "usage_end": pick("UsageEndDate"),
+            "usage_start": pick("UsageStartDate", "usage_start_time"),
+            "usage_end": pick("UsageEndDate", "usage_end_time"),
             "usage_unit": pick("UsageUnit"),
             "usage_amount": pick("UsageAmount"),
             "usage_type": pick("SkuDescription"),
@@ -506,6 +507,7 @@ def parse_json_tags(label_string: str) -> Dict[str, str]:
 
 
 def load_cur(path: pathlib.Path, naming_config: dict, naming_mode: str = "fallback", assumed_currency: Optional[str] = None):
+    inventory_evidence = []
     prod_cost: Dict[str, float] = defaultdict(float)
     env_cost: Dict[str, float] = defaultdict(float)
     svc_cost: Dict[str, float] = defaultdict(float)
@@ -603,6 +605,10 @@ def load_cur(path: pathlib.Path, naming_config: dict, naming_mode: str = "fallba
         reader = csv.DictReader(f)
         schema = infer_schema(reader.fieldnames or [])
         audit = SourceAudit(path, schema, assumed_currency)
+        inventory_headers = {name.lower(): name for name in reader.fieldnames or []}
+
+        def scope_value(row_data, *names):
+            return next(((row_data.get(inventory_headers.get(name.lower())) or "").strip() for name in names if (row_data.get(inventory_headers.get(name.lower())) or "").strip()), "")
 
         def read_value(row_data, key):
             return (row_data.get(key) or "").strip() if key else ""
@@ -629,6 +635,10 @@ def load_cur(path: pathlib.Path, naming_config: dict, naming_mode: str = "fallba
             provider = normalize_provider(read_value(row, schema.get("provider_column")) or schema.get("provider"))
             if provider == "unknown":
                 provider = detect_provider(rid)
+            inventory_evidence.append({"provider": provider, "resourceId": rid, "cost": cost_decimal, "service": raw_service,
+                "account": scope_value(row, "lineItem/UsageAccountId", "project.id", "ProjectId", "SubAccountId", "SubscriptionId"),
+                "region": scope_value(row, "product/regionCode", "location.region", "RegionId", "Region"),
+                "zone": scope_value(row, "lineItem/AvailabilityZone", "location.zone", "Zone")})
             naming = parse_resource_naming(rid, naming_config, provider)
             fields = naming["fields"]
 
@@ -752,8 +762,12 @@ def load_cur(path: pathlib.Path, naming_config: dict, naming_mode: str = "fallba
                     if rid not in platform_product_vm_types[platform][prod]:
                         platform_product_vm_types[platform][prod][rid] = sku
 
+    source_metadata = audit.finish()
+    resource_inventory, inventory_summary = inventory_rows(inventory_evidence, source_metadata["sha256"])
     return {
-        "sourceMetadata": [audit.finish()],
+        "sourceMetadata": [source_metadata],
+        "resourceInventory": resource_inventory,
+        "resourceInventorySummary": inventory_summary,
         "prod_cost": prod_cost,
         "env_cost": env_cost,
         "svc_cost": svc_cost,
@@ -851,7 +865,7 @@ def merge_cur_states(states: List[dict]) -> dict:
     merged: Dict[str, object] = {}
     for state in states:
         for key, value in state.items():
-            if key == "sourceMetadata":
+            if key in {"sourceMetadata", "resourceInventory"}:
                 merged.setdefault(key, []).extend(value)
                 continue
             if key == "instance_info":
@@ -1235,6 +1249,8 @@ def build_summary(cur: dict, limit_services_per_product: int = 6):
 
     return {
         "analysis": build_analysis(cur["sourceMetadata"], round(total_cost, 2)),
+        "resourceInventory": cur.get("resourceInventory", []),
+        "resourceInventorySummary": cur.get("resourceInventorySummary", {"unidentifiedCost": 0, "unidentifiedRows": 0}),
         "allocation": {
             "unallocatedProductCost": round(sum(cost for name, cost in prod_cost.items() if not clean_dimension(name)), 2),
             "unallocatedPlatformCost": round(sum(cost for name, cost in platform_cost.items() if not clean_dimension(name)), 2),

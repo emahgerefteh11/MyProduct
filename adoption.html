@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="referrer" content="no-referrer">
+    <title>Adopt infrastructure · Cloud Cost Atlas</title>
+    <link rel="stylesheet" href="import.css"><link rel="stylesheet" href="adoption.css">
+    <script src="report_store.js" defer></script><script src="adoption.js" defer></script><script src="adoption_ui.js" defer></script>
+</head>
+<body>
+    <header class="site-header"><a class="brand" href="index.html">Cloud<span>Atlas</span></a><a href="dashboard.html">Back to dashboard ↗</a></header>
+    <main>
+        <div class="intro"><p class="eyebrow">BRING EXISTING INFRASTRUCTURE INTO CODE</p><h1>Your infrastructure.<br>Now managed as code.</h1><p>Start with your billing report. Discover current configuration, generate Terraform, and adopt existing resources in reviewed batches.</p></div>
+        <ol class="steps" aria-label="Adoption workflow"><li aria-current="step"><span>1</span> Discover candidates</li><li><span>2</span> Generate &amp; review locally</li><li><span>3</span> Import &amp; verify</li></ol>
+        <div id="status" class="status" role="status" aria-live="polite" hidden></div><div id="error" class="error" role="alert" tabindex="-1" hidden></div>
+        <section class="panel" aria-labelledby="report-title">
+            <div class="section-heading"><h2 id="report-title">Start from a billing report</h2><a href="import.html">Import billing CSVs →</a></div>
+            <p id="report-summary" class="muted">Loading your saved report…</p>
+            <label class="field compact" for="report-file">Or open a report JSON downloaded from Atlas<input id="report-file" type="file" accept=".json,application/json"></label>
+            <div id="workspace" hidden>
+                <div id="metrics" class="metrics"></div>
+                <p id="coverage-note" class="muted small"></p>
+                <details id="scope-options"><summary>Fill missing AWS scope</summary><p class="muted small">Only fills blank account/region values. Existing values and ARN scope are preserved. Use the resource's usage account, which may differ from the payer.</p><div class="mapping-grid"><label class="field" for="aws-account">AWS usage account ID<input id="aws-account" placeholder="123456789012" maxlength="12" autocomplete="off"></label><label class="field" for="aws-region">AWS region code<input id="aws-region" placeholder="us-east-1" maxlength="40" autocomplete="off"></label><button id="apply-scope" class="secondary">Update candidates</button></div></details>
+                <div class="section-heading candidate-heading"><h3>Choose an adoption batch</h3><label class="field compact" for="resource-filter">Show<select id="resource-filter"><option value="all">All resources</option><option value="candidate">Ready for discovery</option><option value="unresolved">Needs information / unsupported</option></select></label></div>
+                <p class="muted small">Initial support: AWS EC2 instances and EBS volumes; GCP compute instances and zonal persistent disks. Billing confirms a charge, not that the resource still exists or is unmanaged.</p>
+                <div class="batch-toolbar"><button id="select-ready" class="secondary">Select first 200 ready</button><button id="clear-selection" class="secondary">Clear selection</button><span id="selection-summary" role="status"></span></div>
+                <div class="table-scroll inventory-table"><table><thead><tr><th>Select</th><th>Resource / scope</th><th>Type / evidence</th><th>Reported cost</th><th>Next step</th></tr></thead><tbody id="resource-rows"></tbody></table></div>
+                <p id="table-limit" class="muted small"></p>
+                <div class="privacy"><strong>Configuration comes from your cloud account.</strong>The package runs locally with your AWS CLI or gcloud login. Terraform/OpenTofu generates resource definitions from the live provider. Cloud credentials, raw state, and plans stay in your environment.</div>
+                <div class="actions"><span class="muted small">One package · Up to 200 resources · Python 3.10+</span><button id="download-package" class="primary" disabled>Download adoption package ↓</button></div>
+            </div>
+        </section>
+        <section class="panel followup" aria-labelledby="generate-title"><h2 id="generate-title">Generate, review, and adopt</h2><p>Unzip the package. With your cloud CLI configured, run these commands from that folder:</p><pre><code>python adoption_tool.py discover --manifest candidates.json --output adoption
+terraform -chdir=adoption init
+python adoption_tool.py plan --directory adoption</code></pre><p class="muted small">AWS: use <code>--aws-profile YOUR_PROFILE</code> for a named profile. GCP: configure gcloud login for discovery and Application Default Credentials for Terraform. Use <code>--engine tofu</code> with OpenTofu.</p><p>Review the generated resource definitions and the import plan. The tool blocks plans that change infrastructure. After confirming resources are unmanaged, run:</p><pre><code>python adoption_tool.py adopt --directory adoption --confirm-unmanaged</code></pre><p class="muted small">Adoption backs up existing state, applies the reviewed import plan, then checks for a clean plan. Configure your protected remote state backend before shared use. Existing dependency IDs are preserved; dependencies and additional resource types remain visible for follow-up adoption.</p>
+            <h3>Bring discovery and adoption progress back here</h3><label class="field compact" for="inventory-file">Open adoption/inventory.json<input id="inventory-file" type="file" accept=".json,application/json"></label><p id="inventory-summary" class="muted small" aria-live="polite">The allowlisted inventory updates this preview only. It is not uploaded or saved. Resources outside the current report remain unmatched.</p>
+        </section>
+        <noscript><p class="error">Enable JavaScript to preview resources and prepare adoption packages.</p></noscript><footer>Cloud Cost Atlas · Existing resources, reviewed adoption</footer>
+    </main>
+</body>
+</html>

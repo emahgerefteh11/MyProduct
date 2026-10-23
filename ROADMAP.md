@@ -142,6 +142,8 @@ The longer-term phases below remain directional. Partial FOCUS input handling an
 
 ### From billing reports to managed IaC
 
+**Implemented first release:** [Adopt into IaC](adoption.html) now discovers supported candidates from current browser/Python reports, keeps account/project and region scope, shows gaps and unattributed charges, and downloads a working local adoption tool. Read-only AWS/GCP discovery supports EC2 instances, EBS volumes, GCP compute instances and zonal disks. The tool creates provider configuration/import blocks, uses Terraform/OpenTofu to generate live resource definitions, rejects plans with infrastructure changes, imports the reviewed saved plan, backs up existing state, and requires a clean subsequent plan. Discovery/import inventory can be reopened in the browser. This release uses customer CLI credentials; hosted connectors and the broader requirements below remain follow-up work.
+
 **Product requirement:** enable organizations with no IaC to use AWS CUR or GCP billing reports as the starting point for bringing their existing infrastructure under Terraform/OpenTofu management.
 
 Billing reports identify services, costs, and some resource IDs; they do not contain a complete deployable configuration. With billing files alone, produce a clearly labeled draft and a list of missing information. Preparing existing resources for adoption requires read-only cloud discovery or equivalent verified inventory supplied by the organization.
@@ -153,7 +155,7 @@ Billing reports identify services, costs, and some resource IDs; they do not con
 - [ ] **Preview and Import in Stages:** show the resource-to-code mapping and planned imports for a selected application or environment. Require a reviewed adoption plan with zero resource creates, updates, replacements, or deletes before executing imports through the customer's approved workflow. Verify a subsequent clean plan and retain a state backup. Resolve configuration differences before adoption; optimize after the baseline is stable.
 - [ ] **Track Adoption Coverage:** report discovered, eligible, generated, imported, verified, and unresolved resources with ownership and attributable spend. Keep unmatched billing charges visible. Prevent the same resource from being adopted into multiple states.
 
-**First adoption deliverable:** a narrow, tested set of AWS/GCP resource types with a discovery preview, explicit configuration gaps, generated definitions/import blocks, and a guided path to a verified baseline. Full automatic reconstruction from billing data alone is not an acceptance criterion.
+**First adoption deliverable shipped:** the four resource types above with a discovery preview, explicit gaps, generated import/configuration workflow, and a guarded path to a baseline. Continue the checklist for broader discovery, repository integration, managed-state reconciliation, dependency modeling, backend automation and coverage reporting. Full automatic reconstruction from billing data alone is not an acceptance criterion.
 
 ---
 

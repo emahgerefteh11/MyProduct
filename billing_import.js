@@ -6,6 +6,7 @@
         cost: 'Cost amount (required)', currency: 'Billing currency', service: 'Service',
         provider: 'Cloud provider', resource: 'Resource ID or name', product: 'Product',
         platform: 'Platform / team', environment: 'Environment', tags: 'Tags / labels (JSON)',
+        account: 'Resource account / project ID', region: 'Resource region', zone: 'Resource availability zone',
         usage_start: 'Usage start', usage_end: 'Usage end', billing_start: 'Billing period start', billing_end: 'Billing period end',
     };
     const FORMATS = {aws: 'AWS CUR', azure: 'Azure Cost Management', gcp: 'Google Cloud billing', focus: 'FOCUS', custom: 'Custom CSV'};
@@ -65,7 +66,10 @@
             environment: pick('resourceTags/user:Environment', 'tags/Environment', 'Environment'),
             tags: pick('Tags', 'Labels', 'project.labels'), provider: pick('ProviderName', 'Provider'),
             currency: pick('BillingCurrency', 'BillingCurrencyCode', 'Currency', 'lineItem/CurrencyCode'),
-            resource: pick('ResourceId', 'ResourceName', 'InstanceId', 'lineItem/ResourceId', 'resource.name', 'LineItem'),
+            resource: pick('ResourceId', 'ResourceName', 'InstanceId', 'lineItem/ResourceId', 'resource.global_name', 'resource.name', 'LineItem'),
+            account: pick('lineItem/UsageAccountId', 'project.id', 'ProjectId', 'SubAccountId', 'SubscriptionId'),
+            region: pick('product/regionCode', 'location.region', 'RegionId', 'Region'),
+            zone: pick('lineItem/AvailabilityZone', 'location.zone', 'Zone'),
             usage_start: pick('ChargePeriodStart', 'lineItem/UsageStartDate', 'UsageStartDate', 'usage_start_time', 'Date', 'UsageDateTime'),
             usage_end: pick('ChargePeriodEnd', 'lineItem/UsageEndDate', 'UsageEndDate', 'usage_end_time'),
             billing_start: pick('BillingPeriodStart', 'BillingPeriodStartDate', 'bill/BillingPeriodStartDate'),
@@ -168,6 +172,7 @@
         const hashes = new Set(), currencies = new Set(), bases = new Set();
         const total = zero(), unProduct = zero(), unPlatform = zero(), unEnvironment = zero();
         const products = new Map(), services = new Map(), environments = new Map(), platforms = new Map(), providers = new Map(), resources = new Map();
+        const inventory = new Map(), unidentified = {cost: zero(), rows: 0};
         for (let index = 0; index < files.length; index++) {
             const file = files[index], config = configs[index];
             if (hashes.has(file.sha256)) { fail(file.name, null, '', 'This file has identical contents to another selected file. Remove one copy.'); continue; }
@@ -219,6 +224,12 @@
                 }
                 group(services, service, cost); group(environments, environment, cost); group(providers, provider, cost);
                 if (get('resource')) group(resources, get('resource'), cost);
+                if (get('resource')) {
+                    const identity = [provider, get('account'), get('region'), get('zone'), get('resource')];
+                    const key = JSON.stringify(identity);
+                    if (!inventory.has(key)) inventory.set(key, {provider, account: identity[1], region: identity[2], zone: identity[3], resourceId: identity[4], cost: zero(), rows: 0, services: new Set(), sourceHashes: new Set()});
+                    const item = inventory.get(key); add(item.cost, cost); item.rows++; item.services.add(get('service')); item.sourceHashes.add(file.sha256);
+                } else { add(unidentified.cost, cost); unidentified.rows++; }
                 for (const [key, period, edge] of [['usage_start', 'usagePeriod', 'start'], ['usage_end', 'usagePeriod', 'end'], ['billing_start', 'billingPeriod', 'start'], ['billing_end', 'billingPeriod', 'end']]) {
                     const raw = get(key), date = dateOf(raw);
                     if (!date) { source.invalidDateFields++; source[period === 'usagePeriod' ? 'incompleteUsage' : 'incompleteBilling'] = true; continue; }
@@ -268,6 +279,8 @@
                 products: productList(products, totalNumber), services: list(services, 'ServiceCategory', totalNumber), environments: list(environments, 'Environment', totalNumber), providers: list(providers, 'ProviderName', totalNumber),
                 platforms: list(platforms, 'Platform', totalNumber).map(p => { const g = platforms.get(p.Platform); return {...p, products: productList(g.products, p.BilledCost), services: list(g.services, 'ServiceCategory', p.BilledCost), vmSkus: [], ec2Skus: []}; }),
                 resourceNames: list(resources, 'ResourceName', totalNumber), namingConvention: {source: 'Resource identifiers as supplied; no naming inference', mode: 'explicit allocation only', pattern: []},
+                resourceInventory: [...inventory.values()].map(({cost, services, sourceHashes, ...item}) => ({...item, cost: rounded(cost), services: [...services], sourceHashes: [...sourceHashes]})),
+                resourceInventorySummary: {unidentifiedCost: rounded(unidentified.cost), unidentifiedRows: unidentified.rows},
             };
         } catch (e) { fail('', null, 'Cost', e.message); return {ok: false, errors, errorCount, report: null, warnings: [...warnings], rowCount}; }
         return {ok: true, errors: [], errorCount: 0, warnings: [...warnings], report, rowCount};

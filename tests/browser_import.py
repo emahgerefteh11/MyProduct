@@ -9,6 +9,7 @@ import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 import unittest
+import zipfile
 
 from playwright.sync_api import sync_playwright, expect
 
@@ -71,6 +72,74 @@ class BrowserImport(unittest.TestCase):
         self.page.locator('#open-report').click()
         self.page.wait_for_url('**/dashboard.html?source=import')
         expect(self.page.locator('#mode-badge-header')).to_contain_text('REPORT DATA')
+
+    def open_adoption_fixture(self):
+        aws = 'lineItem/UnblendedCost,lineItem/ResourceId,lineItem/UsageAccountId,product/regionCode,lineItem/ProductCode,lineItem/CurrencyCode\n10,i-0123456789abcdef0,123456789012,us-east-1,AmazonEC2,USD\n4,vol-0123456789abcdef0,123456789012,us-east-1,AmazonEC2,USD\n2,web-prod,123456789012,us-east-1,AmazonEC2,USD\n-1,,123456789012,us-east-1,AmazonEC2,USD\n'
+        gcp = 'cost,service.description,resource.global_name,currency\n3,Compute Engine,//compute.googleapis.com/projects/atlas-prod/zones/us-central1-a/instances/web-prod,USD\n'
+        self.choose([{'name': 'aws.csv', 'mimeType': 'text/csv', 'buffer': aws.encode()}, {'name': 'gcp.csv', 'mimeType': 'text/csv', 'buffer': gcp.encode()}])
+        self.validate()
+        self.accept()
+        self.page.get_by_role('link', name='Adopt into IaC').click()
+        expect(self.page.locator('#workspace')).to_be_visible()
+        expect(self.page.locator('#metrics')).to_contain_text('4 resources')
+
+    def test_adoption_package_download_and_discovery_progress(self):
+        self.open_adoption_fixture()
+        expect(self.page.locator('#coverage-note')).to_contain_text('1 billing row(s)')
+        self.page.locator('#select-ready').click()
+        expect(self.page.locator('#selection-summary')).to_contain_text('3 selected')
+        with self.page.expect_download() as info:
+            self.page.locator('#download-package').click()
+        with zipfile.ZipFile(info.value.path()) as package:
+            self.assertIsNone(package.testzip())
+            self.assertEqual(set(package.namelist()), {'candidates.json', 'adoption_tool.py', 'README.md'})
+            self.assertEqual(package.read('adoption_tool.py'), (ROOT / 'adoption_tool.py').read_bytes())
+            manifest = json.loads(package.read('candidates.json'))
+        self.assertEqual(len(manifest['resources']), 3)
+        self.assertEqual(manifest['resources'][0]['account'], '123456789012')
+        self.page.screenshot(path=str(self.artifacts / 'adoption-desktop.png'), full_page=True)
+        inventory = {'schemaVersion': 1, 'kind': 'atlas-adoption-inventory', 'resources': [{**manifest['resources'][0], 'status': 'imported', 'message': 'Clean plan <img src=x onerror=alert(1)>', 'checkedAt': '2026-10-23T00:00:00Z'}]}
+        self.page.locator('#inventory-file').set_input_files({'name': 'inventory.json', 'mimeType': 'application/json', 'buffer': json.dumps(inventory).encode()})
+        expect(self.page.locator('#inventory-summary')).to_contain_text('1 imported')
+        expect(self.page.locator('#resource-rows')).to_contain_text('Clean plan <img')
+        self.assertEqual(self.page.locator('#resource-rows img').count(), 0)
+        expect(self.page.locator('#metrics')).to_contain_text('1 imported')
+        self.page.locator('#select-ready').click()
+        expect(self.page.locator('#selection-summary')).to_contain_text('2 selected')
+        expect(self.page.locator('#resource-rows input').first).to_be_disabled()
+
+    def test_adoption_scope_fill_invalid_results_and_mobile(self):
+        report = {'sampleData': False, 'analysis': {'currency': 'USD'}, 'resourceInventory': [{'provider': 'aws', 'resourceId': 'i-0123456789abcdef0', 'cost': 10, 'sourceHashes': []}]}
+        self.page.goto(self.origin + '/adoption.html')
+        expect(self.page.locator('#status')).to_be_hidden()
+        self.page.locator('#report-file').set_input_files({'name': 'report.json', 'mimeType': 'application/json', 'buffer': json.dumps(report).encode()})
+        expect(self.page.locator('#metrics')).to_contain_text('0 ready')
+        self.page.locator('#scope-options summary').click()
+        self.page.locator('#aws-account').fill('123456789012')
+        self.page.locator('#aws-region').fill('us-east-1')
+        self.page.locator('#apply-scope').click()
+        expect(self.page.locator('#metrics')).to_contain_text('1 ready')
+        self.page.locator('#select-ready').click()
+        expect(self.page.locator('#download-package')).to_be_enabled()
+        self.page.locator('#inventory-file').set_input_files({'name': 'state.json', 'mimeType': 'application/json', 'buffer': b'{"version":4,"resources":[]}'})
+        expect(self.page.locator('#error')).to_contain_text('Raw Terraform plan/state')
+        expect(self.page.locator('#download-package')).to_be_enabled()
+        self.page.set_viewport_size({'width': 390, 'height': 844})
+        self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= window.innerWidth'))
+        self.page.screenshot(path=str(self.artifacts / 'adoption-mobile.png'), full_page=True)
+        self.page.locator('#report-file').set_input_files({'name': 'old.json', 'mimeType': 'application/json', 'buffer': b'{"resourceNames":[]}'})
+        expect(self.page.locator('#error')).to_contain_text('lacks scoped resource inventory')
+        expect(self.page.locator('#metrics')).to_contain_text('1 ready')
+
+    def test_adoption_sample_report_cannot_download_real_import_package(self):
+        report = {'sampleData': True, 'resourceInventory': [{'provider': 'aws', 'resourceId': 'i-0123456789abcdef0', 'account': '123456789012', 'region': 'us-east-1', 'cost': 10}]}
+        self.page.goto(self.origin + '/adoption.html')
+        expect(self.page.locator('#status')).to_be_hidden()
+        self.page.locator('#report-file').set_input_files({'name': 'sample.json', 'mimeType': 'application/json', 'buffer': json.dumps(report).encode()})
+        expect(self.page.locator('#report-summary')).to_contain_text('Sample report: preview only')
+        self.page.locator('#select-ready').click()
+        expect(self.page.locator('#download-package')).to_be_disabled()
+        expect(self.page.locator('#resource-rows input')).to_be_disabled()
 
     def test_samples_save_reopen_download_demo_isolation_and_clear(self):
         self.choose([ROOT / 'mock_aws_cur_iaas_heavy_named20251122.csv', ROOT / 'mock_gcp_billing.csv'])

@@ -20,7 +20,7 @@ Supported **AWS CUR and GCP billing CSVs can directly generate the reporting das
 
 Files are parsed and validated in a Web Worker on the device. Only an accepted report is saved in this browser's IndexedDB when **Open dashboard** is clicked; source CSV files are not persisted or sent to a server. The accepted report takes precedence over the site's bundled report and survives a refresh. The dashboard's **Download report** and **Clear imported report** controls let you keep a copy or remove it. Demo mode remains independent. Browser storage is specific to this site, browser, and device; private browsing, clearing site data, or changing devices can remove access to the saved report. Download JSON to keep a portable copy.
 
-The browser report covers **costs, explicit product/platform/environment columns or JSON tags, providers, and resource identifiers as supplied**. It does not infer names, hardware sizing, usage capacity, or utilization, and infrastructure generation is unavailable for browser reports. Use the Python analyzer for naming rules, supported hardware/SKU inference, larger files, or infrastructure starter generation. Separate GCP credit fields are not subtracted automatically; map an appropriate net-cost column if required. FOCUS header recognition is not full FOCUS conformance. Duplicate checking detects identical file contents, not overlapping rows in distinct exports. Monetary sums use exact decimal arithmetic before rounding totals for display; no currency conversion is performed.
+The browser report covers **costs, explicit product/platform/environment columns or JSON tags, providers, and scoped resource identifiers as supplied**. It does not infer names, hardware sizing, usage capacity, or utilization. The separate [IaC adoption workflow](#adopt-existing-infrastructure-into-iac) uses these resource identities to discover live configuration and generate Terraform locally. Use the Python analyzer for naming rules, supported hardware/SKU inference, larger files, or new-infrastructure starter templates. Separate GCP credit fields are not subtracted automatically; map an appropriate net-cost column if required. FOCUS header recognition is not full FOCUS conformance. Duplicate checking detects identical file contents, not overlapping rows in distinct exports. Monetary sums use exact decimal arithmetic before rounding totals for display; no currency conversion is performed.
 
 Use a current browser over **HTTPS or localhost**. Opening `import.html` directly through `file://` is not supported. For local use, run `python -m http.server 8000` in the repository and visit `http://localhost:8000/import.html`. The import page has no third-party dependencies; the dashboard still loads charts and fonts from CDNs, with tables available if those resources cannot load.
 
@@ -55,7 +55,39 @@ New reports preserve provider attribution per platform/product. The IaC builders
 
 For organizations with existing Terraform/OpenTofu, the planned workflow is to connect their repositories and workspaces, reconcile managed resources with cloud inventory and billing, and propose changes to their existing modules through pull requests and their normal CI/CD process. Start with read-only cost attribution by module/workspace; state/plan collection should run inside the customer's environment and export only allowlisted metadata. Existing-infrastructure discovery, reconciliation, and PR generation are **not yet implemented**. See [Build on Existing Infrastructure as Code](ROADMAP.md#phase-7-build-on-existing-infrastructure-as-code).
 
-For organizations with **no IaC**, a separate planned adoption flow starts from AWS CUR/GCP billing reports, enriches resource candidates with current cloud configuration, and generates Terraform/OpenTofu definitions plus import blocks for the infrastructure already running. It includes repository/state-backend onboarding and staged imports validated by a plan showing no resource changes, followed by a clean post-import plan. Billing files alone support draft generation and gap reporting; the current starter-template builders do not import existing resources or provide this migration workflow. See [From billing reports to managed IaC](ROADMAP.md#from-billing-reports-to-managed-iac).
+## Adopt existing infrastructure into IaC
+
+Open [Adopt into IaC](adoption.html) from the dashboard or home page. The first adoption workflow is implemented for **AWS EC2 instances, EBS volumes, GCP compute instances, and GCP zonal persistent disks**. It starts from billing evidence, discovers current resources with your local cloud login, and generates Terraform/OpenTofu configuration and import blocks for the infrastructure already running.
+
+1. Import billing CSVs or open a current Atlas report JSON. New browser and Python reports retain provider, resource ID, usage account/project, region/zone, source fingerprints, and reported cost. Older reports must be regenerated. AWS CUR should include resource IDs, `lineItem/UsageAccountId` and `product/regionCode`. GCP detailed exports need full resource paths such as `projects/my-project/zones/us-central1-a/instances/web-prod`; descriptions or bare names are not treated as verified identities. The mapping screen supports account, region and zone columns, including FOCUS `SubAccountId`/`RegionId` and GCP `project.id`/`location.*`. Missing AWS scope can be explicitly filled in the adoption screen.
+2. Review unsupported resources, missing scope and charges without resource IDs. Select up to **200 resources** and download the adoption ZIP. Canonical aliases are deduplicated; the same short ID in different accounts remains separate. Sample reports cannot produce real adoption packages. This screen uses your saved browser report or a JSON file you choose, rather than the site's bundled sample.
+3. Unzip the package and run read-only discovery in your environment:
+
+   ```bash
+   python adoption_tool.py discover --manifest candidates.json --output adoption
+   # Optional named AWS profile: --aws-profile production
+   # Optional managed-resource inventory: --managed-ids managed.json
+   ```
+
+   Install Python 3.10+ and the AWS CLI or gcloud CLI first. AWS discovery uses `sts:GetCallerIdentity`, `ec2:DescribeInstances` and `ec2:DescribeVolumes`; the login must match the billed usage account. GCP discovery uses compute instance/disk read permissions in the explicitly selected project/zone. Terraform provider reads may need additional read permissions. Discovery exports selected configuration/dependency IDs, never raw CLI responses, user data, instance metadata, tag values or credentials. Deleted resources, access failures, known managed resources and overlapping instance/disk ownership stay visible and are excluded from the generated import batch. A `managed.json` file has a `resources` array with the same provider/account/region/resourceId fields as `candidates.json`.
+4. Read `adoption/README.md`, configure cloud credentials for Terraform, initialize, and generate configuration from the live provider:
+
+   ```bash
+   terraform -chdir=adoption init
+   python adoption_tool.py plan --directory adoption
+   ```
+
+   Terraform 1.5+ is required. For OpenTofu, initialize with `tofu` and add `--engine tofu` to tool plan/adopt commands. GCP gcloud login and Terraform Application Default Credentials are separate. `providers.tf` fixes the target account/project and region; `imports.tf` uses actual import IDs. Terraform's `-generate-config-out` writes `generated.tf`; review and correct any provider-generated configuration gaps, then replan. Dependencies remain existing IDs and are not all automatically adopted. The guard requires every selected import and **zero creates, updates, replacements or deletes**. Unsupported/incomplete plans, duplicate targets, unexpected resources and already-managed imports fail the guard.
+5. Once reviewed and confirmed unmanaged in your organization, adopt the saved plan:
+
+   ```bash
+   python adoption_tool.py adopt --directory adoption --confirm-unmanaged
+   ```
+
+   The tool rechecks the exact saved plan, backs up existing state when present, imports, and requires a clean subsequent plan before marking the baseline verified. If import completes but the following plan fails, inventory records `imported-needs-review`; resolve configuration differences and run `python adoption_tool.py verify --directory adoption`. Configure a protected remote backend with locking, encryption and versioning before shared use. The tool creates no backend or other cloud infrastructure. Generated configuration, saved plans, state and backups may contain sensitive values and are ignored by the generated repository until reviewed. Do not run adoption against resources owned by another workspace; discovery cannot enumerate all external states.
+6. Reopen `adoption/inventory.json` on the adoption screen to see matched discovery/import progress. Only allowlisted inventory files are accepted; raw Terraform state/plans are rejected. The result is displayed locally without uploading or persisting it and is identified as evidence supplied by your local tool.
+
+This delivers a working path from billing discovery to a reviewed IaC baseline for the four supported resource types. Broader resource support, hosted account connections, automatic backend provisioning, module refactoring and repository/CI integration remain on the [adoption roadmap](ROADMAP.md#from-billing-reports-to-managed-iac). Cloud API calls and real imports require your account credentials and are not exercised against your infrastructure by this repository's tests.
 
 ### Regression checks
 
@@ -65,10 +97,11 @@ The analysis engine and its tests use the Python standard library. Dashboard beh
 python -m unittest discover -s tests -p 'test_*.py' -v
 node tests/dashboard.test.cjs
 node tests/import.test.cjs
+node tests/adoption.test.cjs
 python generate_dashboard.py
 ```
 
-GitHub Actions runs these checks, verifies that the generated demo matches `dashboard.html` and `report_data.json`, and runs Chromium acceptance tests for the guided import. To run the browser checks locally:
+GitHub Actions runs these checks, verifies that the generated demo matches `dashboard.html` and `report_data.json`, validates adoption HCL against the real AWS/GCP Terraform provider schemas, and runs Chromium acceptance tests for guided import and IaC adoption. To run the browser checks locally:
 
 ```bash
 python -m pip install playwright==1.56.0

@@ -5,6 +5,10 @@ All notable changes to the **MyProduct** infrastructure analysis tool will be do
 ## [Unreleased]
 
 ### Added
+- Billing-to-IaC adoption screen and downloadable Python tool: scoped billing candidates, resource selection, gap reporting, and read-only discovery for AWS EC2/EBS and GCP compute instances/zonal disks.
+- Terraform/OpenTofu adoption repositories with explicit cloud scope and import IDs, live provider configuration generation, an import-only plan guard, state backup, guarded saved-plan adoption, and clean-plan verification. Allowlisted discovery/import inventory can be reopened locally in the browser.
+- Scoped resource evidence in browser/Python reports, including account/project, region/zone, source fingerprints, and charges without resource IDs; flat GCP detailed-export resource paths are retained.
+- Adoption engine, cloud command, plan-guard, package download, browser/mobile, and real Terraform provider-schema validation checks.
 - Guided browser billing import: multiple CSV files, format detection, editable column mapping, full-row validation, cost/quality preview, and warning acknowledgement before acceptance.
 - Private browser report storage, report JSON download, clear-report controls, and dashboard handoff without a backend.
 - Import-engine regression tests and Chromium acceptance checks for upload, mapping corrections, validation failures, persistence, downloads, safe labels, and mobile layout.
@@ -20,7 +24,7 @@ All notable changes to the **MyProduct** infrastructure analysis tool will be do
 - Dashboard tables remain available when the chart CDN cannot load. Demo generation escapes inline-script terminators and fails when its injection anchor is missing.
 
 ### Scope
-- Browser imports summarize costs and explicit allocation; naming inference, hardware sizing, and infrastructure starter generation remain in the Python workflow. Real period comparisons, owner workflows, verified savings, and validated infrastructure changes remain future work.
+- Browser imports summarize costs and explicit allocation and feed the separate local IaC adoption workflow. Naming inference, hardware sizing, and new-infrastructure starter generation remain in the Python workflow. Adoption initially covers four resource types and uses customer cloud CLI credentials; hosted connectors, full dependency discovery and repository/CI integration remain future work. Real period comparisons, owner workflows and verified savings remain future work.
 
 ## [v0.2.0] - 2026-02-17
 
