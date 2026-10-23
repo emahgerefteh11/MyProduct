@@ -9,7 +9,7 @@ A holistic, multi-phase roadmap aligned with the **FinOps Foundation Framework (
 3. **Modern dashboard UI:** substantially refresh the visual design, navigation, charts, and responsive layouts to give the product a polished, modern feel.
 4. **Native billing reports and direct cloud connections:** expand AWS CUR/GCP billing-report coverage and add connected-account ingestion that generates and refreshes the reporting dashboard without manual file uploads. Prioritize AWS and GCP, then Azure.
 5. **Explain and assign spend:** actual billing-period comparisons, cost-change drivers, ownership rules, and shared-cost allocation.
-6. **Verify and act:** inventory/utilization-backed findings, savings status and measurement, and reviewed changes to existing infrastructure.
+6. **Verify and act:** inventory/utilization-backed findings, savings status and measurement, and reviewed changes through an organization's existing IaC repositories, modules, workspaces, and deployment pipelines.
 
 The longer-term phases below remain directional. Partial FOCUS input handling and labeled multi-file summaries already exist; they do not yet provide full FOCUS conformance or real monthly comparison. The infrastructure builder produces starter templates with assumptions that need review.
 
@@ -123,15 +123,22 @@ The longer-term phases below remain directional. Partial FOCUS input handling an
 
 ---
 
-## Phase 7: Intelligent Infrastructure as Code (IaC) Vending & Drift
+## Phase 7: Build on Existing Infrastructure as Code
 *Persona Focus: Platform Engineers & DevOps*
-- [ ] **SKU-Aware Modular Terraform Vending:**
-  - Generate production-ready Terraform modules (`main.tf`, `variables.tf`, `outputs.tf`, `terraform.tfvars`) mapped to exact discovered hardware SKUs, storage tiers, and network topology.
-  - Modular support for verified ecosystem modules (e.g., `terraform-aws-modules`).
-- [ ] **Utilization-Filtered Vending:**
-  - Filter out zombie/orphaned resources from generated IaC skeletons (vending only active, healthy infrastructure).
-- [ ] **GitOps Drift Detection ("Billing vs. Git"):**
-  - Compare discovered active cloud resources against committed Terraform/OpenTofu state files in Git to identify shadow IT and unmanaged cloud sprawl.
+
+**Preferred workflow for existing estates:** connect the organization's repository and Terraform/OpenTofu workspaces, map managed resources to cloud inventory and billing, and propose changes to the code they already maintain. Their existing deployment pipeline remains responsible for applying approved changes. Starter-template generation remains available for new infrastructure.
+
+- [ ] **Read-Only Repository and Workspace Discovery:** identify IaC roots, modules, provider aliases, lockfiles, environments, and state/workspace boundaries. Record the repository commit, workspace, account/project, and collection time for every snapshot.
+- [ ] **Customer-Run CI Collector:** start with a collector inside the organization's existing Terraform/OpenTofu pipeline. Read structured state and plan data there and export only allowlisted resource addresses, provider resource IDs, module relationships, and required non-secret attributes. Raw state and plan JSON can contain secrets even when fields are marked sensitive; keep them out of the browser, public artifacts, and this repository.
+- [ ] **Resource-to-Code Mapping:** join billing and cloud inventory to provider resource IDs scoped by cloud, account/project, and region; link them to Terraform addresses, module instances, and owning repositories/workspaces. Support `count`/`for_each`, aliases, and multiple states without merging unrelated resources. Show unresolved matches and confidence; names alone are insufficient.
+- [ ] **Cost and Ownership Views:** report spend by module, environment, workspace, team, and managed resource. Keep shared charges, credits, and costs without resource IDs visible instead of forcing one-to-one allocation.
+- [ ] **Verified Drift and Coverage:** use read-only cloud inventory and refreshed Terraform plan evidence to identify drift or resources outside the connected states. Distinguish desired configuration, the last recorded state, current observations, and historical billing; billing alone does not establish drift or unmanaged status.
+- [ ] **Changes to Existing Modules:** use utilization and pricing evidence to propose focused edits to existing module inputs or resource definitions. Preserve module structure, provider constraints, naming, and state addresses. Where code ownership or resource mapping is ambiguous, provide a recommendation for review rather than generating a competing resource definition.
+- [ ] **Pull Requests Through Existing CI:** include the evidence, estimated cost impact, and affected resources with each proposed change. Run validation and a fresh plan in the customer's trusted pipeline; highlight replacements, deletions, and data-loss risks. Apply through the organization's existing approval and deployment process, then measure realized savings separately from estimates.
+- [ ] **Adopt Unmanaged Resources Deliberately:** offer draft Terraform import blocks and configuration for resources confirmed outside connected management boundaries. Require a reviewed plan before adoption; discovery must not automatically change state or create replacement resources.
+- [ ] **New Infrastructure Starter Templates:** retain modular Terraform starter generation for new deployments, using verified SKU and inventory evidence where available and explicit assumptions elsewhere. Filter unused resources only when supporting utilization evidence exists.
+
+**First deliverable:** a read-only Terraform/OpenTofu collector and a cost-by-module/workspace dashboard with source links and unmatched-resource reporting. Add recommendation-to-PR workflows after resource identity and allocation are reliable.
 
 ---
 

@@ -53,6 +53,8 @@ Real period comparison, verified savings, and infrastructure-change workflows re
 
 New reports preserve provider attribution per platform/product. The IaC builders use that evidence instead of inferring a cloud from the team name. The browser builder blocks ambiguous providers; the CLI requires an explicit `--provider` choice for those products. Legacy reports retain heuristic provider selection. Templates remain unvalidated starter configurations.
 
+For organizations with existing Terraform/OpenTofu, the planned workflow is to connect their repositories and workspaces, reconcile managed resources with cloud inventory and billing, and propose changes to their existing modules through pull requests and their normal CI/CD process. Start with read-only cost attribution by module/workspace; state/plan collection should run inside the customer's environment and export only allowlisted metadata. Existing-infrastructure discovery, reconciliation, and PR generation are **not yet implemented**. See [Build on Existing Infrastructure as Code](ROADMAP.md#phase-7-build-on-existing-infrastructure-as-code).
+
 ### Regression checks
 
 The analysis engine and its tests use the Python standard library. Dashboard behavior checks use Node.js and a minimal DOM harness; they do not require a browser or CDN access.
