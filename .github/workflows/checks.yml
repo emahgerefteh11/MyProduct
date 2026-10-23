@@ -17,7 +17,26 @@ jobs:
           node-version: '22'
       - run: python -m unittest discover -s tests -p 'test_*.py' -v
       - run: node tests/dashboard.test.cjs
+      - run: node tests/import.test.cjs
       - name: Check the generated demo is current
         run: |
           python generate_dashboard.py
           git diff --exit-code -- dashboard_demo.html
+
+  browser-import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install playwright==1.56.0
+      - run: python -m playwright install --with-deps chromium
+      - run: python tests/browser_import.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: import-browser-screenshots
+          path: test-artifacts/
+          retention-days: 7

@@ -5,7 +5,7 @@ A holistic, multi-phase roadmap aligned with the **FinOps Foundation Framework (
 ## Current delivery sequence
 
 1. **Trustworthy reporting (implemented in this iteration):** fix provider/tag attribution; expose report provenance, currency assumptions, source reconciliation, and unallocated spend; reject invalid or incompatible inputs; keep simulated insights in demo mode.
-2. **Guided import:** billing-file upload, schema/column mapping, validation preview, and an explicit path from sample data to a customer's first report.
+2. **Guided import (implemented):** browser CSV upload, schema/column mapping, full-row validation preview, local report storage, JSON download, and an explicit path from sample data to a customer's first report. Browser reports cover costs and explicit allocation; advanced naming and hardware analysis remain in the Python workflow.
 3. **Modern dashboard UI:** substantially refresh the visual design, navigation, charts, and responsive layouts to give the product a polished, modern feel.
 4. **Explain and assign spend:** actual billing-period comparisons, cost-change drivers, ownership rules, and shared-cost allocation.
 5. **Verify and act:** inventory/utilization-backed findings, savings status and measurement, and reviewed changes to existing infrastructure.

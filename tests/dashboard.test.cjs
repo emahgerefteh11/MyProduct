@@ -33,7 +33,7 @@ class Element {
     appendChild(child) { this.children.push(child); return child; }
 }
 
-async function dashboard({data = fixture, demo = false, available = true} = {}) {
+async function dashboard({data = fixture, demo = false, available = true, stored = null} = {}) {
     const elements = new Map([...html.matchAll(/id="([^"]+)"/g)].map(match => [match[1], new Element(match[1])]));
     const tables = new Map();
     const main = new Element('main');
@@ -54,6 +54,7 @@ async function dashboard({data = fixture, demo = false, available = true} = {}) 
     const context = vm.createContext({
         document, console, Intl, Date, setTimeout,
         fetch: async () => ({ok: available, json: async () => structuredClone(data)}),
+        ReportStore: {get: async () => structuredClone(stored)},
     });
     context.window = context;
     const prefix = demo ? `const embeddedReportData = ${JSON.stringify(data)};\n` : '';
@@ -163,4 +164,20 @@ test('generated demo uses the current dashboard and explicitly embeds data', () 
     const demo = fs.readFileSync(path.join(root, 'dashboard_demo.html'), 'utf8');
     assert.ok(demo.includes('const embeddedReportData = '));
     assert.ok(demo.includes(script.slice(script.indexOf('let reportData = null;'))));
+});
+
+test('accepted browser report overrides bundled sample and keeps unsupported sizing unavailable', async () => {
+    const importer = require('../billing_import.js');
+    const parsed = importer.parseCSV('Cost,Product,Platform,Service,Currency\n42,<img src=x onerror=alert(1)>,core,Compute Engine,EUR');
+    const result = importer.validate([{...parsed, name:'import.csv', sha256:'abc', delimiter:','}], [importer.detect(parsed.headers)]);
+    const page = await dashboard({data:{...fixture,sampleData:true},stored:result.report});
+    assert.match(page.elements.get('kpi-total').textContent, /42\.00/);
+    assert.match(page.elements.get('mode-badge-header').innerHTML, /REPORT DATA/);
+    assert.equal(page.elements.get('download-imported-report').hidden, false);
+    assert.match(page.tables.get('#table-compute-skus tbody').innerHTML, /not analyzed/);
+    assert.equal(page.elements.get('iac-download').disabled, true);
+    assert.match(page.tables.get('#table-products tbody').children[0].innerHTML, /&lt;img/);
+    assert.doesNotMatch(page.tables.get('#table-products tbody').children[0].innerHTML, /<img/);
+    const demo = await dashboard({demo:true,stored:result.report});
+    assert.match(demo.elements.get('mode-badge-header').innerHTML, /DEMO DATA/);
 });

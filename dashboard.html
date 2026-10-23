@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cloud Cost Atlas</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="report_store.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -153,6 +154,9 @@
             <div class="subtitle" id="last-updated">Loading analysis results...</div>
         </div>
         <div class="filters">
+            <a href="import.html" style="color:var(--primary);font-weight:600;">Import billing</a>
+            <button id="download-imported-report" onclick="downloadImportedReport()" hidden>Download report</button>
+            <button id="clear-imported-report" onclick="clearImportedReport()" hidden>Clear imported report</button>
             <span id="mode-badge-header" style="display: none;"></span>
             <select id="global-platform-filter" onchange="applyFilters()">
                 <option value="all">All Platforms</option>
@@ -169,6 +173,7 @@
         </details>
         <p id="evidence-notice" class="subtitle" style="margin-top:8px;"></p>
         <p id="chart-status" class="subtitle" hidden></p>
+        <p id="import-status" class="subtitle" hidden></p>
     </div>
 
     <!-- Overview Tab -->
@@ -400,6 +405,7 @@
 
 <script>
     let reportData = null;
+    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[ch]));
     let isDemoMode = false;
     const charts = {};
 
@@ -421,7 +427,31 @@
                 return;
             }
 
-            // Live mode: fetch report_data.json produced by cur_to_json.py
+            // An explicitly accepted browser import takes precedence over the bundled report.
+            const importRequested = (window.location?.search || '').includes('source=import');
+            if (typeof ReportStore !== 'undefined') {
+                let imported;
+                try { imported = await ReportStore.get(); }
+                catch (error) {
+                    if (importRequested) throw error;
+                    const notice = document.getElementById('import-status');
+                    notice.hidden = false;
+                    notice.textContent = 'Browser report storage is unavailable. Showing the site report; enable site storage to open a saved import.';
+                }
+                if (imported) {
+                    reportData = imported;
+                    setMode('live'); populateFilters(); renderDashboard('all');
+                    document.getElementById('download-imported-report').hidden = false;
+                    document.getElementById('clear-imported-report').hidden = false;
+                    const notice = document.getElementById('import-status');
+                    notice.hidden = false;
+                    notice.textContent = 'Your imported report is saved only in this browser. Download a copy to keep it, or clear it when finished.';
+                    return;
+                }
+            }
+            if (importRequested) throw new Error('Your imported report is not available in this browser. Import the billing files again.');
+
+            // Otherwise fetch report_data.json produced by cur_to_json.py.
             document.getElementById('last-updated').textContent = 'Loading analysis results...';
             const paths = ['report_data.json', 'MyProduct/report_data.json'];
             let res;
@@ -437,7 +467,7 @@
             renderDashboard('all');
         } catch (e) {
             document.querySelector('main').innerHTML =
-                `<div class="no-data-screen"><div class="icon-big">&#9888;&#65039;</div><h2>Error Loading Data</h2><p>${e.message}</p></div>`;
+                `<div class="no-data-screen"><div class="icon-big">&#9888;&#65039;</div><h2>Error Loading Data</h2><p>${escapeHtml(e.message)}</p><p><a href="import.html">Import billing files</a></p></div>`;
         }
     }
 
@@ -505,7 +535,8 @@
             <div class="no-data-screen">
                 <div class="icon-big">&#128202;</div>
                 <h2>No Analysis Data Yet</h2>
-                <p>Run a CUR analysis to generate your multi-cloud cost report. The dashboard will populate automatically once report_data.json is produced.</p>
+                <p><a href="import.html">Import your billing CSV files</a> and review a validation preview to generate your report in this browser.</p>
+                <p>For larger exports and hardware sizing, run the command-line analyzer:</p>
                 <code>python cur_to_json.py --input billing_file.csv</code>
                 <p class="demo-link">Want to see it in action? <a href="dashboard_demo.html">View the pre-loaded demo dashboard</a></p>
             </div>`;
@@ -593,7 +624,7 @@
         filteredServices.slice(0, 10).forEach(s => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><span style="font-weight:600">${s.ServiceCategory}</span></td>
+                <td><span style="font-weight:600">${escapeHtml(s.ServiceCategory)}</span></td>
                 <td><span class="badge badge-gray">Normalized</span></td>
                 <td>${fmtCurrency(s.BilledCost)}</td>
                 <td>${fmtPct((s.BilledCost / (filteredCost || 1)) * 100)}</td>
@@ -631,14 +662,14 @@
         flatProds.sort((a, b) => b.BilledCost - a.BilledCost).forEach(p => {
             const tr = document.createElement('tr');
             const topSvc = p.services && p.services[0] ? p.services[0].ServiceCategory : 'N/A';
-            const envs = (p.environments || []).map(e => `<span class="badge badge-gray">${e.Environment}</span>`).join(' ');
+            const envs = (p.environments || []).map(e => `<span class="badge badge-gray">${escapeHtml(e.Environment)}</span>`).join(' ');
             
             // Status tag logic
             const statusTag = '<span class="badge badge-gray">Cost reported</span>';
             
             tr.innerHTML = `
-                <td style="font-weight:600">${p.Product}</td>
-                <td>${p.Platform || (platformFilter === 'all' ? 'Multi-Cloud' : platformFilter)}</td>
+                <td style="font-weight:600">${escapeHtml(p.Product)}</td>
+                <td>${escapeHtml(p.Platform || (platformFilter === 'all' ? 'Multi-Cloud' : platformFilter))}</td>
                 <td>${envs || '<span class="badge badge-gray">default</span>'}</td>
                 <td style="font-weight:600">${fmtCurrency(p.BilledCost)}</td>
                 <td>${statusTag}</td>
@@ -814,6 +845,10 @@
     function renderComputeTable(platformFilter) {
         const tbody = document.querySelector('#table-compute-skus tbody');
         tbody.innerHTML = '';
+        if (reportData.analysis?.importMethod === 'browser') {
+            tbody.innerHTML = '<tr><td colspan="5">Hardware sizing is not analyzed by browser import. Use the command-line analyzer for supported SKU and capacity details.</td></tr>';
+            return;
+        }
         const scopePlatforms = platformFilter === 'all'
             ? (reportData.platforms || [])
             : (reportData.platforms || []).filter(p => p.Platform === platformFilter);
@@ -839,9 +874,9 @@
         sorted.forEach(s => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><span style="font-weight:600">${s.sku}</span></td>
-                <td>${s.vcpu}</td>
-                <td>${s.ramGiB}</td>
+                <td><span style="font-weight:600">${escapeHtml(s.sku)}</span></td>
+                <td>${escapeHtml(s.vcpu)}</td>
+                <td>${escapeHtml(s.ramGiB)}</td>
                 <td>${s.instances}</td>
                 <td>${s.hours.toLocaleString(undefined, { maximumFractionDigits: 1 })} hrs</td>
             `;
@@ -857,7 +892,7 @@
         tokens.forEach((pat, idx) => {
             const d = document.createElement('div');
             d.className = 'token-card';
-            d.innerHTML = `<div class="token-name">Token #${idx + 1}</div><div class="token-val">&lt;${pat}&gt;</div>`;
+            d.innerHTML = `<div class="token-name">Token #${idx + 1}</div><div class="token-val">&lt;${escapeHtml(pat)}&gt;</div>`;
             patDiv.appendChild(d);
         });
 
@@ -866,7 +901,7 @@
         (reportData.resourceNames || []).slice(0, 15).forEach(rn => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><span style="font-family:monospace;font-weight:600">${rn.ResourceName}</span></td>
+                <td><span style="font-family:monospace;font-weight:600">${escapeHtml(rn.ResourceName)}</span></td>
                 <td>${(rn.rows || 0).toLocaleString()}</td>
                 <td>${fmtCurrency(rn.BilledCost)}</td>
                 <td>${fmtPct(rn.pctOfTotal || 0)}</td>
@@ -917,7 +952,7 @@
             data: {
                 labels: (reportData.platforms || []).map(p => p.Platform),
                 datasets: [{
-                    label: 'Cost ($)',
+                    label: `Cost${reportData.analysis?.currency ? ' (' + reportData.analysis.currency + ')' : ''}`,
                     data: (reportData.platforms || []).map(p => p.BilledCost),
                     backgroundColor: '#3b82f6',
                     borderRadius: 4,
@@ -1007,6 +1042,13 @@
 
     window.updateIacPreview = () => {
         if (!window.allProductsData) return;
+        if (reportData.analysis?.importMethod === 'browser') {
+            document.getElementById('iac-preview').textContent = 'Browser imports cover costs and explicit allocation. Use the command-line analyzer for resource sizing before generating infrastructure starter templates.';
+            document.getElementById('iac-pattern-badge').style.display = 'none';
+            document.getElementById('iac-download').disabled = true;
+            document.getElementById('iac-copy').disabled = true;
+            return;
+        }
         const prodName = document.getElementById('iac-product').value;
         const framework = document.getElementById('iac-framework').value;
         const env = document.getElementById('iac-env').value;
@@ -1277,6 +1319,19 @@ resource virtualMachine 'Microsoft.Compute/virtualMachines@2022-03-01' = {
             naming: 'Naming Convention Audit'
         };
         document.getElementById('page-title').textContent = titles[tabId];
+    };
+
+    window.downloadImportedReport = () => {
+        if (!reportData || reportData.sampleData) return;
+        const url = URL.createObjectURL(new Blob([JSON.stringify(reportData, null, 2)], {type: 'application/json'}));
+        const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'report_data.json';
+        document.body.appendChild(anchor); anchor.click(); anchor.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+    window.clearImportedReport = async () => {
+        const button = document.getElementById('clear-imported-report'); button.disabled = true;
+        try { await ReportStore.clear(); window.location.href = 'import.html'; }
+        catch (error) { const notice = document.getElementById('import-status'); notice.hidden = false; notice.textContent = error.message; button.disabled = false; }
     };
 
     init().then(() => {

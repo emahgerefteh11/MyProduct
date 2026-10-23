@@ -5,6 +5,9 @@ All notable changes to the **MyProduct** infrastructure analysis tool will be do
 ## [Unreleased]
 
 ### Added
+- Guided browser billing import: multiple CSV files, format detection, editable column mapping, full-row validation, cost/quality preview, and warning acknowledgement before acceptance.
+- Private browser report storage, report JSON download, clear-report controls, and dashboard handoff without a backend.
+- Import-engine regression tests and Chromium acceptance checks for upload, mapping corrections, validation failures, persistence, downloads, safe labels, and mobile layout.
 - Report provenance: actual analysis time, source fingerprints, row counts, currency assumptions, observed dates, cost basis, reconciliation, and unallocated spend.
 - Explicit `--currency` handling for missing source currencies; rejection of incompatible currencies and billed/effective cost bases.
 - Validation for invalid amounts and duplicate input files, plus Python/JavaScript regression checks and GitHub Actions.
@@ -17,7 +20,7 @@ All notable changes to the **MyProduct** infrastructure analysis tool will be do
 - Dashboard tables remain available when the chart CDN cannot load. Demo generation escapes inline-script terminators and fails when its injection anchor is missing.
 
 ### Scope
-- This iteration establishes trustworthy reporting. Guided import, real period comparisons, owner workflows, verified savings, and validated infrastructure changes remain future work.
+- Browser imports summarize costs and explicit allocation; naming inference, hardware sizing, and infrastructure starter generation remain in the Python workflow. Real period comparisons, owner workflows, verified savings, and validated infrastructure changes remain future work.
 
 ## [v0.2.0] - 2026-02-17
 

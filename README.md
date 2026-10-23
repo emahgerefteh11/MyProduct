@@ -7,6 +7,21 @@
 
 **Cloud Cost Atlas** is a multi-cloud infrastructure intelligence and FinOps tool. It ingests supported billing CSV formats from **AWS**, **Microsoft Azure**, and **Google Cloud Platform (GCP)**, normalizes services into a unified taxonomy, extracts hardware sizing and naming conventions, generates interactive dashboards, and creates Terraform starter templates based on reported cloud footprints. Generated infrastructure requires review and validation before deployment.
 
+## Guided billing import
+
+Open [Import billing](import.html) from the home page or dashboard. This works on GitHub Pages without a backend or cloud credentials.
+
+1. Choose uncompressed UTF-8 CSV files. The browser importer accepts up to **10 files, 20 MiB combined, and 100,000 rows total**. Comma, semicolon, and tab separators are supported.
+2. Review the detected format and column mappings for each file. AWS CUR, Azure Cost Management, GCP billing exports, and FOCUS-style headers are recognized; custom exports can be mapped manually. Confirm the cost column, provider fallback, and billed/effective cost basis. A currency assumption is optional and only fills missing currencies.
+3. Validate every row and review the preview: totals, source row counts, observed dates, top services, unallocated spend, reconciliation, and warnings. Invalid amounts, malformed row widths, mixed currencies or cost bases, reversed date ranges, and identical whole-file duplicates block acceptance. Correct the CSV or mappings and validate again.
+4. Acknowledge the warnings, then **Open dashboard** or **Download report JSON**. The dashboard opens in report mode, with no simulated savings or trends.
+
+Files are parsed and validated in a Web Worker on the device. Only an accepted report is saved in this browser's IndexedDB when **Open dashboard** is clicked; source CSV files are not persisted or sent to a server. The accepted report takes precedence over the site's bundled report and survives a refresh. The dashboard's **Download report** and **Clear imported report** controls let you keep a copy or remove it. Demo mode remains independent. Browser storage is specific to this site, browser, and device; private browsing, clearing site data, or changing devices can remove access to the saved report. Download JSON to keep a portable copy.
+
+The browser report covers **costs, explicit product/platform/environment columns or JSON tags, providers, and resource identifiers as supplied**. It does not infer names, hardware sizing, usage capacity, or utilization, and infrastructure generation is unavailable for browser reports. Use the Python analyzer for naming rules, supported hardware/SKU inference, larger files, or infrastructure starter generation. Separate GCP credit fields are not subtracted automatically; map an appropriate net-cost column if required. FOCUS header recognition is not full FOCUS conformance. Duplicate checking detects identical file contents, not overlapping rows in distinct exports. Monetary sums use exact decimal arithmetic before rounding totals for display; no currency conversion is performed.
+
+Use a current browser over **HTTPS or localhost**. Opening `import.html` directly through `file://` is not supported. For local use, run `python -m http.server 8000` in the repository and visit `http://localhost:8000/import.html`. The import page has no third-party dependencies; the dashboard still loads charts and fonts from CDNs, with tables available if those resources cannot load.
+
 ## Report trust and data quality
 
 The report dashboard displays imported costs, not a real-time cloud connection. Its provenance panel shows the actual analysis timestamp, source filenames and SHA-256 fingerprints, row counts, observed usage dates, currency, cost basis, and source-to-report reconciliation. Unallocated product, platform, and environment costs are recorded in the report. Reconciliation checks the imported rows; it does not establish completeness against a cloud invoice.
@@ -28,7 +43,7 @@ python cur_to_json.py \
   --currency USD --output report_data.json
 ```
 
-Real period comparison, guided billing upload, verified savings, and infrastructure-change workflows remain upcoming iterations. The current multi-file summaries do not establish comparable monthly periods.
+Real period comparison, verified savings, and infrastructure-change workflows remain upcoming iterations. The current multi-file summaries do not establish comparable monthly periods.
 
 New reports preserve provider attribution per platform/product. The IaC builders use that evidence instead of inferring a cloud from the team name. The browser builder blocks ambiguous providers; the CLI requires an explicit `--provider` choice for those products. Legacy reports retain heuristic provider selection. Templates remain unvalidated starter configurations.
 
@@ -39,10 +54,19 @@ The analysis engine and its tests use the Python standard library. Dashboard beh
 ```bash
 python -m unittest discover -s tests -p 'test_*.py' -v
 node tests/dashboard.test.cjs
+node tests/import.test.cjs
 python generate_dashboard.py
 ```
 
-GitHub Actions runs these checks and verifies that the generated demo matches `dashboard.html` and `report_data.json`.
+GitHub Actions runs these checks, verifies that the generated demo matches `dashboard.html` and `report_data.json`, and runs Chromium acceptance tests for the guided import. To run the browser checks locally:
+
+```bash
+python -m pip install playwright==1.56.0
+python -m playwright install chromium
+python tests/browser_import.py
+```
+
+The browser tests start a local server and block third-party requests. Screenshots are written to `test-artifacts/` (ignored by Git); CI retains them for seven days.
 
 ---
 
@@ -200,8 +224,11 @@ python terraform_generator.py --input report_data.json --output-dir terraform_ge
 ### Visualization & Dashboards
 | File | Description |
 | :--- | :--- |
-| [`index.html`](index.html) | Landing portal directing users to the Demo Dashboard or Live Dashboard. |
-| [`dashboard.html`](dashboard.html) | Live interactive dashboard fetching `report_data.json` dynamically via `fetch()`. |
+| [`index.html`](index.html) | Landing portal for guided billing import, sample demo, and report dashboard. |
+| [`import.html`](import.html), [`import.js`](import.js), [`import.css`](import.css) | Guided file selection, editable mappings, validation preview, and report acceptance. |
+| [`billing_import.js`](billing_import.js), [`billing_worker.js`](billing_worker.js) | Browser CSV parsing, schema detection, validation, exact decimal sums, and cost aggregation in a worker. |
+| [`report_store.js`](report_store.js) | Browser-only IndexedDB storage for one accepted report. |
+| [`dashboard.html`](dashboard.html) | Interactive dashboard loading an accepted browser import first, then the site's `report_data.json` when no import is saved. |
 | [`dashboard_demo.html`](dashboard_demo.html) | Standalone offline dashboard with embedded JSON data for zero-setup demos and static hosting. |
 | [`dashboard_clean_template.html`](dashboard_clean_template.html) | Historical layout reference; not used by the current build. Edit `dashboard.html` and regenerate the demo. |
 
