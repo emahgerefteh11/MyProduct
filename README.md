@@ -11,6 +11,8 @@
 
 Open [Import billing](import.html) from the home page or dashboard. This works on GitHub Pages without a backend or cloud credentials.
 
+Supported **AWS CUR and GCP billing CSVs can directly generate the reporting dashboard** through this flow; no manual JSON conversion or Python command is required. Broader native export support, including compressed/Parquet CUR files and GCP credit handling, is tracked in the [billing-source roadmap](ROADMAP.md#billing-reports-and-direct-cloud-connections).
+
 1. Choose uncompressed UTF-8 CSV files. The browser importer accepts up to **10 files, 20 MiB combined, and 100,000 rows total**. Comma, semicolon, and tab separators are supported.
 2. Review the detected format and column mappings for each file. AWS CUR, Azure Cost Management, GCP billing exports, and FOCUS-style headers are recognized; custom exports can be mapped manually. Confirm the cost column, provider fallback, and billed/effective cost basis. A currency assumption is optional and only fills missing currencies.
 3. Validate every row and review the preview: totals, source row counts, observed dates, top services, unallocated spend, reconciliation, and warnings. Invalid amounts, malformed row widths, mixed currencies or cost bases, reversed date ranges, and identical whole-file duplicates block acceptance. Correct the CSV or mappings and validate again.
@@ -21,6 +23,10 @@ Files are parsed and validated in a Web Worker on the device. Only an accepted r
 The browser report covers **costs, explicit product/platform/environment columns or JSON tags, providers, and resource identifiers as supplied**. It does not infer names, hardware sizing, usage capacity, or utilization, and infrastructure generation is unavailable for browser reports. Use the Python analyzer for naming rules, supported hardware/SKU inference, larger files, or infrastructure starter generation. Separate GCP credit fields are not subtracted automatically; map an appropriate net-cost column if required. FOCUS header recognition is not full FOCUS conformance. Duplicate checking detects identical file contents, not overlapping rows in distinct exports. Monetary sums use exact decimal arithmetic before rounding totals for display; no currency conversion is performed.
 
 Use a current browser over **HTTPS or localhost**. Opening `import.html` directly through `file://` is not supported. For local use, run `python -m http.server 8000` in the repository and visit `http://localhost:8000/import.html`. The import page has no third-party dependencies; the dashboard still loads charts and fonts from CDNs, with tables available if those resources cannot load.
+
+## Direct cloud account connections (planned)
+
+Direct hyperscaler account connections are **planned, not yet implemented**. The target flow is to connect AWS or GCP, select the billing source and period, and generate or refresh the same dashboard automatically; Azure follows. This requires an authenticated backend for cloud access and ingestion. AWS CUR exports in S3 and GCP Cloud Billing exports in BigQuery are the initial connected sources. See the [connection requirements](ROADMAP.md#connect-a-hyperscaler-account-and-generate-results).
 
 ## Report trust and data quality
 

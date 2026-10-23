@@ -7,15 +7,38 @@ A holistic, multi-phase roadmap aligned with the **FinOps Foundation Framework (
 1. **Trustworthy reporting (implemented in this iteration):** fix provider/tag attribution; expose report provenance, currency assumptions, source reconciliation, and unallocated spend; reject invalid or incompatible inputs; keep simulated insights in demo mode.
 2. **Guided import (implemented):** browser CSV upload, schema/column mapping, full-row validation preview, local report storage, JSON download, and an explicit path from sample data to a customer's first report. Browser reports cover costs and explicit allocation; advanced naming and hardware analysis remain in the Python workflow.
 3. **Modern dashboard UI:** substantially refresh the visual design, navigation, charts, and responsive layouts to give the product a polished, modern feel.
-4. **Explain and assign spend:** actual billing-period comparisons, cost-change drivers, ownership rules, and shared-cost allocation.
-5. **Verify and act:** inventory/utilization-backed findings, savings status and measurement, and reviewed changes to existing infrastructure.
+4. **Native billing reports and direct cloud connections:** expand AWS CUR/GCP billing-report coverage and add connected-account ingestion that generates and refreshes the reporting dashboard without manual file uploads. Prioritize AWS and GCP, then Azure.
+5. **Explain and assign spend:** actual billing-period comparisons, cost-change drivers, ownership rules, and shared-cost allocation.
+6. **Verify and act:** inventory/utilization-backed findings, savings status and measurement, and reviewed changes to existing infrastructure.
 
 The longer-term phases below remain directional. Partial FOCUS input handling and labeled multi-file summaries already exist; they do not yet provide full FOCUS conformance or real monthly comparison. The infrastructure builder produces starter templates with assumptions that need review.
+
+## Billing reports and direct cloud connections
+
+**Product requirement:** provide two paths to the same reporting dashboard: upload AWS CUR or GCP billing reports, or connect a hyperscaler account and retrieve its billing data. Both paths should generate results without requiring the user to prepare report JSON or run Python manually.
+
+### Build a dashboard directly from billing reports
+
+- [x] Generate a cost and allocation dashboard from supported AWS CUR and GCP billing CSVs through the guided upload, mapping, and validation flow.
+- [ ] Expand native AWS CUR / CUR 2.0 coverage to compressed CSV and Parquet exports, including manifests and partitioned report files.
+- [ ] Expand GCP billing-report coverage for native export schemas, nested labels, credits, refunds, and adjustments, with explicit gross/net cost treatment.
+- [ ] Handle overlapping exports and revised billing periods without double-counting. Validate that supported file and connected-source inputs produce equivalent cost totals and allocation results.
+
+### Connect a hyperscaler account and generate results
+
+- [ ] **AWS:** guided connection using a cross-account IAM role with an external ID and access scoped to the selected CUR/Data Exports location in S3; support querying the billing export through Athena where appropriate.
+- [ ] **GCP:** guided connection to the selected Cloud Billing export dataset/table in BigQuery using federated identity or a scoped service identity, with billing-data read and query permissions.
+- [ ] **Azure (follow-on):** connect a billing scope through Cost Management APIs or billing exports using a scoped identity.
+- [ ] **Connection onboarding:** select accounts/projects and a billing period, test access, check export prerequisites, preview retrieved data, and generate the dashboard. Explain missing exports, unavailable history, and billing-data delays.
+- [ ] **Backend foundation:** authenticated ingestion jobs and private report storage with tenant isolation and narrowly scoped cloud access. Keep cloud credentials out of browser code, browser storage, and the repository. GitHub Pages remains the frontend; connected ingestion requires a backend service.
+- [ ] **Refresh and connection management:** manual and configurable scheduled refresh, sync progress, last successful analysis time, actionable errors, and disconnect/revoke controls. Retain the last valid report on a failed sync and visibly mark stale data.
+- [ ] **Shared reporting contract:** apply the same currency/cost-basis validation, attribution rules, source provenance, and reconciliation to uploads and connected data; test account boundaries and provider-specific credits/adjustments.
 
 ## Modern dashboard UI — To Do
 
 - [ ] Establish a cohesive visual system: modern typography, refined colors, consistent spacing, icons, and reusable components.
 - [ ] Redesign navigation and page layouts with clearer hierarchy, more breathing room, and easier access to key cost insights.
+- [ ] Present clear **Upload billing reports** and **Connect cloud account** entry points, with connection status and data freshness visible once account ingestion is implemented.
 - [ ] Modernize summary cards, charts, tables, filters, and drill-down interactions while keeping report provenance and demo labels visible.
 - [ ] Make the dashboard work comfortably on desktop, tablet, and mobile screens.
 - [ ] Polish loading, empty, error, hover, and focus states; support keyboard navigation, readable contrast, and reduced motion.
