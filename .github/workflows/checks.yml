@@ -23,6 +23,10 @@ jobs:
         run: |
           python generate_dashboard.py
           git diff --exit-code -- dashboard_demo.html
+      - name: Check the isolated preview is current
+        run: |
+          python build_preview.py
+          git diff --exit-code -- preview/
 
   adoption-terraform:
     runs-on: ubuntu-latest
@@ -52,6 +56,7 @@ jobs:
       - run: python tests/browser_dashboard.py
         env:
           ATLAS_REVIEW_SCREENSHOTS: ${{ startsWith(github.ref, 'refs/heads/codex/modern-workspace-') && '1' || '0' }}
+      - run: python tests/browser_preview.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:

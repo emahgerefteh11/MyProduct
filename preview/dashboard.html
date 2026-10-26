@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
+    <meta name="theme-color" content="#123554">
+    <title>Workspace · Cloud Cost Atlas</title>
+    <link rel="stylesheet" href="../atlas.css">
+    <link rel="stylesheet" href="../dashboard.css">
+    <link rel="stylesheet" href="../motion.css">
+    <script src="report_store.js"></script>
+    <script src="../dashboard_ui.js" defer></script>
+<meta name="robots" content="noindex,nofollow"><link rel="stylesheet" href="preview.css"><script src="preview.js" defer></script></head>
+<body class="design-preview preview-workspace"><div class="preview-banner"><span><span class="preview-dot" aria-hidden="true"></span>Design preview</span><a href="../">View current site <span aria-hidden="true">→</span></a></div>
+<a class="skip-link" href="#main-content">Skip to dashboard</a>
+<aside id="workspace-sidebar" aria-label="Workspace navigation">
+    <a class="logo" href="index.html" aria-label="Cloud Atlas home"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m12 3 9 5v8l-9 5-9-5V8zM3 8l9 5 9-5M12 13v8"/></svg></span>Cloud<span>Atlas</span></a>
+    <button id="nav-close" class="icon-button" aria-label="Close navigation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
+    <p class="nav-heading">Workspace</p>
+    <nav id="workspace-nav" aria-label="Dashboard views">
+        <a class="active" href="#overview" data-view="overview" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Spend overview</a>
+        <a href="#products" data-view="products"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m12 3 9 5v8l-9 5-9-5V8zM3 8l9 5 9-5M12 13v8"/></svg>Product costs</a>
+        <a href="#finops" data-view="finops"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m4 17 5-5 4 3 7-10M14 5h6v6"/></svg>Optimization</a>
+        <a href="#compute" data-view="compute"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="5" y="5" width="14" height="14" rx="3"/><rect x="9" y="9" width="6" height="6" rx="1"/><path d="M9 2v3m6-3v3M9 19v3m6-3v3M2 9h3m-3 6h3m14-6h3m-3 6h3"/></svg>Compute &amp; sizing</a>
+        <a href="#naming" data-view="naming"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 4h9l9 9-8 8-10-10z"/><circle cx="7.5" cy="8" r="1"/></svg>Resources &amp; naming</a>
+        <a href="#iac" data-view="iac"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18"/></svg>Manage as code</a>
+    </nav>
+    <div class="sidebar-bottom"><div id="mode-badge-sidebar"></div><p class="workspace-note"><span class="dot" aria-hidden="true"></span>Reports stay in your browser</p><div id="sidebar-switch-link"></div></div>
+</aside>
+<button id="nav-backdrop" tabindex="-1" aria-label="Close navigation" hidden></button>
+<main id="main-content" tabindex="-1" aria-busy="true">
+    <div class="workspace-bar">
+        <button id="nav-toggle" class="icon-button" aria-label="Open navigation" aria-expanded="false" aria-controls="workspace-sidebar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <div class="breadcrumb"><a href="index.html">Workspace</a><span class="separator" aria-hidden="true">/</span><strong id="view-breadcrumb">Spend overview</strong></div>
+        <div class="top-actions"><span id="mode-badge-header"></span><a class="button primary" href="import.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6"/></svg>Import billing</a></div>
+    </div>
+    <header class="page-heading"><div><h1 id="page-title" tabindex="-1">Spend overview</h1><p id="page-description" class="page-description">Understand where your cloud spend goes, and what comes next.</p></div>
+        <div class="page-actions"><details class="report-actions"><summary class="button">Report actions <span aria-hidden="true">⌄</span></summary><div class="actions-menu"><button id="download-imported-report" onclick="downloadImportedReport()" hidden>Download report JSON</button><a href="import.html">Import a new report</a><button type="button" data-open-cloud>Cloud connection options</button><button id="clear-imported-report" onclick="clearImportedReport()" hidden>Clear imported report</button></div></details></div>
+    </header>
+    <div id="loading-state" class="loading-panel" role="status"><p>Preparing your workspace…</p><div class="skeleton-grid" aria-hidden="true"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div></div>
+    <div id="report-content" hidden>
+        <div id="spend-hero" class="spend-hero">
+            <div class="spend-primary"><p class="spend-label" id="kpi-total-label">Reported spend</p><div class="spend-number" id="kpi-total">—</div><p id="preview-period" class="spend-period"></p><p class="spend-scope" id="kpi-providers-count"></p></div>
+            <div class="spend-insight"><span class="insight-label">Largest cost driver</span><strong id="preview-driver">Preparing your report</strong><p id="preview-driver-detail"></p><a href="#service-breakdown" class="text-link">See the breakdown <span aria-hidden="true">→</span></a></div>
+        </div>
+        <p id="preview-alert" class="preview-alert" role="status" hidden></p>
+
+        <div class="filter-bar"><label class="filter-control" for="global-platform-filter"><span>Platform</span><select id="global-platform-filter" onchange="applyFilters()"><option value="all">All Platforms</option></select></label><div id="scope-summary" class="scope-status" aria-live="polite"><span class="dot" aria-hidden="true"></span>All platforms · Reported billing period</div></div>
+        <section id="tab-overview" class="view-section" aria-label="Spend overview">
+            <div class="section-grid">
+                <div class="card"><div class="card-heading"><div><h3>Where your spend goes</h3><p class="subtitle">Reported cost by service family</p></div></div><div class="chart-container" id="chart-tco" aria-label="Cost by service family"></div></div>
+                <div class="card"><div class="card-heading"><div><h3>Spend by platform</h3><p class="subtitle">Compare all platforms · Select one to explore</p></div></div><div class="chart-container" id="chart-platform" aria-label="Reported platform costs"></div></div>
+                <div class="card full-width" id="service-breakdown"><div class="flex-between"><div><h3>Service breakdown</h3><p class="subtitle">The largest services in your selected scope</p></div></div><div class="table-container" role="region" aria-label="Service cost breakdown" tabindex="0"><table id="table-services"><thead><tr><th scope="col">Service family</th><th scope="col">Reported spend</th><th scope="col">Share of scope</th></tr></thead><tbody></tbody></table></div></div>
+            </div>
+        </section>
+        <section id="tab-products" class="view-section hidden" aria-label="Product costs">
+            <div class="card"><div class="flex-between"><div><h3>Product cost breakdown</h3><p class="subtitle">Explore products, environments, and service dependencies.</p></div><div class="table-tools"><label class="search-field" for="product-search"><span class="sr-only">Search products, platforms or environments</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><input type="search" id="product-search" placeholder="Search products…" oninput="filterProductTable()"></label><label for="product-sort" class="sr-only">Sort products</label><select id="product-sort" onchange="filterProductTable()"><option value="cost-desc">Highest spend</option><option value="cost-asc">Lowest spend</option><option value="name">Name A–Z</option></select></div></div>
+                <div class="table-container" role="region" aria-label="Product cost breakdown" tabindex="0"><table id="table-products"><thead><tr><th scope="col">Product</th><th scope="col">Platform</th><th scope="col">Environments</th><th scope="col">Reported spend</th><th scope="col">Evidence</th></tr></thead><tbody></tbody></table></div><div id="product-count" class="table-count" role="status"></div>
+            </div>
+        </section>
+        <section id="tab-finops" class="view-section hidden" aria-label="Optimization">
+            <div class="kpi-grid"><div class="card"><div class="kpi-label">Estimated potential savings</div><div class="kpi-value" id="finops-total-savings">—</div><div class="kpi-sub" id="finops-evidence">Requires resource and utilization evidence</div></div><div class="card"><div class="kpi-label">Critical opportunities</div><div class="kpi-value" id="finops-critical-count">—</div><div class="kpi-sub">Requires verified findings</div></div></div>
+            <div class="section-grid"><div class="card full-width"><div class="flex-between"><div><h3>Optimization opportunities</h3><p class="subtitle" id="recommendation-subtitle">Only evidence-backed findings should inform infrastructure changes</p></div><div class="table-tools" role="group" aria-label="Recommendation category"><button class="button" data-category="all" aria-pressed="true" onclick="filterFinops('all')">All</button><button class="button" data-category="compute" aria-pressed="false" onclick="filterFinops('compute')">Compute</button><button class="button" data-category="storage" aria-pressed="false" onclick="filterFinops('storage')">Storage</button></div></div><div class="table-container" role="region" aria-label="Optimization opportunities" tabindex="0"><table id="table-recommendations"><thead><tr><th scope="col">Opportunity</th><th scope="col">Product</th><th scope="col">Resource</th><th scope="col">Est. savings / month</th><th scope="col">Explore</th></tr></thead><tbody></tbody></table></div></div>
+                <div class="card full-width"><h3>Commitment coverage</h3><p class="subtitle" id="coverage-subtitle">Requires commitment purchase and covered-usage records</p><div class="table-container" role="region" aria-label="Commitment coverage" tabindex="0"><table id="table-ri-coverage"><thead><tr><th scope="col">Instance SKU</th><th scope="col">Run hours</th><th scope="col">Covered hours</th><th scope="col">Coverage</th><th scope="col">Recommendation</th></tr></thead><tbody></tbody></table></div></div>
+            </div>
+        </section>
+        <section id="tab-compute" class="view-section hidden" aria-label="Compute and sizing"><div class="section-grid"><div class="card full-width"><h3>Compute footprint</h3><p class="subtitle" id="compute-scope">Aggregated instance run-hours and sizing across AWS, Azure, and GCP</p><div class="chart-container" id="chart-skus" aria-label="Instance run hours"></div></div><div class="card full-width"><h3>Instance inventory</h3><p class="subtitle">Sizing evidence from supported billing SKUs</p><div class="table-container" role="region" aria-label="Compute inventory" tabindex="0"><table id="table-compute-skus"><thead><tr><th scope="col">Instance SKU</th><th scope="col">vCPU</th><th scope="col">RAM (GiB)</th><th scope="col">Instance count</th><th scope="col">Run hours</th></tr></thead><tbody></tbody></table></div></div></div></section>
+        <section id="tab-naming" class="view-section hidden" aria-label="Resources and naming"><div class="card naming-schema"><h3>Naming convention</h3><p class="subtitle" id="naming-meta">—</p><div id="naming-pattern"></div></div><div class="card"><h3 id="resource-title">Discovered resource types</h3><p class="subtitle" id="resource-description">Resource tokens parsed from naming patterns and infrastructure IDs</p><div class="table-container" role="region" aria-label="Resource names and types" tabindex="0"><table id="table-naming-resources"><thead><tr><th scope="col" id="resource-column">Resource type / token</th><th scope="col">Matched rows</th><th scope="col">Reported spend</th><th scope="col">Share of report</th></tr></thead><tbody></tbody></table></div></div></section>
+        <section id="tab-iac" class="view-section hidden" aria-label="Infrastructure as code"><div class="adoption-callout"><div><h3>Bring existing infrastructure into code</h3><p>Discover live configuration and adopt supported resources through reviewed Terraform imports.</p></div><a class="button primary" href="adoption.html">Open adoption workflow →</a></div><div class="section-grid builder-grid">
+            <div class="card"><h3>Create a starter template</h3><p class="subtitle">For new infrastructure. Billing-based defaults and topology require review before deployment.</p><div class="builder-fields"><div><label for="iac-product">Product / workload</label><select id="iac-product" onchange="updateIacPreview()"></select></div><div class="builder-pair"><div><label for="iac-framework">Framework</label><select id="iac-framework" onchange="updateIacPreview()"><option value="terraform">Terraform</option><option value="cloudformation">CloudFormation</option><option value="bicep">Azure Bicep</option></select></div><div><label for="iac-env">Environment</label><select id="iac-env" onchange="updateIacPreview()"><option value="dev">Development</option><option value="staging">Staging</option><option value="prod">Production</option></select></div></div><div><label for="iac-sku">Instance SKU override</label><input type="text" id="iac-sku" oninput="updateIacPreview()" placeholder="e.g. t3.medium · Optional"></div><div><button id="iac-download" class="button primary" onclick="downloadIac()">Download main.tf</button><p class="subtitle" id="iac-status" role="status"></p></div></div></div>
+            <div class="card"><div class="flex-between"><div><h3>Code preview</h3><div id="iac-pattern-badge" style="display:none"></div></div><button id="iac-copy" class="button" onclick="copyIacToClipboard()">Copy code</button></div><div class="code-pane"><pre id="iac-preview" tabindex="0">Select a product to preview code…</pre></div></div>
+        </div></section>
+        <div class="quality-panel"><details><summary>Report provenance &amp; data quality</summary><p id="report-provenance" class="subtitle"></p><p id="report-quality" class="subtitle"></p><ul id="report-warnings"></ul><p id="last-updated" class="subtitle">Loading analysis results…</p><p id="evidence-notice" class="subtitle"></p><p id="preview-provider-detail" class="subtitle"></p></details><p id="chart-status" class="subtitle" hidden></p><p id="import-status" class="subtitle" hidden></p></div>
+        <footer class="workspace-footer"><span>Cloud Cost Atlas · Built for a clearer cloud</span><span>Amounts reflect the imported report · <a href="import.html">Manage your data</a></span></footer>
+    </div>
+    <noscript><div class="no-data-screen"><h2>Enable JavaScript to view your report</h2><p>The dashboard processes your report locally in this browser.</p></div></noscript>
+</main>
+<dialog id="cloud-dialog" aria-labelledby="cloud-dialog-title"><div class="dialog-content"><div class="dialog-top"><div><p class="eyebrow">Bring your cloud together</p><h2 id="cloud-dialog-title">Cloud connections</h2></div><button class="icon-button" data-close-dialog aria-label="Close cloud connections">×</button></div><p class="muted">Automatic account connections are planned. Today, upload your cloud's billing export to generate a report.</p><div class="connection-options"><div class="connection-option"><span class="provider-icon">AWS</span><div><strong>Amazon Web Services</strong><p>Upload a supported CUR billing CSV</p></div><span class="pill">Auto-sync planned</span></div><div class="connection-option"><span class="provider-icon">GCP</span><div><strong>Google Cloud</strong><p>Upload a supported Cloud Billing CSV</p></div><span class="pill">Auto-sync planned</span></div><div class="connection-option"><span class="provider-icon">AZ</span><div><strong>Microsoft Azure</strong><p>Upload a Cost Management CSV</p></div><span class="pill">Auto-sync planned</span></div></div><p class="dialog-notice">No account is connected through this page. Cloud credentials are not requested or stored here.</p><div class="dialog-actions"><a class="button primary" href="import.html">Upload a billing report →</a><a class="button" href="https://github.com/emahgerefteh11/MyProduct/blob/main/ROADMAP.md#billing-reports-and-direct-cloud-connections">View connection roadmap</a></div></div></dialog>
+<dialog id="product-dialog" aria-labelledby="product-dialog-title"><div class="dialog-content"><div class="dialog-top"><div><p class="eyebrow">Product details</p><h2 id="product-dialog-title"></h2><p id="product-dialog-platform" class="muted"></p></div><button class="icon-button" data-close-dialog aria-label="Close product details">×</button></div><div id="product-dialog-metrics" class="product-summary"></div><h3>Reported service costs</h3><div id="product-dialog-services" class="rank-list"></div><p id="product-dialog-evidence" class="dialog-notice"></p><div class="dialog-actions"><a class="button primary" href="adoption.html">Review infrastructure →</a><button class="button" data-close-dialog>Back to products</button></div></div></dialog>
+
+<script>
+    let reportData = null;
+    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[ch]));
+    let isDemoMode = false;
+
+    const fmtCurrency = (n) => {
+        const currency = reportData?.analysis?.currency || (isDemoMode ? 'USD' : null);
+        const options = currency ? { style: 'currency', currency } : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+        return new Intl.NumberFormat('en-US', options).format(n);
+    };
+    const fmtPct = (n) => `${n.toFixed(1)}%`;
+
+    async function init() {
+        try {
+            // Demo mode: embeddedReportData injected by generate_dashboard.py
+            if (typeof embeddedReportData !== 'undefined') {
+                reportData = embeddedReportData;
+                setMode('demo');
+                populateFilters();
+                renderDashboard('all');
+                return;
+            }
+
+            // An explicitly accepted browser import takes precedence over the bundled report.
+            const importRequested = (window.location?.search || '').includes('source=import');
+            if (typeof ReportStore !== 'undefined') {
+                let imported;
+                try { imported = await ReportStore.get(); }
+                catch (error) {
+                    if (importRequested) throw error;
+                    const notice = document.getElementById('import-status');
+                    notice.hidden = false;
+                    notice.textContent = 'Browser report storage is unavailable. Showing the site report; enable site storage to open a saved import.';
+                }
+                if (imported) {
+                    reportData = imported;
+                    setMode('live'); populateFilters(); renderDashboard('all');
+                    document.getElementById('download-imported-report').hidden = false;
+                    document.getElementById('clear-imported-report').hidden = false;
+                    const notice = document.getElementById('import-status');
+                    notice.hidden = false;
+                    notice.textContent = 'Your imported report is saved only in this browser. Download a copy to keep it, or clear it when finished.';
+                    return;
+                }
+            }
+            if (importRequested) throw new Error('Your imported report is not available in this browser. Import the billing files again.');
+
+            // Otherwise fetch report_data.json produced by cur_to_json.py.
+            document.getElementById('last-updated').textContent = 'Loading analysis results...';
+            const paths = ['../report_data.json'];
+            let res;
+            for (const p of paths) {
+                res = await fetch(p).catch(() => null);
+                if (res && res.ok) break;
+            }
+            if (!res || !res.ok) { showNoDataState(); return; }
+
+            reportData = await res.json();
+            setMode(reportData.sampleData === true ? 'demo' : 'live');
+            populateFilters();
+            renderDashboard('all');
+        } catch (e) {
+            showReportState(`<div class="no-data-screen"><div class="icon-big">&#9888;&#65039;</div><h2>Error Loading Data</h2><p>${escapeHtml(e.message)}</p><p><a href="import.html">Import billing files</a></p></div>`);
+        }
+    }
+
+    function setMode(mode) {
+        const isDemo = mode === 'demo';
+        isDemoMode = isDemo;
+        const badgeClass = isDemo ? 'badge-demo' : 'badge-live';
+        const badgeText = isDemo ? 'DEMO DATA' : 'REPORT DATA';
+        const generatedAt = reportData?.analysis?.generatedAt;
+        const validDate = generatedAt && Number.isFinite(Date.parse(generatedAt));
+        document.getElementById('last-updated').textContent = isDemo
+            ? 'Illustrative demo — simulated insights are not operational findings'
+            : validDate ? `Analyzed: ${new Date(generatedAt).toLocaleString()}` : 'Analysis time unavailable — regenerate the report to add provenance';
+        const sb = document.getElementById('mode-badge-sidebar');
+        sb.innerHTML = `<span class="badge ${badgeClass}">${badgeText}</span>`;
+        sb.style.display = 'block';
+        const hb = document.getElementById('mode-badge-header');
+        hb.innerHTML = `<span class="badge ${badgeClass}">${badgeText}</span>`;
+        hb.style.display = 'inline';
+        document.getElementById('sidebar-switch-link').innerHTML = isDemo
+            ? '<a href="dashboard.html">Open your report &#8594;</a>'
+            : '<a href="dashboard_demo.html">Explore the demo &#8594;</a>';
+        renderProvenance();
+    }
+
+    function renderProvenance() {
+        const analysis = reportData?.analysis;
+        const browserImport = analysis?.importMethod === 'browser';
+        document.getElementById('compute-scope').textContent = browserImport
+            ? 'Hardware sizing and run-hours are not analyzed by browser import. Use the command-line analyzer for supported SKU details.'
+            : 'Aggregated instance run-hours and sizing across AWS, Azure, and GCP';
+        document.getElementById('resource-title').textContent = browserImport ? 'Reported Resource Identifiers' : 'Discovered Resource Types';
+        document.getElementById('resource-description').textContent = browserImport ? 'Resource IDs or names as supplied in the mapped column; no naming-pattern inference.' : 'Resource tokens parsed from naming patterns and infrastructure IDs';
+        document.getElementById('resource-column').textContent = browserImport ? 'Resource ID / Name' : 'Parsed Resource Type / Token';
+        document.getElementById('evidence-notice').textContent = isDemoMode
+            ? 'DEMO: savings, month-over-month changes, and commitment coverage below are simulated examples. Unspecified demo currency is illustrated in USD.'
+            : 'Costs reflect the imported report. Savings, trends, and commitment coverage are unavailable until supporting evidence is provided.';
+        document.getElementById('kpi-total-label').textContent = analysis?.costBasis === 'effective' ? 'Total Effective Cost' : 'Total Reported Cost';
+        const warnings = document.getElementById('report-warnings');
+        warnings.innerHTML = '';
+        if (!analysis) {
+            document.getElementById('report-provenance').textContent = 'This report has no source, date, or currency metadata. Regenerate it with the current analysis engine.';
+            document.getElementById('report-quality').textContent = 'Source reconciliation unavailable. Report amounts are not assumed to be USD.';
+            return;
+        }
+        const sources = (analysis.sources || []).map(source => `${source.file} (${source.schema}, ${source.rows} rows; SHA-256: ${source.sha256 || 'unavailable'})`).join('; ');
+        const period = analysis.usagePeriod || {};
+        const periodText = `${period.start || 'unknown start'} → ${period.end || 'unknown end'}${period.complete ? '' : ' (incomplete)'}`;
+        document.getElementById('report-provenance').textContent = `${analysis.sourceCount} source(s), ${analysis.rowCount} rows. Currency: ${analysis.currency || 'unspecified'}. Cost basis: ${analysis.costBasis}. Observed usage: ${periodText}. Sources: ${sources}`;
+        const reconciliation = analysis.reconciliation;
+        document.getElementById('report-quality').textContent = reconciliation
+            ? `Source sum: ${fmtCurrency(reconciliation.sourceTotal)} · Report sum: ${fmtCurrency(reconciliation.reportTotal)} · Difference: ${fmtCurrency(reconciliation.difference)}. Reconciliation checks imported amounts, not completeness against your cloud invoice.`
+            : 'Source reconciliation unavailable.';
+        if (reportData.allocation) {
+            document.getElementById('report-quality').textContent += ` Unallocated product spend: ${fmtCurrency(reportData.allocation.unallocatedProductCost)}; unallocated platform spend: ${fmtCurrency(reportData.allocation.unallocatedPlatformCost)}.`;
+        }
+        (analysis.warnings || []).forEach(message => {
+            const item = document.createElement('li');
+            item.textContent = message;
+            warnings.appendChild(item);
+        });
+    }
+
+    function showReportState(markup) {
+        reportData = null;
+        window.currentProductRows = [];
+        window.finopsRecommendations = [];
+        const content = document.getElementById('report-content');
+        content.dataset.unavailable = 'true';
+        content.innerHTML = markup;
+        content.hidden = false;
+        document.getElementById('loading-state').hidden = true;
+        document.getElementById('page-title').textContent = 'Your reporting workspace';
+        document.getElementById('page-description').textContent = 'Import billing data or explore the demo to get started.';
+        for (const id of ['mode-badge-sidebar', 'mode-badge-header']) {
+            const badge = document.getElementById(id);
+            badge.innerHTML = '<span class="badge badge-gray">NO REPORT</span>';
+            badge.style.display = 'block';
+        }
+        document.getElementById('sidebar-switch-link').innerHTML = '<a href="dashboard_demo.html">Explore the demo &#8594;</a>';
+        document.querySelector('main').setAttribute?.('aria-busy', 'false');
+    }
+
+    function showNoDataState() {
+        showReportState(`
+            <div class="no-data-screen">
+                <div class="icon-big">&#128202;</div>
+                <h2>No Analysis Data Yet</h2>
+                <p><a href="import.html">Import your billing CSV files</a> and review a validation preview to generate your report in this browser.</p>
+                <p>For larger exports and hardware sizing, run the command-line analyzer:</p>
+                <code>python cur_to_json.py --input billing_file.csv</code>
+                <p class="demo-link">Want to see it in action? <a href="dashboard_demo.html">View the pre-loaded demo dashboard</a></p>
+            </div>`);
+    }
+
+    function populateFilters() {
+        const sel = document.getElementById('global-platform-filter');
+        sel.innerHTML = '<option value="all">All Platforms</option>';
+        (reportData.platforms || []).forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.Platform;
+            opt.textContent = p.Platform;
+            sel.appendChild(opt);
+        });
+    }
+
+    function applyFilters() {
+        renderDashboard(document.getElementById('global-platform-filter').value);
+    }
+
+    function renderDashboard(platformFilter) {
+        document.getElementById('report-content').dataset.unavailable = 'false';
+        document.getElementById('report-content').hidden = false;
+        document.getElementById('loading-state').hidden = true;
+        let filteredCost = 0, filteredProducts = [], filteredServices = [];
+
+        if (platformFilter === 'all') {
+            filteredCost = reportData.TotalBilledCost;
+            filteredProducts = reportData.products || [];
+            filteredServices = reportData.services || [];
+        } else {
+            const plat = (reportData.platforms || []).find(p => p.Platform === platformFilter);
+            if (plat) {
+                filteredCost = plat.BilledCost;
+                filteredProducts = (plat.products || []).map(p => ({
+                    ...p, Platform: plat.Platform, pctOfTotal: p.pctOfPlatform
+                }));
+                filteredServices = plat.services || [];
+            }
+        }
+
+        document.getElementById('kpi-total').textContent = fmtCurrency(filteredCost);
+        document.getElementById('kpi-providers-count').textContent = `${filteredProducts.length.toLocaleString()} products · ${platformFilter === 'all' ? 'All platforms' : platformFilter}`;
+
+        // TCO Categorization
+        const tco = { Compute: 0, Storage: 0, Database: 0, Network: 0, Other: 0 };
+        filteredServices.forEach(s => {
+            const svc = s.ServiceCategory.toLowerCase();
+            if (svc.includes('compute') || svc.includes('ec2') || svc.includes('vm')) tco.Compute += s.BilledCost;
+            else if (svc.includes('storage') || svc.includes('s3') || svc.includes('ebs') || svc.includes('disk')) tco.Storage += s.BilledCost;
+            else if (svc.includes('database') || svc.includes('rds') || svc.includes('sql')) tco.Database += s.BilledCost;
+            else if (svc.includes('network') || svc.includes('vpc') || svc.includes('lb')) tco.Network += s.BilledCost;
+            else tco.Other += s.BilledCost;
+        });
+
+        // Expose TCO for charting
+        window.currentTco = tco;
+
+        renderCharts(platformFilter);
+
+        // Render Services Table
+        const svcTbody = document.querySelector('#table-services tbody');
+        svcTbody.innerHTML = '';
+        filteredServices.slice(0, 10).forEach(s => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><span style="font-weight:600">${escapeHtml(s.ServiceCategory)}</span></td>
+                <td>${fmtCurrency(s.BilledCost)}</td>
+                <td>${fmtPct((s.BilledCost / (filteredCost || 1)) * 100)}</td>
+            `;
+            svcTbody.appendChild(tr);
+        });
+        if (!filteredServices.length) svcTbody.innerHTML = '<tr><td colspan="3" class="table-empty">No service costs were reported for this scope.</td></tr>';
+
+        // Render Products Table
+        renderProductTable(platformFilter);
+
+        // Render FinOps Section
+        renderFinopsSection(platformFilter, filteredCost, filteredProducts);
+
+        // Render Compute Table
+        renderComputeTable(platformFilter);
+
+        // Render Naming Table & Pattern
+        renderNamingSection();
+        if (typeof window.refreshAtlas === 'function') window.refreshAtlas();
+        if (typeof window.refreshPreview === 'function') window.refreshPreview();
+    }
+
+    function renderProductTable(platformFilter) {
+        const prodTbody = document.querySelector('#table-products tbody');
+        prodTbody.innerHTML = '';
+        let flatProds = [];
+        if (platformFilter === 'all') {
+            (reportData.platforms || []).forEach(plat => {
+                (plat.products || []).forEach(prod => flatProds.push({ ...prod, Platform: plat.Platform }));
+            });
+        } else {
+            const plat = (reportData.platforms || []).find(p => p.Platform === platformFilter);
+            if (plat) {
+                flatProds = (plat.products || []).map(p => ({ ...p, Platform: plat.Platform }));
+            }
+        }
+        if (!flatProds.length && platformFilter === 'all') flatProds = (reportData.products || []).map(p => ({...p, Platform: p.Platform || 'Not specified'}));
+        const query = (document.getElementById('product-search').value || '').trim().toLowerCase();
+        const sort = document.getElementById('product-sort').value || 'cost-desc';
+        const visible = flatProds.filter(p => [p.Product, p.Platform, ...(p.environments || []).map(e => e.Environment)].join(' ').toLowerCase().includes(query));
+        visible.sort(sort === 'name' ? (a, b) => String(a.Product).localeCompare(String(b.Product)) : sort === 'cost-asc' ? (a, b) => a.BilledCost - b.BilledCost : (a, b) => b.BilledCost - a.BilledCost);
+        window.currentProductRows = visible;
+        visible.forEach((p, index) => {
+            const tr = document.createElement('tr');
+            const envs = (p.environments || []).map(e => `<span class="badge badge-gray">${escapeHtml(e.Environment)}</span>`).join(' ');
+
+            // Status tag logic
+            const statusTag = '<span class="badge badge-gray">Cost reported</span>';
+
+            tr.innerHTML = `
+                <td><button class="table-link" data-product-index="${index}">${escapeHtml(p.Product)}</button></td>
+                <td>${escapeHtml(p.Platform || (platformFilter === 'all' ? 'Multi-Cloud' : platformFilter))}</td>
+                <td>${envs || '<span class="badge badge-gray">default</span>'}</td>
+                <td style="font-weight:600">${fmtCurrency(p.BilledCost)}</td>
+                <td>${statusTag}</td>
+            `;
+            prodTbody.appendChild(tr);
+        });
+        if (!visible.length) {
+            const row = document.createElement('tr'), cell = document.createElement('td');
+            cell.colSpan = 5; cell.className = 'table-empty';
+            cell.textContent = query ? 'No products match your search. Try a different product, platform or environment.' : 'No products were reported for this scope.';
+            row.appendChild(cell); prodTbody.appendChild(row);
+        }
+        document.getElementById('product-count').textContent = `${visible.length.toLocaleString()} of ${flatProds.length.toLocaleString()} products · Select a product to explore its service costs`;
+    }
+
+    window.finopsRecommendations = [];
+
+    window.filterFinops = (category) => {
+        document.querySelectorAll('[data-category]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.category === category)));
+        const tbody = document.querySelector('#table-recommendations tbody');
+        tbody.innerHTML = '';
+        const recs = category === 'all' ? window.finopsRecommendations : window.finopsRecommendations.filter(r => r.category === category);
+        if (!recs.length) {
+            const row = document.createElement('tr');
+            const cell = document.createElement('td');
+            cell.colSpan = 5;
+            cell.textContent = isDemoMode ? 'No demo examples in this category.' : 'No verified findings available. Billing exports alone cannot prove idle resources, unattached disks, or rightsizing opportunities.';
+            row.appendChild(cell);
+            tbody.appendChild(row);
+        }
+
+        recs.forEach(r => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><span style="font-weight:600">${escapeHtml(r.vector)}</span></td>
+                <td>${escapeHtml(r.product)}</td>
+                <td style="font-family:monospace; font-size:12px;">${escapeHtml(r.resourceId)}</td>
+                <td style="font-weight:600; color:#26619c">${fmtCurrency(r.savings)}</td>
+                <td><button class="button" data-investigate-index="${window.finopsRecommendations.indexOf(r)}">Explore IaC</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    };
+
+    function renderFinopsSection(platformFilter, totalCost, filteredProducts) {
+        window.finopsRecommendations = [];
+        document.getElementById('finops-evidence').textContent = isDemoMode ? 'Simulated demo savings — not verified' : 'Requires resource and utilization evidence';
+        document.getElementById('recommendation-subtitle').textContent = isDemoMode ? 'Simulated examples with illustrative resource IDs' : 'Only evidence-backed findings should inform infrastructure changes';
+        document.getElementById('coverage-subtitle').textContent = isDemoMode ? 'Simulated demo coverage — not measured' : 'Requires commitment purchase and covered-usage records';
+        if (!isDemoMode) {
+            document.getElementById('finops-total-savings').textContent = 'Unavailable';
+            document.getElementById('finops-critical-count').textContent = 'Unavailable';
+            filterFinops('all');
+            document.querySelector('#table-ri-coverage tbody').innerHTML = '<tr><td colspan="5">Coverage unavailable. No commitment purchase or covered-usage evidence was analyzed.</td></tr>';
+            return;
+        }
+        let totalSavings = 0;
+        let criticalCount = 0;
+
+        filteredProducts.forEach(p => {
+            const hash = p.Product.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0);
+            const absHash = Math.abs(hash);
+
+            const envs = p.environments || [];
+            const isDev = envs.some(e => e.Environment.toLowerCase().includes('dev') || e.Environment.toLowerCase().includes('stag'));
+            if (isDev && p.BilledCost > 1000) {
+                const savings = p.BilledCost * 0.28;
+                window.finopsRecommendations.push({
+                    category: 'compute', vector: 'EC2 Shutdown Opportunity (Weekend)', product: p.Product, resourceId: `env-group-${envs[0].Environment}`, savings: savings
+                });
+                totalSavings += savings;
+                criticalCount++;
+            }
+
+            if (absHash % 3 === 0) {
+                const savings = (absHash % 500) + 50;
+                window.finopsRecommendations.push({
+                    category: 'storage', vector: 'EBS Unattached Disk', product: p.Product, resourceId: `vol-0${absHash.toString(16).substring(0,8)}`, savings: savings
+                });
+                totalSavings += savings;
+                criticalCount++;
+            }
+
+            if (absHash % 4 === 0 && p.ec2Skus && p.ec2Skus.length) {
+                const sku = p.ec2Skus[0].sku;
+                const savings = p.BilledCost * 0.15;
+                window.finopsRecommendations.push({
+                    category: 'compute', vector: `EC2 Rightsizing (${sku} -> underutilized)`, product: p.Product, resourceId: `i-0${absHash.toString(16).substring(0,12)}`, savings: savings
+                });
+                totalSavings += savings;
+            }
+
+            if (absHash % 5 === 0) {
+                const savings = (absHash % 200) + 20;
+                window.finopsRecommendations.push({
+                    category: 'storage', vector: 'EBS Rightsizing (gp2 to gp3)', product: p.Product, resourceId: `vol-0${(absHash*2).toString(16).substring(0,8)}`, savings: savings
+                });
+                totalSavings += savings;
+            }
+
+            if (absHash % 7 === 0) {
+                const savings = (absHash % 800) + 100;
+                window.finopsRecommendations.push({
+                    category: 'compute', vector: 'Idle RDS Database (0 connections)', product: p.Product, resourceId: `db-${p.Product.toLowerCase()}-instance`, savings: savings
+                });
+                totalSavings += savings;
+                criticalCount++;
+            }
+
+            if (absHash % 2 === 0) {
+                const savings = (absHash % 100) + 10;
+                window.finopsRecommendations.push({
+                    category: 'storage', vector: 'Stale Snapshots (>90 days)', product: p.Product, resourceId: `snap-0${(absHash*3).toString(16).substring(0,8)}`, savings: savings
+                });
+                totalSavings += savings;
+            }
+        });
+
+        window.finopsRecommendations.sort((a,b) => b.savings - a.savings);
+
+        document.getElementById('finops-total-savings').textContent = fmtCurrency(totalSavings);
+        document.getElementById('finops-critical-count').textContent = criticalCount;
+
+        filterFinops('all');
+
+        // RI Coverage Mock
+        const riTbody = document.querySelector('#table-ri-coverage tbody');
+        riTbody.innerHTML = '';
+
+        const skuMap = {};
+        const scopePlatforms = platformFilter === 'all'
+            ? (reportData.platforms || [])
+            : (reportData.platforms || []).filter(p => p.Platform === platformFilter);
+
+        scopePlatforms.forEach(p => {
+            (p.vmSkus || []).concat(p.ec2Skus || []).forEach(sku => {
+                if (!skuMap[sku.sku]) skuMap[sku.sku] = 0;
+                skuMap[sku.sku] += sku.hours;
+            });
+        });
+
+        const sortedSkus = Object.entries(skuMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
+        sortedSkus.forEach(s => {
+            const skuName = s[0];
+            const hours = s[1];
+            // Mock coverage logic based on string
+            const coverageRatio = skuName.includes('large') ? 0.35 : (skuName.includes('medium') ? 0.85 : 0.60);
+            const coveredHours = hours * coverageRatio;
+
+            let rec = '<span style="color:#043e78">Optimized</span>';
+            if (coverageRatio < 0.5) rec = '<span style="color:#c2410c">Purchase Savings Plan</span>';
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><span style="font-weight:600">${escapeHtml(skuName)}</span></td>
+                <td>${hours.toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
+                <td>${coveredHours.toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
+                <td>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div style="flex:1; background:#e2e8f0; height:6px; border-radius:3px; overflow:hidden;">
+                            <div style="background:${coverageRatio < 0.5 ? '#f59e0b' : '#26619c'}; width:${coverageRatio*100}%; height:100%;"></div>
+                        </div>
+                        <span style="font-size:12px; font-weight:500">${fmtPct(coverageRatio * 100)}</span>
+                    </div>
+                </td>
+                <td>${rec}</td>
+            `;
+            riTbody.appendChild(tr);
+        });
+    }
+
+    function filterProductTable() {
+        renderProductTable(document.getElementById('global-platform-filter').value || 'all');
+    }
+
+    function renderComputeTable(platformFilter) {
+        const tbody = document.querySelector('#table-compute-skus tbody');
+        tbody.innerHTML = '';
+        if (reportData.analysis?.importMethod === 'browser') {
+            tbody.innerHTML = '<tr><td colspan="5">Hardware sizing is not analyzed by browser import. Use the command-line analyzer for supported SKU and capacity details.</td></tr>';
+            return;
+        }
+        const scopePlatforms = platformFilter === 'all'
+            ? (reportData.platforms || [])
+            : (reportData.platforms || []).filter(p => p.Platform === platformFilter);
+
+        const skuMap = {};
+        scopePlatforms.forEach(p => {
+            (p.vmSkus || []).forEach(sku => {
+                if (!skuMap[sku.sku]) {
+                    skuMap[sku.sku] = {
+                        sku: sku.sku,
+                        vcpu: sku.vcpu || '-',
+                        ramGiB: sku.ramGiB || '-',
+                        instances: 0,
+                        hours: 0
+                    };
+                }
+                skuMap[sku.sku].instances += sku.instances || 0;
+                skuMap[sku.sku].hours += sku.hours || 0;
+            });
+        });
+
+        const sorted = Object.values(skuMap).sort((a, b) => b.hours - a.hours);
+        sorted.forEach(s => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><span style="font-weight:600">${escapeHtml(s.sku)}</span></td>
+                <td>${escapeHtml(s.vcpu)}</td>
+                <td>${escapeHtml(s.ramGiB)}</td>
+                <td>${s.instances}</td>
+                <td>${s.hours.toLocaleString(undefined, { maximumFractionDigits: 1 })} hrs</td>
+            `;
+            tbody.appendChild(tr);
+        });
+        if (!sorted.length) tbody.innerHTML = '<tr><td colspan="5" class="table-empty">No supported compute SKUs were reported for this scope.</td></tr>';
+    }
+
+    function renderNamingSection() {
+        document.getElementById('naming-meta').textContent = `Framework: ${reportData.namingConvention?.source || 'Microsoft CAF Standard'} · Mode: ${reportData.namingConvention?.mode || 'fallback'}`;
+        const patDiv = document.getElementById('naming-pattern');
+        patDiv.innerHTML = '';
+        const tokens = reportData.namingConvention?.pattern || ['resource_type', 'platform', 'product', 'environment', 'region', 'instance'];
+        tokens.forEach((pat, idx) => {
+            const d = document.createElement('div');
+            d.className = 'token-card';
+            d.innerHTML = `<div class="token-name">Token #${idx + 1}</div><div class="token-val">&lt;${escapeHtml(pat)}&gt;</div>`;
+            patDiv.appendChild(d);
+        });
+        if (!tokens.length) patDiv.textContent = 'No naming pattern was applied to this report.';
+
+        const tbody = document.querySelector('#table-naming-resources tbody');
+        tbody.innerHTML = '';
+        (reportData.resourceNames || []).slice(0, 15).forEach(rn => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><span style="font-family:monospace;font-weight:600">${escapeHtml(rn.ResourceName)}</span></td>
+                <td>${(rn.rows || 0).toLocaleString()}</td>
+                <td>${fmtCurrency(rn.BilledCost)}</td>
+                <td>${fmtPct(rn.pctOfTotal || 0)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+        if (!(reportData.resourceNames || []).length) tbody.innerHTML = '<tr><td colspan="4" class="table-empty">No resource identifiers were supplied in this report.</td></tr>';
+    }
+
+    function renderCharts(platformFilter) {
+        const status = document.getElementById('chart-status');
+        if (typeof window.renderAtlasCharts === 'function') {
+            window.renderAtlasCharts(platformFilter, reportData, window.currentTco);
+            status.hidden = true;
+            status.textContent = 'Cost tables and analysis remain available alongside locally rendered charts.';
+        } else {
+            status.hidden = false;
+            status.textContent = 'Charts are loading. Cost tables and analysis remain available.';
+        }
+    }
+
+    function initIacBuilder() {
+        const select = document.getElementById('iac-product');
+        select.innerHTML = '';
+        const allProducts = [];
+        (reportData.platforms || []).forEach(plat => {
+            (plat.products || []).forEach(p => {
+                allProducts.push({ name: p.Product, platform: plat.Platform, data: p });
+            });
+        });
+        allProducts.sort((a,b) => a.name.localeCompare(b.name)).forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.name;
+            opt.textContent = `${p.name} (${p.platform})`;
+            opt.dataset.platform = p.platform;
+            select.appendChild(opt);
+        });
+        window.allProductsData = allProducts;
+        updateIacPreview();
+    }
+
+    window.investigateAnomaly = (productName) => {
+        const iacTabBtn = document.querySelector('[data-view="iac"]');
+        if (iacTabBtn) switchTab('iac', iacTabBtn);
+        else return;
+
+        const sel = document.getElementById('iac-product');
+        for (let i = 0; i < sel.options.length; i++) {
+            if (sel.options[i].value === productName) {
+                sel.selectedIndex = i;
+                break;
+            }
+        }
+        updateIacPreview();
+    };
+
+    window.updateIacPreview = () => {
+        if (!window.allProductsData) return;
+        if (reportData.analysis?.importMethod === 'browser') {
+            document.getElementById('iac-preview').textContent = 'Browser imports cover costs and explicit allocation. Use the command-line analyzer for resource sizing before generating infrastructure starter templates.';
+            document.getElementById('iac-pattern-badge').style.display = 'none';
+            document.getElementById('iac-download').disabled = true;
+            document.getElementById('iac-copy').disabled = true;
+            return;
+        }
+        const prodName = document.getElementById('iac-product').value;
+        const framework = document.getElementById('iac-framework').value;
+        const env = document.getElementById('iac-env').value;
+        const skuOverride = document.getElementById('iac-sku').value.trim();
+
+        const selOpt = document.getElementById('iac-product').options[document.getElementById('iac-product').selectedIndex];
+        const platformName = selOpt ? selOpt.dataset.platform : '';
+
+        const prodDataWrapper = window.allProductsData.find(p => p.name === prodName && p.platform === platformName);
+        if (!prodDataWrapper) return;
+        const prodData = prodDataWrapper.data;
+
+        let provider = 'aws';
+        const pLower = platformName.toLowerCase();
+        if (pLower.includes('azure')) provider = 'azure';
+        if (pLower.includes('gcp') || pLower.includes('google')) provider = 'gcp';
+        document.getElementById('iac-download').disabled = false;
+        document.getElementById('iac-copy').disabled = false;
+        if (prodData.providers) {
+            const providers = [...new Set(prodData.providers.map(item => item.ProviderName))];
+            if (providers.length !== 1 || !['aws', 'azure', 'gcp'].includes(providers[0])) {
+                document.getElementById('iac-preview').textContent = 'This product has multiple or unknown providers. Use a report scoped to one provider before generating a starter template.';
+                document.getElementById('iac-pattern-badge').style.display = 'none';
+                document.getElementById('iac-download').disabled = true;
+                document.getElementById('iac-copy').disabled = true;
+                return;
+            }
+            provider = providers[0];
+        }
+
+        let sku = skuOverride;
+        if (!sku) {
+            if (provider === 'aws' && prodData.ec2Skus && prodData.ec2Skus.length) {
+                sku = [...prodData.ec2Skus].sort((a,b)=>b.hours - a.hours)[0].sku;
+            } else if (provider === 'azure' && prodData.vmSkus && prodData.vmSkus.length) {
+                sku = [...prodData.vmSkus].sort((a,b)=>b.hours - a.hours)[0].sku;
+            } else if (provider === 'gcp') {
+                sku = 'e2-medium';
+            } else {
+                sku = provider === 'aws' ? 't3.medium' : (provider === 'azure' ? 'Standard_D2s_v5' : 'e2-medium');
+            }
+        }
+
+        let patternName = 'Single Compute Instance';
+        let code = '';
+        const cleanP = prodName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase() || 'unnamed';
+
+        const svcs = (prodData.services || []).map(s => (s.ServiceCategory || '').toLowerCase());
+        const hasCompute = svcs.some(s => s.includes('compute') || s.includes('ec2') || s.includes('vm'));
+        const hasDb = svcs.some(s => s.includes('database') || s.includes('rds') || s.includes('sql'));
+        const hasNet = svcs.some(s => s.includes('network') || s.includes('vpc') || s.includes('lb') || s.includes('loadbalancing'));
+        const hasContainer = svcs.some(s => s.includes('container') || s.includes('eks') || s.includes('ecs') || s.includes('kubernetes'));
+        const hasServerless = svcs.some(s => s.includes('serverless') || s.includes('lambda') || s.includes('function'));
+        const hasObject = svcs.some(s => s.includes('object') || s.includes('s3') || s.includes('blob'));
+
+        if (hasCompute && hasDb && hasNet) patternName = '3-Tier Web Application';
+        else if (hasContainer) patternName = 'Containerized Microservices';
+        else if (hasServerless && hasObject) patternName = 'Serverless Data Pipeline';
+        else if (isDemoMode) {
+            // Mock a pattern for the demo if it's not clear
+            const hash = cleanP.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0);
+            if (Math.abs(hash) % 2 === 0) patternName = '3-Tier Web Application';
+            else patternName = 'Containerized Microservices';
+        }
+
+        const badge = document.getElementById('iac-pattern-badge');
+        if (patternName !== 'Single Compute Instance') {
+            badge.style.display = 'block';
+            badge.textContent = `${isDemoMode ? 'Demo suggestion' : 'Suggested starter pattern'}: ${patternName}`;
+        } else {
+            badge.style.display = 'none';
+        }
+
+        if (framework === 'terraform') {
+            if (provider === 'aws') {
+                if (patternName === '3-Tier Web Application') {
+                    code = `# AWS 3-Tier Web Architecture for ${prodName}
+terraform {
+  required_providers { aws = { source = "hashicorp/aws", version = "~> 5.0" } }
+}
+provider "aws" { region = var.aws_region }
+variable "aws_region" { default = "us-east-1" }
+variable "instance_type" { default = "${sku}" }
+variable "environment" { default = "${env}" }
+
+module "vpc" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "5.1.2"
+  name    = "${cleanP}-vpc"
+  cidr    = "10.0.0.0/16"
+  azs             = ["us-east-1a", "us-east-1b"]
+  private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
+  public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]
+}
+
+module "db" {
+  source  = "terraform-aws-modules/rds/aws"
+  version = "6.1.1"
+  identifier = "${cleanP}-db"
+  engine     = "postgres"
+  instance_class = "db.t3.micro"
+  allocated_storage = 20
+  vpc_security_group_ids = [module.vpc.default_security_group_id]
+  db_subnet_group_name   = module.vpc.database_subnet_group_name
+}
+
+module "asg" {
+  source  = "terraform-aws-modules/autoscaling/aws"
+  version = "6.10.0"
+  name = "${cleanP}-asg"
+  vpc_zone_identifier = module.vpc.private_subnets
+  min_size = 1
+  max_size = 3
+  desired_capacity = 2
+  image_id      = "ami-0c55b159cbfafe1f0"
+  instance_type = var.instance_type
+}
+`;
+                } else if (patternName === 'Containerized Microservices') {
+                    code = `# AWS EKS Microservices Architecture for ${prodName}
+terraform {
+  required_providers { aws = { source = "hashicorp/aws", version = "~> 5.0" } }
+}
+provider "aws" { region = var.aws_region }
+variable "aws_region" { default = "us-east-1" }
+variable "instance_type" { default = "${sku}" }
+variable "environment" { default = "${env}" }
+
+module "vpc" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "5.1.2"
+  name    = "${cleanP}-eks-vpc"
+  cidr    = "10.0.0.0/16"
+  azs             = ["us-east-1a", "us-east-1b"]
+  private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
+  public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]
+}
+
+module "eks" {
+  source  = "terraform-aws-modules/eks/aws"
+  version = "19.16.0"
+  cluster_name    = "${cleanP}-cluster"
+  cluster_version = "1.27"
+  vpc_id          = module.vpc.vpc_id
+  subnet_ids      = module.vpc.private_subnets
+
+  eks_managed_node_groups = {
+    default = {
+      min_size     = 1
+      max_size     = 3
+      desired_size = 2
+      instance_types = [var.instance_type]
+    }
+  }
+}
+`;
+                } else {
+                    code = `# AWS Terraform Stack for ${prodName}
+terraform { required_providers { aws = { source = "hashicorp/aws", version = "~> 5.0" } } }
+provider "aws" { region = "us-east-1" }
+resource "aws_instance" "app_server" {
+  ami           = "ami-0c55b159cbfafe1f0"
+  instance_type = "${sku}"
+  tags = { Name = "${cleanP}_server", Environment = "${env}", Product = "${prodName}" }
+}
+`;
+                }
+            } else if (provider === 'azure') {
+                code = `# Azure Terraform Stack for ${prodName}
+terraform { required_providers { azurerm = { source = "hashicorp/azurerm", version = "~> 3.0" } } }
+provider "azurerm" { features {} }
+resource "azurerm_resource_group" "rg" { name = "rg-${cleanP}-${env}"; location = "East US" }
+resource "azurerm_linux_virtual_machine" "vm" {
+  name                = "vm-${cleanP}"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  size                = "${sku}"
+  admin_username      = "adminuser"
+  network_interface_ids = []
+  os_disk { caching = "ReadWrite"; storage_account_type = "Standard_LRS" }
+  tags = { Environment = "${env}", Product = "${prodName}" }
+}
+`;
+            } else {
+                code = `# GCP Terraform Stack for ${prodName}
+terraform { required_providers { google = { source = "hashicorp/google", version = "~> 4.0" } } }
+resource "google_compute_instance" "default" {
+  name         = "${cleanP}-instance"
+  machine_type = "${sku}"
+  zone         = "us-central1-a"
+  boot_disk { initialize_params { image = "debian-cloud/debian-11" } }
+  network_interface { network = "default" }
+  labels = { environment = "${env}", product = "${cleanP}" }
+}
+`;
+            }
+        } else if (framework === 'cloudformation') {
+            code = `# CloudFormation is supported for AWS only.
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation Stack for ${prodName}'
+Resources:
+  AppServer:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: '${sku}'
+      ImageId: 'ami-0c55b159cbfafe1f0'
+      Tags:
+        - Key: Name
+          Value: '${cleanP}_server'
+        - Key: Environment
+          Value: '${env}'
+`;
+        } else if (framework === 'bicep') {
+            code = `// Azure Bicep Template for ${prodName}
+resource virtualMachine 'Microsoft.Compute/virtualMachines@2022-03-01' = {
+  name: 'vm-${cleanP}'
+  location: resourceGroup().location
+  tags: { Environment: '${env}', Product: '${prodName}' }
+  properties: {
+    hardwareProfile: { vmSize: '${sku}' }
+    storageProfile: { osDisk: { createOption: 'FromImage', managedDisk: { storageAccountType: 'Standard_LRS' } } }
+  }
+}
+`;
+        }
+        document.getElementById('iac-preview').textContent = code;
+    };
+
+    window.copyIacToClipboard = async () => {
+        if (document.getElementById('iac-copy').disabled) return;
+        const text = document.getElementById('iac-preview').textContent;
+        try {
+            await navigator.clipboard.writeText(text);
+            document.getElementById('iac-status').textContent = 'Code copied to clipboard.';
+        } catch {
+            document.getElementById('iac-status').textContent = 'Clipboard access is unavailable. Select the code to copy it, or download the template.';
+        }
+    };
+
+    window.downloadIac = () => {
+        if (document.getElementById('iac-download').disabled) return;
+        const text = document.getElementById('iac-preview').textContent;
+        const framework = document.getElementById('iac-framework').value;
+        const ext = framework === 'terraform' ? 'tf' : (framework === 'bicep' ? 'bicep' : 'yaml');
+        const filename = `main.${ext}`;
+
+        const blob = new Blob([text], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        document.getElementById('iac-status').textContent = 'Downloaded ' + filename;
+        setTimeout(() => document.getElementById('iac-status').textContent = '', 3000);
+    };
+
+    window.switchTab = (tabId, el) => {
+        if (!document.getElementById(`tab-${tabId}`)) return;
+        document.querySelectorAll('#workspace-nav a').forEach(a => { a.classList.remove('active'); a.removeAttribute('aria-current'); });
+        if (el) { el.classList.add('active'); el.setAttribute('aria-current', 'page'); }
+        document.querySelectorAll('.view-section').forEach(div => div.classList.add('hidden'));
+        document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+        const titles = {
+            overview: 'Spend overview',
+            products: 'Product costs',
+            finops: 'Optimization',
+            iac: 'Manage as code',
+            compute: 'Compute & sizing',
+            naming: 'Resources & naming'
+        };
+        document.getElementById('page-title').textContent = titles[tabId];
+        if (typeof window.syncAtlasView === 'function') window.syncAtlasView(tabId);
+    };
+
+    window.downloadImportedReport = () => {
+        if (!reportData || reportData.sampleData) return;
+        const url = URL.createObjectURL(new Blob([JSON.stringify(reportData, null, 2)], {type: 'application/json'}));
+        const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'report_data.json';
+        document.body.appendChild(anchor); anchor.click(); anchor.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+    window.clearImportedReport = async () => {
+        const button = document.getElementById('clear-imported-report'); button.disabled = true;
+        try { await ReportStore.clear(); window.location.href = 'import.html'; }
+        catch (error) { const notice = document.getElementById('import-status'); notice.hidden = false; notice.textContent = error.message; button.disabled = false; }
+    };
+
+    init().then(() => {
+        if (reportData) initIacBuilder();
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
+    <title>Import billing · Cloud Cost Atlas</title>
+    <link rel="stylesheet" href="../atlas.css">
+    <link rel="stylesheet" href="../import.css">
+    <link rel="stylesheet" href="../motion.css">
+    <script src="../billing_import.js" defer></script>
+    <script src="report_store.js" defer></script>
+    <script src="import.js" defer></script>
+<meta name="robots" content="noindex,nofollow"><link rel="stylesheet" href="preview.css"><script src="preview.js" defer></script></head>
+<body class="design-preview preview-flow"><div class="preview-banner"><span><span class="preview-dot" aria-hidden="true"></span>Design preview</span><a href="../">View current site <span aria-hidden="true">→</span></a></div>
+    <a class="skip-link" href="#flow-content">Skip to import</a>
+    <header class="site-header"><a class="brand" href="index.html" aria-label="Cloud Atlas home"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m12 3 9 5v8l-9 5-9-5V8zM3 8l9 5 9-5M12 13v8"/></svg></span><span class="brand-wordmark">Cloud<span>Atlas</span></span></a><a href="dashboard.html">Back to dashboard <span aria-hidden="true">→</span></a></header>
+    <main id="flow-content" tabindex="-1">
+        <div class="intro"><p class="eyebrow">Upload billing</p><h1>Your cloud costs.<br>Clearly understood.</h1><p>Upload a billing export. We’ll match the columns, then help you review the numbers.</p></div>
+        <ol class="steps" aria-label="Import progress">
+            <li id="step-label-1" aria-current="step"><span>1</span> Choose files</li>
+            <li id="step-label-2"><span>2</span> Review mappings</li>
+            <li id="step-label-3"><span>3</span> Validate &amp; preview</li>
+        </ol>
+        <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+        <div id="error" class="error" role="alert" tabindex="-1" hidden></div>
+        <section id="step-1" class="panel" aria-labelledby="choose-title">
+            <h2 id="choose-title" tabindex="-1">Start with your billing export</h2>
+            <p class="muted">AWS CUR, Google Cloud, Azure, and FOCUS CSV exports are supported.</p>
+            <label id="drop-zone" class="drop-zone" for="billing-files">
+                <span class="upload-icon" aria-hidden="true">↑</span><strong>Drop CSV files here, or browse</strong>
+                <span>Up to 10 UTF-8 CSV files · 20 MiB combined · 100,000 rows total</span>
+                <input id="billing-files" type="file" accept=".csv,text/csv" multiple aria-describedby="file-help">
+            </label>
+            <p id="file-help" class="muted small">Unzip exports first. For larger files, use the <a href="https://github.com/emahgerefteh11/MyProduct#quick-start--cli-usage">command-line analyzer</a>.</p>
+            <ul id="selected-files" class="file-list" aria-label="Selected files"></ul>
+            <details class="advanced-options"><summary>Advanced file options</summary><label class="field compact" for="delimiter">Column separator<select id="delimiter"><option value="auto">Detect automatically</option><option value=",">Comma (,)</option><option value=";">Semicolon (;)</option><option value="tab">Tab</option></select></label><p class="muted small">Separators are detected for each file. Choose an override if the columns look incorrect.</p></details>
+            <div class="privacy"><strong>Your billing data stays here.</strong> Processed on your device. Preview reports are saved separately from your current dashboard. You can download or clear them at any time.</div>
+            <div class="actions"><a href="dashboard_demo.html">Explore sample data</a><button id="read-files" class="primary" disabled>Review mappings <span aria-hidden="true">→</span></button></div>
+        </section>
+        <section id="step-2" class="panel" aria-labelledby="mapping-title" hidden>
+            <h2 id="mapping-title" tabindex="-1">Check the columns we found</h2>
+            <p class="muted">We matched the columns we recognize. Confirm the cost column and cost basis for every file. Unmapped product, platform, and environment values stay unallocated.</p>
+            <div id="mappings"></div>
+            <div class="assumption"><label class="field compact" for="currency-assumption">Currency for rows without one <span class="muted small">Optional assumption</span><input id="currency-assumption" type="text" maxlength="3" placeholder="e.g. USD" autocomplete="off" spellcheck="false"></label><p class="muted small">Only fill this in if you know the billing currency. Explicit source currencies are preserved; no exchange-rate conversion is performed.</p></div>
+            <div class="actions"><button id="back-files" class="secondary">← Choose files</button><button id="validate" class="primary">Validate &amp; preview →</button></div>
+        </section>
+        <section id="step-3" class="panel" aria-labelledby="preview-title" hidden>
+            <div class="section-heading"><h2 id="preview-title" tabindex="-1">Your validation preview</h2><span id="validation-badge" class="badge"></span></div>
+            <p id="validation-summary" class="muted"></p>
+            <div id="validation-errors" hidden><h3>Fix these issues before continuing</h3><div class="table-scroll"><table><thead><tr><th>File</th><th>Line</th><th>Column</th><th>Issue</th></tr></thead><tbody id="error-rows"></tbody></table></div><p id="error-limit" class="muted small"></p></div>
+            <div id="valid-preview" hidden>
+                <div id="preview-metrics" class="metrics"></div>
+                <p id="preview-period" class="muted small"></p>
+                <h3>Sources &amp; reconciliation</h3>
+                <div class="table-scroll"><table><thead><tr><th>File</th><th>Format</th><th>Rows</th><th>Source total</th><th>Cost basis</th></tr></thead><tbody id="source-rows"></tbody></table></div>
+                <p id="reconciliation" class="muted small"></p>
+                <div class="preview-grid"><div><h3>Top services</h3><div class="table-scroll"><table><thead><tr><th>Service</th><th>Cost</th></tr></thead><tbody id="service-rows"></tbody></table></div></div><div><h3>Unallocated spend</h3><div class="table-scroll"><table><thead><tr><th>Dimension</th><th>Cost</th></tr></thead><tbody id="allocation-rows"></tbody></table></div></div></div>
+                <p class="muted small">The browser report covers costs and explicit tags. Hardware sizing and resource-name inference are available in the command-line analyzer.</p>
+            </div>
+            <div id="warning-panel" class="warning" hidden><h3>Review before opening</h3><ul id="warning-list"></ul></div>
+            <label id="acknowledge-label" class="acknowledge" hidden><input type="checkbox" id="acknowledge">I have reviewed these warnings and any currency assumptions.</label>
+            <p id="storage-note" class="muted small" hidden>Opening this report replaces the previously imported report in this browser. Your source CSV files are not saved.</p>
+            <div class="actions"><button id="back-mappings" class="secondary">← Edit mappings</button><div class="action-group"><button id="download-report" class="secondary" disabled>Download report JSON</button><button id="open-report" class="primary" disabled>Open dashboard →</button></div></div>
+        </section>
+        <noscript><p class="error">Enable JavaScript to import billing files in your browser.</p></noscript>
+        <footer>Cloud Cost Atlas · No cloud credentials required</footer>
+    </main>
+</body>
+</html>
