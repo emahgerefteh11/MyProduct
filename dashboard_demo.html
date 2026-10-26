@@ -3,406 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cloud Cost Atlas</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <meta name="referrer" content="no-referrer">
+    <meta name="theme-color" content="#153c32">
+    <title>Workspace · Cloud Cost Atlas</title>
+    <link rel="stylesheet" href="atlas.css">
+    <link rel="stylesheet" href="dashboard.css">
     <script src="report_store.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-body: #f8fafc;
-            --bg-card: #ffffff;
-            --bg-sidebar: #ffffff;
-            --text-main: #334155;
-            --text-muted: #64748b;
-            --text-heading: #0f172a;
-            --border: #e2e8f0;
-            --primary: #2563eb;
-            --primary-hover: #1d4ed8;
-            --success: #059669;
-            --warning: #d97706;
-            --danger: #dc2626;
-            --radius: 8px;
-            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
-            --sidebar-width: 250px;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg-body); color: var(--text-main); display: flex; min-height: 100vh; -webkit-font-smoothing: antialiased; }
-
-        /* Sidebar */
-        aside { width: var(--sidebar-width); background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 24px; position: fixed; height: 100vh; overflow-y: auto; z-index: 50; }
-        .logo { font-size: 20px; font-weight: 700; color: var(--text-heading); margin-bottom: 36px; display: flex; align-items: center; gap: 10px; letter-spacing: -0.5px; }
-        .logo span { color: var(--primary); }
-        nav a { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 6px; color: var(--text-muted); text-decoration: none; margin-bottom: 4px; transition: all 0.2s; font-weight: 500; font-size: 14px; cursor: pointer; }
-        nav a:hover { background: #f1f5f9; color: var(--text-heading); }
-        nav a.active { background: #eff6ff; color: var(--primary); font-weight: 600; }
-        
-        .sidebar-bottom { margin-top: auto; font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 16px; }
-        .sidebar-bottom a { color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
-        .sidebar-bottom a:hover { color: var(--primary); }
-
-        /* Main Content */
-        main { flex: 1; margin-left: var(--sidebar-width); padding: 32px 48px; max-width: 1600px; }
-        
-        header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; flex-wrap: wrap; gap: 16px; }
-        h1 { font-size: 24px; font-weight: 600; color: var(--text-heading); letter-spacing: -0.5px; margin-bottom: 4px; }
-        .subtitle { color: var(--text-muted); font-size: 14px; }
-
-        /* KPI Grid */
-        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; margin-bottom: 32px; }
-        .card { background: var(--bg-card); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); border: 1px solid var(--border); }
-        .kpi-label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
-        .kpi-value { font-size: 32px; font-weight: 600; color: var(--text-heading); letter-spacing: -1px; }
-        .kpi-sub { font-size: 13px; color: var(--text-muted); margin-top: 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-
-        /* Charts Section */
-        .section-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-bottom: 32px; }
-        .chart-container { position: relative; height: 320px; width: 100%; margin-top: 20px; }
-        h3 { font-size: 16px; font-weight: 600; color: var(--text-heading); margin-bottom: 4px; }
-
-        /* Table Styles */
-        .table-container { overflow-x: auto; margin-top: 16px; }
-        table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; padding: 12px 16px; color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase; border-bottom: 1px solid var(--border); letter-spacing: 0.5px; }
-        td { padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--text-main); }
-        tr:last-child td { border-bottom: none; }
-        tr:hover td { background: #f8fafc; }
-        
-        .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 500; }
-        .badge-blue { background: #eff6ff; color: #1d4ed8; }
-        .badge-green { background: #ecfdf5; color: #047857; }
-        .badge-gray { background: #f1f5f9; color: #475569; }
-        .badge-aws { background: #fff7ed; color: #c2410c; border: 1px solid #ffedd5; }
-        .badge-gcp { background: #eff6ff; color: #1d4ed8; border: 1px solid #dbeafe; }
-        .badge-azure { background: #f0fdf4; color: #15803d; border: 1px solid #dcfce3; }
-
-        .filters { display: flex; gap: 12px; align-items: center; }
-        select, input[type="text"] { padding: 8px 16px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-card); font-family: inherit; font-size: 14px; color: var(--text-main); outline: none; transition: all 0.2s; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
-        select:focus, input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
-
-        .badge-demo { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; }
-        .badge-live { background: #dcfce3; color: #166534; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; }
-
-        .no-data-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 75vh; text-align: center; }
-        .no-data-screen h2 { font-size: 24px; font-weight: 600; color: var(--text-heading); margin-bottom: 12px; }
-        .no-data-screen p { color: var(--text-muted); max-width: 440px; line-height: 1.6; }
-        .no-data-screen code { display: inline-block; background: #f1f5f9; color: #0f172a; padding: 12px 20px; border-radius: 6px; font-size: 13px; margin-top: 20px; font-family: monospace; border: 1px solid var(--border); }
-        .no-data-screen .demo-link { margin-top: 20px; font-size: 14px; color: var(--text-muted); }
-        .no-data-screen .demo-link a { color: var(--primary); text-decoration: none; font-weight: 500; }
-        .icon-big { font-size: 48px; margin-bottom: 20px; }
-
-        /* Utilities */
-        .hidden { display: none !important; }
-        .full-width { grid-column: 1 / -1; }
-        .flex-between { display: flex; justify-content: space-between; align-items: flex-start; }
-
-        .token-card { background: #ffffff; border: 1px solid var(--border); border-radius: 6px; padding: 12px 16px; min-width: 140px; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
-        .token-name { font-size: 11px; text-transform: uppercase; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.5px; }
-        .token-val { font-size: 14px; font-weight: 500; color: var(--text-heading); font-family: monospace; }
-
-        @media (max-width: 1024px) {
-            aside { display: none; }
-            main { margin-left: 0; padding: 24px; }
-            .section-grid { grid-template-columns: 1fr; }
-        }
-    </style>
+    <script src="dashboard_ui.js" defer></script>
 </head>
 <body>
-
-<aside>
-    <div class="logo">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary)"><path d="M17.5 19c2.485 0 4.5-1.927 4.5-4.3 0-2.327-1.874-4.237-4.22-4.295A7.502 7.502 0 0 0 3.86 10.5C2.27 10.74 1 12.21 1 14c0 1.93 1.57 3.5 3.5 3.5h13z"></path></svg>
-        Cloud<span>Atlas</span>
-    </div>
-    <div id="mode-badge-sidebar" style="margin-bottom: 24px; display: none;"></div>
-    <nav>
-        <a class="active" onclick="switchTab('overview', this)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-            TCO Overview
-        </a>
-        <a onclick="switchTab('products', this)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-            Product &amp; Unit Cost
-        </a>
-        <a onclick="switchTab('finops', this)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-            FinOps Optimization
-        </a>
-        <a onclick="switchTab('compute', this)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg>
-            Compute &amp; SKUs
-        </a>
-        <a onclick="switchTab('iac', this)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
-            IaC Builder
-        </a>
-        <a onclick="switchTab('naming', this)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
-            Naming Audit
-        </a>
+<a class="skip-link" href="#main-content">Skip to dashboard</a>
+<aside id="workspace-sidebar" aria-label="Workspace navigation">
+    <a class="logo" href="index.html" aria-label="Cloud Atlas home"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m12 3 9 5v8l-9 5-9-5V8zM3 8l9 5 9-5M12 13v8"/></svg></span>Cloud<span>Atlas</span></a>
+    <button id="nav-close" class="icon-button" aria-label="Close navigation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
+    <div class="workspace-label"><span class="workspace-avatar" aria-hidden="true">W</span><span>Your workspace<br><small>Cloud cost intelligence</small></span></div>
+    <p class="nav-heading">Analytics</p>
+    <nav id="workspace-nav" aria-label="Dashboard views">
+        <a class="active" href="#overview" data-view="overview" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Spend overview</a>
+        <a href="#products" data-view="products"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m12 3 9 5v8l-9 5-9-5V8zM3 8l9 5 9-5M12 13v8"/></svg>Product costs</a>
+        <a href="#finops" data-view="finops"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m4 17 5-5 4 3 7-10M14 5h6v6"/></svg>Optimization</a>
+        <a href="#compute" data-view="compute"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="5" y="5" width="14" height="14" rx="3"/><rect x="9" y="9" width="6" height="6" rx="1"/><path d="M9 2v3m6-3v3M9 19v3m6-3v3M2 9h3m-3 6h3m14-6h3m-3 6h3"/></svg>Compute &amp; sizing</a>
+        <a href="#naming" data-view="naming"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 4h9l9 9-8 8-10-10z"/><circle cx="7.5" cy="8" r="1"/></svg>Resources &amp; naming</a>
+        <a href="#iac" data-view="iac"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18"/></svg>IaC Builder</a>
     </nav>
-    <div class="sidebar-bottom">
-        <div id="sidebar-switch-link"></div>
-        <div style="margin-top: 8px;">v0.3.0 &middot; FinOps Edition</div>
+    <div class="sidebar-actions"><p class="nav-heading">Your data &amp; infrastructure</p>
+        <a href="import.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6"/></svg>Upload billing</a>
+        <button type="button" data-open-cloud><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M7 18a5 5 0 0 1-1-10 6 6 0 0 1 11-1 5 5 0 0 1 0 11z"/></svg>Connect cloud <span class="coming">SOON</span></button>
+        <a href="adoption.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m7 8-4 4 4 4m10-8 4 4-4 4m-3-14-4 20"/></svg>Adopt into IaC</a>
     </div>
+    <div class="sidebar-bottom"><div id="mode-badge-sidebar"></div><p class="workspace-note"><span class="dot" aria-hidden="true"></span>Reports stay in your browser</p><div id="sidebar-switch-link"></div></div>
 </aside>
-
-<main>
-    <header>
-        <div>
-            <h1 id="page-title">Infrastructure Overview</h1>
-            <div class="subtitle" id="last-updated">Loading analysis results...</div>
-        </div>
-        <div class="filters">
-            <a href="import.html" style="color:var(--primary);font-weight:600;">Import billing</a>
-            <a href="adoption.html" style="color:var(--primary);font-weight:600;">Adopt into IaC</a>
-            <button id="download-imported-report" onclick="downloadImportedReport()" hidden>Download report</button>
-            <button id="clear-imported-report" onclick="clearImportedReport()" hidden>Clear imported report</button>
-            <span id="mode-badge-header" style="display: none;"></span>
-            <select id="global-platform-filter" onchange="applyFilters()">
-                <option value="all">All Platforms</option>
-            </select>
-        </div>
+<button id="nav-backdrop" tabindex="-1" aria-label="Close navigation" hidden></button>
+<main id="main-content" tabindex="-1" aria-busy="true">
+    <div class="workspace-bar">
+        <button id="nav-toggle" class="icon-button" aria-label="Open navigation" aria-expanded="false" aria-controls="workspace-sidebar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <div class="breadcrumb"><a href="index.html">Workspace</a><span class="separator" aria-hidden="true">/</span><strong id="view-breadcrumb">Spend overview</strong></div>
+        <div class="top-actions"><span id="mode-badge-header"></span><a class="button primary" href="import.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6"/></svg>Import billing</a></div>
+    </div>
+    <header class="page-heading"><div><p class="eyebrow">Clarity across your cloud</p><h1 id="page-title" tabindex="-1">Spend overview</h1><p id="page-description" class="page-description">Understand where your cloud spend goes, and what comes next.</p></div>
+        <div class="page-actions"><a class="button" href="adoption.html">Adopt into IaC <span aria-hidden="true">↗</span></a><details class="report-actions"><summary class="button">Report actions <span aria-hidden="true">⌄</span></summary><div class="actions-menu"><button id="download-imported-report" onclick="downloadImportedReport()" hidden>Download report JSON</button><a href="import.html">Import a new report</a><button type="button" data-open-cloud>Cloud connection options</button><button id="clear-imported-report" onclick="clearImportedReport()" hidden>Clear imported report</button></div></details></div>
     </header>
-
-    <div class="card" style="margin-bottom:24px; border-left:4px solid var(--primary);">
-        <details>
-            <summary style="cursor:pointer;font-weight:600;">Report provenance &amp; data quality</summary>
-            <p id="report-provenance" class="subtitle" style="margin-top:12px;"></p>
-            <p id="report-quality" class="subtitle" style="margin-top:8px;"></p>
-            <ul id="report-warnings" style="margin:12px 0 0 20px;color:#92400e;"></ul>
-        </details>
-        <p id="evidence-notice" class="subtitle" style="margin-top:8px;"></p>
-        <p id="chart-status" class="subtitle" hidden></p>
-        <p id="import-status" class="subtitle" hidden></p>
+    <div id="loading-state" class="loading-panel" role="status"><p>Preparing your workspace…</p><div class="skeleton-grid" aria-hidden="true"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div></div>
+    <div id="report-content" hidden>
+        <div class="filter-bar"><label class="filter-control" for="global-platform-filter"><span>Platform</span><select id="global-platform-filter" onchange="applyFilters()"><option value="all">All Platforms</option></select></label><div id="scope-summary" class="scope-status" aria-live="polite"><span class="dot" aria-hidden="true"></span>All platforms · Reported billing period</div></div>
+        <div class="quality-panel"><details><summary>Report provenance &amp; data quality</summary><p id="report-provenance" class="subtitle"></p><p id="report-quality" class="subtitle"></p><ul id="report-warnings"></ul><p id="last-updated" class="subtitle">Loading analysis results…</p></details><p id="evidence-notice" class="subtitle"></p><p id="chart-status" class="subtitle" hidden></p><p id="import-status" class="subtitle" hidden></p></div>
+        <section id="tab-overview" class="view-section" aria-label="Spend overview">
+            <div class="kpi-grid">
+                <div class="card"><div class="kpi-label" id="kpi-total-label">Total Reported Cost</div><div class="kpi-value" id="kpi-total">—</div><div class="kpi-sub" id="kpi-providers-count">Aggregated multi-cloud spend</div></div>
+                <div class="card"><div class="kpi-label">Average cost per product</div><div class="kpi-value" id="kpi-unit-cost">—</div><div class="kpi-sub" id="kpi-mom-growth">Period comparison unavailable</div></div>
+                <div class="card"><div class="kpi-label">Potential savings</div><div class="kpi-value" id="kpi-wasted">—</div><div class="kpi-sub" id="kpi-wasted-note">Requires verified optimization evidence</div></div>
+                <div class="card"><div class="kpi-label">Cloud mix · all platforms</div><div class="kpi-sub" id="kpi-mix"></div></div>
+            </div>
+            <div class="section-grid">
+                <div class="card"><div class="card-heading"><div><h3>Where your spend goes</h3><p class="subtitle">Reported cost by service family</p></div><span class="pill">Cost mix</span></div><div class="chart-container" id="chart-tco" aria-label="Cost by service family"></div></div>
+                <div class="card"><div class="card-heading"><div><h3>Spend by platform</h3><p class="subtitle">Compare all platforms · Select one to explore</p></div><span class="pill">Drill down ↗</span></div><div class="chart-container" id="chart-platform" aria-label="Reported platform costs"></div></div>
+                <div class="card full-width"><div class="flex-between"><div><h3>Service breakdown</h3><p class="subtitle">Your ten largest normalized service families in this scope</p></div><span class="pill">Cross-cloud view</span></div><div class="table-container" role="region" aria-label="Service cost breakdown" tabindex="0"><table id="table-services"><thead><tr><th scope="col">Service family</th><th scope="col">Classification</th><th scope="col">Reported spend</th><th scope="col">Share of scope</th></tr></thead><tbody></tbody></table></div></div>
+            </div>
+        </section>
+        <section id="tab-products" class="view-section hidden" aria-label="Product costs">
+            <div class="card"><div class="flex-between"><div><h3>Product cost breakdown</h3><p class="subtitle">Explore products, environments, and service dependencies.</p></div><div class="table-tools"><label class="search-field" for="product-search"><span class="sr-only">Search products, platforms or environments</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><input type="search" id="product-search" placeholder="Search products…" oninput="filterProductTable()"></label><label for="product-sort" class="sr-only">Sort products</label><select id="product-sort" onchange="filterProductTable()"><option value="cost-desc">Highest spend</option><option value="cost-asc">Lowest spend</option><option value="name">Name A–Z</option></select></div></div>
+                <div class="table-container" role="region" aria-label="Product cost breakdown" tabindex="0"><table id="table-products"><thead><tr><th scope="col">Product</th><th scope="col">Platform</th><th scope="col">Environments</th><th scope="col">Reported spend</th><th scope="col">Evidence</th></tr></thead><tbody></tbody></table></div><div id="product-count" class="table-count" role="status"></div>
+            </div>
+        </section>
+        <section id="tab-finops" class="view-section hidden" aria-label="Optimization">
+            <div class="kpi-grid"><div class="card"><div class="kpi-label">Estimated potential savings</div><div class="kpi-value" id="finops-total-savings">—</div><div class="kpi-sub" id="finops-evidence">Requires resource and utilization evidence</div></div><div class="card"><div class="kpi-label">Critical opportunities</div><div class="kpi-value" id="finops-critical-count">—</div><div class="kpi-sub">Requires verified findings</div></div></div>
+            <div class="section-grid"><div class="card full-width"><div class="flex-between"><div><h3>Optimization opportunities</h3><p class="subtitle" id="recommendation-subtitle">Only evidence-backed findings should inform infrastructure changes</p></div><div class="table-tools" role="group" aria-label="Recommendation category"><button class="button" data-category="all" aria-pressed="true" onclick="filterFinops('all')">All</button><button class="button" data-category="compute" aria-pressed="false" onclick="filterFinops('compute')">Compute</button><button class="button" data-category="storage" aria-pressed="false" onclick="filterFinops('storage')">Storage</button></div></div><div class="table-container" role="region" aria-label="Optimization opportunities" tabindex="0"><table id="table-recommendations"><thead><tr><th scope="col">Opportunity</th><th scope="col">Product</th><th scope="col">Resource</th><th scope="col">Est. savings / month</th><th scope="col">Explore</th></tr></thead><tbody></tbody></table></div></div>
+                <div class="card full-width"><h3>Commitment coverage</h3><p class="subtitle" id="coverage-subtitle">Requires commitment purchase and covered-usage records</p><div class="table-container" role="region" aria-label="Commitment coverage" tabindex="0"><table id="table-ri-coverage"><thead><tr><th scope="col">Instance SKU</th><th scope="col">Run hours</th><th scope="col">Covered hours</th><th scope="col">Coverage</th><th scope="col">Recommendation</th></tr></thead><tbody></tbody></table></div></div>
+            </div>
+        </section>
+        <section id="tab-compute" class="view-section hidden" aria-label="Compute and sizing"><div class="section-grid"><div class="card full-width"><h3>Compute footprint</h3><p class="subtitle" id="compute-scope">Aggregated instance run-hours and sizing across AWS, Azure, and GCP</p><div class="chart-container" id="chart-skus" aria-label="Instance run hours"></div></div><div class="card full-width"><h3>Instance inventory</h3><p class="subtitle">Sizing evidence from supported billing SKUs</p><div class="table-container" role="region" aria-label="Compute inventory" tabindex="0"><table id="table-compute-skus"><thead><tr><th scope="col">Instance SKU</th><th scope="col">vCPU</th><th scope="col">RAM (GiB)</th><th scope="col">Instance count</th><th scope="col">Run hours</th></tr></thead><tbody></tbody></table></div></div></div></section>
+        <section id="tab-naming" class="view-section hidden" aria-label="Resources and naming"><div class="card naming-schema"><h3>Naming convention</h3><p class="subtitle" id="naming-meta">—</p><div id="naming-pattern"></div></div><div class="card"><h3 id="resource-title">Discovered resource types</h3><p class="subtitle" id="resource-description">Resource tokens parsed from naming patterns and infrastructure IDs</p><div class="table-container" role="region" aria-label="Resource names and types" tabindex="0"><table id="table-naming-resources"><thead><tr><th scope="col" id="resource-column">Resource type / token</th><th scope="col">Matched rows</th><th scope="col">Reported spend</th><th scope="col">Share of report</th></tr></thead><tbody></tbody></table></div></div></section>
+        <section id="tab-iac" class="view-section hidden" aria-label="Infrastructure as code"><div class="adoption-callout"><div><h3>Bring existing infrastructure into code</h3><p>Discover live configuration and adopt supported resources through reviewed Terraform imports.</p></div><a class="button primary" href="adoption.html">Open adoption workflow ↗</a></div><div class="section-grid builder-grid">
+            <div class="card"><h3>Create a starter template</h3><p class="subtitle">For new infrastructure. Billing-based defaults and topology require review before deployment.</p><div class="builder-fields"><div><label for="iac-product">Product / workload</label><select id="iac-product" onchange="updateIacPreview()"></select></div><div class="builder-pair"><div><label for="iac-framework">Framework</label><select id="iac-framework" onchange="updateIacPreview()"><option value="terraform">Terraform</option><option value="cloudformation">CloudFormation</option><option value="bicep">Azure Bicep</option></select></div><div><label for="iac-env">Environment</label><select id="iac-env" onchange="updateIacPreview()"><option value="dev">Development</option><option value="staging">Staging</option><option value="prod">Production</option></select></div></div><div><label for="iac-sku">Instance SKU override</label><input type="text" id="iac-sku" oninput="updateIacPreview()" placeholder="e.g. t3.medium · Optional"></div><div><button id="iac-download" class="button primary" onclick="downloadIac()">Download main.tf</button><p class="subtitle" id="iac-status" role="status"></p></div></div></div>
+            <div class="card"><div class="flex-between"><div><h3>Code preview</h3><div id="iac-pattern-badge" style="display:none"></div></div><button id="iac-copy" class="button" onclick="copyIacToClipboard()">Copy code</button></div><div class="code-pane"><pre id="iac-preview" tabindex="0">Select a product to preview code…</pre></div></div>
+        </div></section>
+        <footer class="workspace-footer"><span>Cloud Cost Atlas · Built for a clearer cloud</span><span>Amounts reflect the imported report · <a href="import.html">Manage your data</a></span></footer>
     </div>
-
-    <!-- Overview Tab -->
-    <div id="tab-overview" class="view-section">
-        <div class="kpi-grid">
-            <div class="card">
-                <div class="kpi-label" id="kpi-total-label">Total Reported Cost</div>
-                <div class="kpi-value" id="kpi-total">--</div>
-                <div class="kpi-sub" id="kpi-providers-count">Aggregated multi-cloud spend</div>
-            </div>
-            <div class="card">
-                <div class="kpi-label">Avg Cost per Product</div>
-                <div class="kpi-value" id="kpi-unit-cost">--</div>
-                <div class="kpi-sub" id="kpi-mom-growth">Period comparison unavailable</div>
-            </div>
-            <div class="card">
-                <div class="kpi-label">Estimated Savings</div>
-                <div class="kpi-value" id="kpi-wasted" style="color: #c2410c">--</div>
-                <div class="kpi-sub" id="kpi-wasted-note">Requires verified optimization evidence</div>
-            </div>
-            <div class="card">
-                <div class="kpi-label">Multi-Cloud Mix (All Platforms)</div>
-                <div class="kpi-sub" id="kpi-mix" style="margin-top:8px; flex-wrap:wrap; gap:4px;"></div>
-            </div>
-        </div>
-
-        <div class="section-grid">
-            <div class="card">
-                <div class="flex-between">
-                    <h3>TCO Breakdown</h3>
-                </div>
-                <div class="chart-container">
-                    <canvas id="chart-tco"></canvas>
-                </div>
-            </div>
-            <div class="card">
-                <div class="flex-between">
-                    <h3>Spend by Platform / Org Unit</h3>
-                </div>
-                <div class="chart-container">
-                    <canvas id="chart-platform"></canvas>
-                </div>
-            </div>
-            <div class="card full-width">
-                <div class="flex-between">
-                    <h3>Top Normalized Services</h3>
-                    <span class="subtitle">Unified cross-cloud categorization</span>
-                </div>
-                <div class="table-container">
-                    <table id="table-services">
-                        <thead><tr><th>Service Family</th><th>Classification</th><th>Reported Spend</th><th>% of Total</th></tr></thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Products Tab -->
-    <div id="tab-products" class="view-section hidden">
-        <div class="card full-width">
-            <div class="flex-between" style="margin-bottom: 12px;">
-                <div>
-                    <h3>Product Cost Breakdown</h3>
-                    <p class="subtitle">Discovered products, environments, and dominant service dependencies</p>
-                </div>
-                <input type="text" id="product-search" placeholder="Filter products..." oninput="filterProductTable()" style="width: 240px;">
-            </div>
-            <div class="table-container">
-                <table id="table-products">
-                    <thead><tr><th>Product Name</th><th>Platform</th><th>Environments</th><th>Reported Spend</th><th>Status</th></tr></thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- FinOps Tab -->
-    <div id="tab-finops" class="view-section hidden">
-        <div class="kpi-grid">
-            <div class="card" style="border-left: 4px solid #10b981;">
-                <div class="kpi-label">Est. Total Potential Savings</div>
-                <div class="kpi-value" id="finops-total-savings" style="color: #10b981;">--</div>
-                <div class="kpi-sub" id="finops-evidence">Requires resource and utilization evidence</div>
-            </div>
-            <div class="card">
-                <div class="kpi-label">Critical Opportunities</div>
-                <div class="kpi-value" id="finops-critical-count">--</div>
-                <div class="kpi-sub">High-value or easy-win actions</div>
-            </div>
-        </div>
-
-        <div class="section-grid">
-            <div class="card full-width">
-                <div class="flex-between" style="margin-bottom: 12px; align-items: center;">
-                    <div>
-                        <h3>Actionable Optimization Recommendations</h3>
-                        <p class="subtitle" id="recommendation-subtitle">Only evidence-backed findings should inform infrastructure changes</p>
-                    </div>
-                    <div style="display: flex; gap: 8px;">
-                        <button class="badge badge-gray" onclick="filterFinops('all')" style="cursor:pointer; border:none;">All</button>
-                        <button class="badge badge-aws" onclick="filterFinops('compute')" style="cursor:pointer; border:none; background:#fef3c7; color:#b45309">Compute</button>
-                        <button class="badge badge-azure" onclick="filterFinops('storage')" style="cursor:pointer; border:none; background:#dcfce3; color:#166534">Storage</button>
-                    </div>
-                </div>
-                <div class="table-container">
-                    <table id="table-recommendations">
-                        <thead><tr><th>Optimization Vector</th><th>Target Product</th><th>Resource ID</th><th>Est. Savings / Mo</th><th>Action</th></tr></thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="card full-width">
-                <div class="flex-between" style="margin-bottom: 12px;">
-                    <div>
-                        <h3>Reserved Instance & Savings Plan Coverage</h3>
-                        <p class="subtitle" id="coverage-subtitle">Requires commitment purchase and covered-usage records</p>
-                    </div>
-                </div>
-                <div class="table-container">
-                    <table id="table-ri-coverage">
-                        <thead><tr><th>Instance SKU</th><th>Total Run Hours</th><th>Covered Hours</th><th>Coverage %</th><th>Recommendation</th></tr></thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Compute Tab -->
-    <div id="tab-compute" class="view-section hidden">
-        <div class="section-grid">
-            <div class="card full-width">
-                <h3>Compute SKU Run Hours</h3>
-                <p class="subtitle" id="compute-scope">Aggregated instance run-hours and sizing across AWS, Azure, and GCP</p>
-                <div class="chart-container" style="height: 320px;">
-                    <canvas id="chart-skus"></canvas>
-                </div>
-            </div>
-            <div class="card full-width">
-                <h3>Discovered Compute Hardware Profiles</h3>
-                <div class="table-container">
-                    <table id="table-compute-skus">
-                        <thead><tr><th>Instance SKU</th><th>vCPU</th><th>RAM (GiB)</th><th>Instances Count</th><th>Total Run Hours</th></tr></thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Naming Tab -->
-    <div id="tab-naming" class="view-section hidden">
-        <div class="card full-width" style="margin-bottom: 24px;">
-            <h3>Active Naming Convention Schema</h3>
-            <p class="subtitle" id="naming-meta">--</p>
-            <div id="naming-pattern" style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap;"></div>
-        </div>
-        <div class="card full-width">
-            <h3 id="resource-title">Discovered Resource Types</h3>
-            <p class="subtitle" id="resource-description">Resource tokens parsed from naming patterns and infrastructure IDs</p>
-            <div class="table-container">
-                <table id="table-naming-resources">
-                    <thead><tr><th id="resource-column">Parsed Resource Type / Token</th><th>Matched Rows</th><th>Total Spend</th><th>% of Total</th></tr></thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- IaC Builder Tab -->
-    <div id="tab-iac" class="view-section hidden">
-        <div class="section-grid" style="grid-template-columns: 1fr 1fr;">
-            <!-- Builder Config -->
-            <div class="card">
-                <h3>Vending Machine Configuration</h3>
-                <p class="subtitle">Suggested starter templates. Provider, region, SKU defaults, and topology require review; billing data does not establish a deployable architecture.</p>
-                <div style="margin-top: 24px; display: flex; flex-direction: column; gap: 16px;">
-                    <div>
-                        <label style="font-size: 13px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 8px;">Target Product / Workload</label>
-                        <select id="iac-product" style="width: 100%;" onchange="updateIacPreview()"></select>
-                    </div>
-                    <div style="display: flex; gap: 16px;">
-                        <div style="flex: 1;">
-                            <label style="font-size: 13px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 8px;">IaC Framework</label>
-                            <select id="iac-framework" style="width: 100%;" onchange="updateIacPreview()">
-                                <option value="terraform">Terraform</option>
-                                <option value="cloudformation">CloudFormation</option>
-                                <option value="bicep">Azure Bicep</option>
-                            </select>
-                        </div>
-                        <div style="flex: 1;">
-                            <label style="font-size: 13px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 8px;">Environment</label>
-                            <select id="iac-env" style="width: 100%;" onchange="updateIacPreview()">
-                                <option value="dev">Development</option>
-                                <option value="staging">Staging</option>
-                                <option value="prod">Production</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div>
-                        <label style="font-size: 13px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 8px;">Instance SKU Override</label>
-                        <input type="text" id="iac-sku" style="width: 100%;" onkeyup="updateIacPreview()" placeholder="e.g. t3.medium (Leave blank for auto-detect)">
-                    </div>
-                    <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
-                        <button id="iac-download" onclick="downloadIac()" style="background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; cursor: pointer;">Download main.tf</button>
-                        <span id="iac-status" style="font-size: 13px; color: var(--text-muted);"></span>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Code Preview -->
-            <div class="card" style="display: flex; flex-direction: column;">
-                <div class="flex-between" style="align-items: center;">
-                    <div>
-                        <h3>Code Preview</h3>
-                        <div id="iac-pattern-badge" style="margin-top: 4px; font-size: 11px; font-weight: 600; color: #10b981; display: none;">Detected: 3-Tier Web Application</div>
-                    </div>
-                    <button id="iac-copy" onclick="copyIacToClipboard()" style="background: #f1f5f9; color: var(--text-main); border: 1px solid var(--border); padding: 4px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">Copy to Clipboard</button>
-                </div>
-                <div style="margin-top: 16px; flex: 1; background: #0f172a; border-radius: 6px; padding: 16px; overflow: auto; min-height: 300px;">
-                    <pre style="margin: 0; font-family: monospace; font-size: 13px; color: #e2e8f0; line-height: 1.5; white-space: pre-wrap;" id="iac-preview">Select a product to preview code...</pre>
-                </div>
-            </div>
-        </div>
-    </div>
-
+    <noscript><div class="no-data-screen"><h2>Enable JavaScript to view your report</h2><p>The dashboard processes your report locally in this browser.</p></div></noscript>
 </main>
+<dialog id="cloud-dialog" aria-labelledby="cloud-dialog-title"><div class="dialog-content"><div class="dialog-top"><div><p class="eyebrow">Bring your cloud together</p><h2 id="cloud-dialog-title">Cloud connections</h2></div><button class="icon-button" data-close-dialog aria-label="Close cloud connections">×</button></div><p class="muted">Automatic account connections are planned. Today, upload your cloud's billing export to generate a report.</p><div class="connection-options"><div class="connection-option"><span class="provider-icon">AWS</span><div><strong>Amazon Web Services</strong><p>Upload a supported CUR billing CSV</p></div><span class="pill">Auto-sync planned</span></div><div class="connection-option"><span class="provider-icon">GCP</span><div><strong>Google Cloud</strong><p>Upload a supported Cloud Billing CSV</p></div><span class="pill">Auto-sync planned</span></div><div class="connection-option"><span class="provider-icon">AZ</span><div><strong>Microsoft Azure</strong><p>Upload a Cost Management CSV</p></div><span class="pill">Auto-sync planned</span></div></div><p class="dialog-notice">No account is connected through this page. Cloud credentials are not requested or stored here.</p><div class="dialog-actions"><a class="button primary" href="import.html">Upload a billing report →</a><a class="button" href="https://github.com/emahgerefteh11/MyProduct/blob/main/ROADMAP.md#billing-reports-and-direct-cloud-connections">View connection roadmap</a></div></div></dialog>
+<dialog id="product-dialog" aria-labelledby="product-dialog-title"><div class="dialog-content"><div class="dialog-top"><div><p class="eyebrow">Product details</p><h2 id="product-dialog-title"></h2><p id="product-dialog-platform" class="muted"></p></div><button class="icon-button" data-close-dialog aria-label="Close product details">×</button></div><div id="product-dialog-metrics" class="product-summary"></div><h3>Reported service costs</h3><div id="product-dialog-services" class="rank-list"></div><p id="product-dialog-evidence" class="dialog-notice"></p><div class="dialog-actions"><a class="button primary" href="adoption.html">Explore IaC adoption ↗</a><button class="button" data-close-dialog>Back to products</button></div></div></dialog>
 
 <script>
     const embeddedReportData = {
@@ -18832,7 +18512,6 @@
     let reportData = null;
     const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[ch]));
     let isDemoMode = false;
-    const charts = {};
 
     const fmtCurrency = (n) => {
         const currency = reportData?.analysis?.currency || (isDemoMode ? 'USD' : null);
@@ -18893,6 +18572,7 @@
         } catch (e) {
             document.querySelector('main').innerHTML =
                 `<div class="no-data-screen"><div class="icon-big">&#9888;&#65039;</div><h2>Error Loading Data</h2><p>${escapeHtml(e.message)}</p><p><a href="import.html">Import billing files</a></p></div>`;
+            document.querySelector('main').setAttribute?.('aria-busy', 'false');
         }
     }
 
@@ -18913,8 +18593,8 @@
         hb.innerHTML = `<span class="badge ${badgeClass}">${badgeText}</span>`;
         hb.style.display = 'inline';
         document.getElementById('sidebar-switch-link').innerHTML = isDemo
-            ? '<a href="dashboard.html" style="color:#9ca3af;text-decoration:none;font-size:12px;">&#8592; Switch to Live</a>'
-            : '<a href="dashboard_demo.html" style="color:#9ca3af;text-decoration:none;font-size:12px;">View Demo &#8594;</a>';
+            ? '<a href="dashboard.html">Open your report &#8599;</a>'
+            : '<a href="dashboard_demo.html">Explore the demo &#8599;</a>';
         renderProvenance();
     }
 
@@ -18972,6 +18652,7 @@
                 <code>python cur_to_json.py --input billing_file.csv</code>
                 <p class="demo-link">Want to see it in action? <a href="dashboard_demo.html">View the pre-loaded demo dashboard</a></p>
             </div>`;
+        document.querySelector('main').setAttribute?.('aria-busy', 'false');
     }
 
     function populateFilters() {
@@ -18990,6 +18671,8 @@
     }
 
     function renderDashboard(platformFilter) {
+        document.getElementById('report-content').hidden = false;
+        document.getElementById('loading-state').hidden = true;
         let filteredCost = 0, filteredProducts = [], filteredServices = [];
 
         if (platformFilter === 'all') {
@@ -19008,6 +18691,7 @@
         }
 
         document.getElementById('kpi-total').textContent = fmtCurrency(filteredCost);
+        document.getElementById('kpi-providers-count').textContent = `${filteredProducts.length.toLocaleString()} products · ${platformFilter === 'all' ? 'All platforms' : platformFilter}`;
         
         // Unit Economics KPI
         const avgUnitCost = filteredProducts.length ? (filteredCost / filteredProducts.length) : 0;
@@ -19063,6 +18747,7 @@
             `;
             svcTbody.appendChild(tr);
         });
+        if (!filteredServices.length) svcTbody.innerHTML = '<tr><td colspan="4" class="table-empty">No service costs were reported for this scope.</td></tr>';
 
         // Render Products Table
         renderProductTable(platformFilter);
@@ -19075,6 +18760,7 @@
 
         // Render Naming Table & Pattern
         renderNamingSection();
+        if (typeof window.refreshAtlas === 'function') window.refreshAtlas();
     }
 
     function renderProductTable(platformFilter) {
@@ -19091,16 +18777,21 @@
                 flatProds = (plat.products || []).map(p => ({ ...p, Platform: plat.Platform }));
             }
         }
-        flatProds.sort((a, b) => b.BilledCost - a.BilledCost).forEach(p => {
+        if (!flatProds.length && platformFilter === 'all') flatProds = (reportData.products || []).map(p => ({...p, Platform: p.Platform || 'Not specified'}));
+        const query = (document.getElementById('product-search').value || '').trim().toLowerCase();
+        const sort = document.getElementById('product-sort').value || 'cost-desc';
+        const visible = flatProds.filter(p => [p.Product, p.Platform, ...(p.environments || []).map(e => e.Environment)].join(' ').toLowerCase().includes(query));
+        visible.sort(sort === 'name' ? (a, b) => String(a.Product).localeCompare(String(b.Product)) : sort === 'cost-asc' ? (a, b) => a.BilledCost - b.BilledCost : (a, b) => b.BilledCost - a.BilledCost);
+        window.currentProductRows = visible;
+        visible.forEach((p, index) => {
             const tr = document.createElement('tr');
-            const topSvc = p.services && p.services[0] ? p.services[0].ServiceCategory : 'N/A';
             const envs = (p.environments || []).map(e => `<span class="badge badge-gray">${escapeHtml(e.Environment)}</span>`).join(' ');
             
             // Status tag logic
             const statusTag = '<span class="badge badge-gray">Cost reported</span>';
             
             tr.innerHTML = `
-                <td style="font-weight:600">${escapeHtml(p.Product)}</td>
+                <td><button class="table-link" data-product-index="${index}">${escapeHtml(p.Product)}</button></td>
                 <td>${escapeHtml(p.Platform || (platformFilter === 'all' ? 'Multi-Cloud' : platformFilter))}</td>
                 <td>${envs || '<span class="badge badge-gray">default</span>'}</td>
                 <td style="font-weight:600">${fmtCurrency(p.BilledCost)}</td>
@@ -19108,11 +18799,19 @@
             `;
             prodTbody.appendChild(tr);
         });
+        if (!visible.length) {
+            const row = document.createElement('tr'), cell = document.createElement('td');
+            cell.colSpan = 5; cell.className = 'table-empty';
+            cell.textContent = query ? 'No products match your search. Try a different product, platform or environment.' : 'No products were reported for this scope.';
+            row.appendChild(cell); prodTbody.appendChild(row);
+        }
+        document.getElementById('product-count').textContent = `${visible.length.toLocaleString()} of ${flatProds.length.toLocaleString()} products · Select a product to explore its service costs`;
     }
 
     window.finopsRecommendations = [];
 
     window.filterFinops = (category) => {
+        document.querySelectorAll('[data-category]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.category === category)));
         const tbody = document.querySelector('#table-recommendations tbody');
         tbody.innerHTML = '';
         const recs = category === 'all' ? window.finopsRecommendations : window.finopsRecommendations.filter(r => r.category === category);
@@ -19128,11 +18827,11 @@
         recs.forEach(r => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><span style="font-weight:600">${r.vector}</span></td>
-                <td>${r.product}</td>
-                <td style="font-family:monospace; font-size:12px;">${r.resourceId}</td>
+                <td><span style="font-weight:600">${escapeHtml(r.vector)}</span></td>
+                <td>${escapeHtml(r.product)}</td>
+                <td style="font-family:monospace; font-size:12px;">${escapeHtml(r.resourceId)}</td>
                 <td style="font-weight:600; color:#10b981">${fmtCurrency(r.savings)}</td>
-                <td><button onclick="investigateAnomaly('${r.product}')" style="padding:4px 8px; border-radius:4px; border:1px solid var(--border); background:white; cursor:pointer; font-size:12px;">Build IaC</button></td>
+                <td><button class="button" data-investigate-index="${window.finopsRecommendations.indexOf(r)}">Explore IaC</button></td>
             `;
             tbody.appendChild(tr);
         });
@@ -19248,7 +18947,7 @@
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><span style="font-weight:600">${skuName}</span></td>
+                <td><span style="font-weight:600">${escapeHtml(skuName)}</span></td>
                 <td>${hours.toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
                 <td>${coveredHours.toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
                 <td>
@@ -19266,12 +18965,7 @@
     }
 
     function filterProductTable() {
-        const q = (document.getElementById('product-search').value || '').toLowerCase();
-        const rows = document.querySelectorAll('#table-products tbody tr');
-        rows.forEach(r => {
-            const text = r.textContent.toLowerCase();
-            r.style.display = text.includes(q) ? '' : 'none';
-        });
+        renderProductTable(document.getElementById('global-platform-filter').value || 'all');
     }
 
     function renderComputeTable(platformFilter) {
@@ -19314,6 +19008,7 @@
             `;
             tbody.appendChild(tr);
         });
+        if (!sorted.length) tbody.innerHTML = '<tr><td colspan="5" class="table-empty">No supported compute SKUs were reported for this scope.</td></tr>';
     }
 
     function renderNamingSection() {
@@ -19327,6 +19022,7 @@
             d.innerHTML = `<div class="token-name">Token #${idx + 1}</div><div class="token-val">&lt;${escapeHtml(pat)}&gt;</div>`;
             patDiv.appendChild(d);
         });
+        if (!tokens.length) patDiv.textContent = 'No naming pattern was applied to this report.';
 
         const tbody = document.querySelector('#table-naming-resources tbody');
         tbody.innerHTML = '';
@@ -19340,101 +19036,19 @@
             `;
             tbody.appendChild(tr);
         });
+        if (!(reportData.resourceNames || []).length) tbody.innerHTML = '<tr><td colspan="4" class="table-empty">No resource identifiers were supplied in this report.</td></tr>';
     }
 
     function renderCharts(platformFilter) {
-        if (typeof Chart === 'undefined') {
-            const status = document.getElementById('chart-status');
+        const status = document.getElementById('chart-status');
+        if (typeof window.renderAtlasCharts === 'function') {
+            window.renderAtlasCharts(platformFilter, reportData, window.currentTco);
+            status.hidden = true;
+            status.textContent = 'Cost tables and analysis remain available alongside locally rendered charts.';
+        } else {
             status.hidden = false;
-            status.textContent = 'Charts are unavailable because the chart library could not load. Cost tables and analysis remain available.';
-            return;
+            status.textContent = 'Charts are loading. Cost tables and analysis remain available.';
         }
-        Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
-        Chart.defaults.color = '#64748b';
-        Chart.defaults.scale.grid.color = '#f1f5f9';
-        Chart.defaults.scale.grid.borderColor = '#e2e8f0';
-
-        Object.values(charts).forEach(c => c.destroy());
-
-        if (window.currentTco) {
-            charts.tco = new Chart(document.getElementById('chart-tco').getContext('2d'), {
-                type: 'doughnut',
-                data: {
-                    labels: Object.keys(window.currentTco),
-                    datasets: [{
-                        data: Object.values(window.currentTco),
-                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#64748b'],
-                        borderWidth: 2,
-                        borderColor: '#ffffff'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '70%',
-                    plugins: {
-                        legend: { position: 'right', labels: { boxWidth: 12, usePointStyle: true, pointStyle: 'circle' } }
-                    }
-                }
-            });
-        }
-
-        charts.platform = new Chart(document.getElementById('chart-platform').getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: (reportData.platforms || []).map(p => p.Platform),
-                datasets: [{
-                    label: `Cost${reportData.analysis?.currency ? ' (' + reportData.analysis.currency + ')' : ''}`,
-                    data: (reportData.platforms || []).map(p => p.BilledCost),
-                    backgroundColor: '#3b82f6',
-                    borderRadius: 4,
-                    maxBarThickness: 40
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: { beginAtZero: true, border: {display: false} },
-                    x: { grid: { display: false }, border: {display: false} }
-                },
-                plugins: { legend: { display: false } }
-            }
-        });
-
-        const skuMap = {};
-        const scopePlatforms = platformFilter === 'all'
-            ? (reportData.platforms || [])
-            : (reportData.platforms || []).filter(p => p.Platform === platformFilter);
-        scopePlatforms.forEach(p => {
-            (p.vmSkus || []).forEach(sku => {
-                if (!skuMap[sku.sku]) skuMap[sku.sku] = { hours: 0 };
-                skuMap[sku.sku].hours += sku.hours;
-            });
-        });
-        const sortedSkus = Object.entries(skuMap).sort((a, b) => b[1].hours - a[1].hours).slice(0, 10);
-
-        charts.skus = new Chart(document.getElementById('chart-skus').getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: sortedSkus.map(s => s[0]),
-                datasets: [{
-                    label: 'Total Run Hours',
-                    data: sortedSkus.map(s => s[1].hours),
-                    backgroundColor: '#10b981',
-                    borderRadius: 4,
-                    maxBarThickness: 40
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: { beginAtZero: true, border: {display: false} },
-                    x: { grid: { display: false }, border: {display: false} }
-                }
-            }
-        });
     }
 
     function initIacBuilder() {
@@ -19458,7 +19072,7 @@
     }
 
     window.investigateAnomaly = (productName) => {
-        const iacTabBtn = Array.from(document.querySelectorAll('nav a')).find(a => a.textContent.includes('IaC Builder'));
+        const iacTabBtn = document.querySelector('[data-view="iac"]');
         if (iacTabBtn) switchTab('iac', iacTabBtn);
         else return;
 
@@ -19709,17 +19323,19 @@ resource virtualMachine 'Microsoft.Compute/virtualMachines@2022-03-01' = {
         document.getElementById('iac-preview').textContent = code;
     };
 
-    window.copyIacToClipboard = () => {
+    window.copyIacToClipboard = async () => {
+        if (document.getElementById('iac-copy').disabled) return;
         const text = document.getElementById('iac-preview').textContent;
-        navigator.clipboard.writeText(text).then(() => {
-            const btn = document.querySelector('button[onclick="copyIacToClipboard()"]');
-            const orig = btn.textContent;
-            btn.textContent = 'Copied!';
-            setTimeout(() => btn.textContent = orig, 2000);
-        });
+        try {
+            await navigator.clipboard.writeText(text);
+            document.getElementById('iac-status').textContent = 'Code copied to clipboard.';
+        } catch {
+            document.getElementById('iac-status').textContent = 'Clipboard access is unavailable. Select the code to copy it, or download the template.';
+        }
     };
 
     window.downloadIac = () => {
+        if (document.getElementById('iac-download').disabled) return;
         const text = document.getElementById('iac-preview').textContent;
         const framework = document.getElementById('iac-framework').value;
         const ext = framework === 'terraform' ? 'tf' : (framework === 'bicep' ? 'bicep' : 'yaml');
@@ -19738,19 +19354,21 @@ resource virtualMachine 'Microsoft.Compute/virtualMachines@2022-03-01' = {
     };
 
     window.switchTab = (tabId, el) => {
-        document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
-        el.classList.add('active');
+        if (!document.getElementById(`tab-${tabId}`)) return;
+        document.querySelectorAll('#workspace-nav a').forEach(a => { a.classList.remove('active'); a.removeAttribute('aria-current'); });
+        if (el) { el.classList.add('active'); el.setAttribute('aria-current', 'page'); }
         document.querySelectorAll('.view-section').forEach(div => div.classList.add('hidden'));
         document.getElementById(`tab-${tabId}`).classList.remove('hidden');
         const titles = {
-            overview: 'TCO Overview',
-            products: 'Product & Unit Cost',
-            finops: 'FinOps Optimization',
+            overview: 'Spend overview',
+            products: 'Product costs',
+            finops: 'Optimization',
             iac: 'IaC Builder',
-            compute: 'Compute SKUs & Sizing',
-            naming: 'Naming Convention Audit'
+            compute: 'Compute & sizing',
+            naming: 'Resources & naming'
         };
         document.getElementById('page-title').textContent = titles[tabId];
+        if (typeof window.syncAtlasView === 'function') window.syncAtlasView(tabId);
     };
 
     window.downloadImportedReport = () => {
@@ -19770,6 +19388,5 @@ resource virtualMachine 'Microsoft.Compute/virtualMachines@2022-03-01' = {
         if (reportData) initIacBuilder();
     });
 </script>
-
 </body>
 </html>

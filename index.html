@@ -1,59 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cloud Cost Atlas</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', sans-serif; background: #f3f4f6; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-        .container { text-align: center; max-width: 1000px; padding: 40px 24px; }
-        .logo { font-size: 32px; font-weight: 700; color: #111827; margin-bottom: 8px; }
-        .logo span { color: #3b82f6; }
-        .tagline { color: #6b7280; font-size: 16px; margin-bottom: 48px; }
-        .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
-        .card { background: white; border-radius: 16px; padding: 32px 24px; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.07); text-decoration: none; color: inherit; transition: transform 0.15s, box-shadow 0.15s; display: block; }
-        .card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px -5px rgba(0,0,0,0.12); }
-        .card-icon { font-size: 36px; margin-bottom: 16px; }
-        .card-title { font-size: 18px; font-weight: 700; color: #111827; margin-bottom: 8px; }
-        .card-desc { font-size: 14px; color: #6b7280; line-height: 1.6; margin-bottom: 20px; }
-        .card-badge { display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
-        .badge-demo { background: #fef3c7; color: #92400e; }
-        .badge-live { background: #d1fae5; color: #065f46; }
-        @media (max-width: 760px) { .cards { grid-template-columns: 1fr; } }
-    </style>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="theme-color" content="#153c32">
+    <meta name="description" content="Turn multi-cloud billing reports into clear cost dashboards and a reviewed path to infrastructure as code.">
+    <title>Cloud Cost Atlas · A clearer view of your cloud</title>
+    <link rel="stylesheet" href="atlas.css"><link rel="stylesheet" href="home.css">
 </head>
 <body>
-    <div class="container">
-        <div class="logo">&#9729;&#65039; Cloud<span>Atlas</span></div>
-        <p class="tagline">Multi-cloud infrastructure cost analysis &amp; FinOps visibility</p>
-        <div class="cards">
-            <a href="import.html" class="card" style="border:2px solid #116b61;">
-                <div class="card-icon" aria-hidden="true">&#8593;</div>
-                <div class="card-title">Import Your Billing</div>
-                <div class="card-desc">Choose CSV files, review column mappings, and validate costs before opening your dashboard. Your data stays in your browser.</div>
-                <span class="card-badge badge-live">START HERE</span>
-            </a>
-            <a href="dashboard_demo.html" class="card">
-                <div class="card-icon">&#127912;</div>
-                <div class="card-title">Demo Dashboard</div>
-                <div class="card-desc">Pre-loaded with sample multi-cloud data. Always ready to present — no setup needed.</div>
-                <span class="card-badge badge-demo">DEMO DATA</span>
-            </a>
-            <a href="dashboard.html" class="card">
-                <div class="card-icon">&#128202;</div>
-                <div class="card-title">Report Dashboard</div>
-                <div class="card-desc">Return to your accepted browser import or view the site's generated report. The bundled sample is clearly labeled as demo data.</div>
-                <span class="card-badge badge-live">VIEW REPORT</span>
-            </a>
-            <a href="adoption.html" class="card">
-                <div class="card-icon" aria-hidden="true">&#123; &#125;</div>
-                <div class="card-title">Adopt Infrastructure into IaC</div>
-                <div class="card-desc">Discover resources from billing, generate Terraform from live configuration, and import existing infrastructure in reviewed batches.</div>
-                <span class="card-badge badge-live">BILLING → TERRAFORM</span>
-            </a>
-        </div>
-    </div>
+    <a class="skip-link" href="#home-content">Skip to content</a>
+    <header class="home-header"><a class="brand" href="index.html" aria-label="Cloud Atlas home"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m12 3 9 5v8l-9 5-9-5V8zM3 8l9 5 9-5M12 13v8"/></svg></span><span class="brand-wordmark">Cloud<span>Atlas</span></span></a><nav class="home-nav" aria-label="Main navigation"><a href="https://github.com/emahgerefteh11/MyProduct/blob/main/ROADMAP.md">Roadmap</a><a href="dashboard_demo.html">Explore demo</a><a class="button" href="dashboard.html">Open workspace ↗</a></nav></header>
+    <main id="home-content" class="home-main" tabindex="-1">
+        <section class="hero" aria-labelledby="hero-title"><div class="hero-copy"><p class="eyebrow">Cloud costs. Clear decisions.</p><h1 id="hero-title">A clearer view<br>of <em>your cloud.</em></h1><p>Bring your billing into focus. Understand spend across teams and clouds, then build a reviewed path to infrastructure as code.</p><div class="hero-actions"><a class="button primary" href="import.html">Import your billing <span aria-hidden="true">→</span></a><a class="button" href="dashboard_demo.html">Explore the demo ↗</a></div><div class="hero-assurance"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6zM8 12l3 3 5-6"/></svg>Browser imports stay on your device. No cloud login required.</div></div>
+        <div class="flow-preview"><div class="flow-caption"><span class="dot" aria-hidden="true"></span>From billing files to a useful baseline</div><div class="preview-surface"><div class="preview-heading"><h2>Your cloud, together.</h2><small>Supported providers</small></div><div class="provider-list"><div class="provider-tile aws"><strong>AWS</strong><span>CUR billing CSV</span></div><div class="provider-tile azure"><strong>Azure</strong><span>Cost Management</span></div><div class="provider-tile gcp"><strong>Google Cloud</strong><span>Billing export CSV</span></div></div><div class="flow-connector" aria-hidden="true"></div><div class="preview-result"><span>One place to understand</span><strong>Spend. Allocation. Infrastructure.</strong><p>A cost dashboard and a guided path to supported resource adoption.</p></div><div class="preview-status"><span class="dot" aria-hidden="true"></span>Review your data before making it your report</div></div></div></section>
+        <section aria-labelledby="journey-title"><div class="section-intro"><div><p class="eyebrow">Your next step</p><h2 id="journey-title">Start with what you have.</h2></div><p>A billing export, a saved report, or infrastructure ready to be managed as code.</p></div><div class="journey-cards">
+            <a class="journey-card featured" href="import.html"><span class="journey-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6"/></svg></span><h3>Import billing</h3><p>Map your CSV columns, validate every row, and review costs before opening your report.</p><span class="journey-link">Start with your data <span aria-hidden="true">↗</span></span></a>
+            <a class="journey-card" href="dashboard.html"><span class="journey-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><h3>Explore your report</h3><p>Return to your imported report. Follow spend from cloud services to platforms and products.</p><span class="journey-link">Open your workspace <span aria-hidden="true">↗</span></span></a>
+            <a class="journey-card" href="adoption.html"><span class="journey-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18"/></svg></span><h3>Adopt into IaC</h3><p>Discover live configuration and generate Terraform for supported existing resources, with reviewed imports.</p><span class="journey-link">Build your baseline <span aria-hidden="true">↗</span></span></a>
+            <a class="journey-card" href="dashboard_demo.html"><span class="journey-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m9 5 11 7-11 7z"/><path d="M4 5v14"/></svg></span><h3>Take a look around</h3><p>Explore a sample dashboard before importing. Demo data and simulated insights stay clearly labeled.</p><span class="journey-link">Explore sample data <span aria-hidden="true">↗</span></span></a>
+        </div></section>
+        <div class="connection-strip"><div><p>Prefer automatic account sync?</p><small>Direct AWS, GCP, and Azure connections are planned. Billing uploads work today.</small></div><a href="dashboard.html#connections">Cloud connection options ↗</a></div>
+        <footer class="home-footer"><span>Cloud Cost Atlas · Built for a clearer cloud</span><a href="https://github.com/emahgerefteh11/MyProduct">View the project on GitHub ↗</a></footer>
+    </main>
 </body>
 </html>

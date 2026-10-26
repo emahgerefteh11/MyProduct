@@ -181,3 +181,26 @@ test('accepted browser report overrides bundled sample and keeps unsupported siz
     const demo = await dashboard({demo:true,stored:result.report});
     assert.match(demo.elements.get('mode-badge-header').innerHTML, /DEMO DATA/);
 });
+
+test('product search persists through platform changes and reports no matches clearly', async () => {
+    const page = await dashboard();
+    page.elements.get('product-search').value = 'no-such-product';
+    page.run("filterProductTable()");
+    assert.equal(page.context.currentProductRows.length, 0);
+    assert.match(page.tables.get('#table-products tbody').textContent, /No products match/);
+    page.run("renderProductTable(reportData.platforms[0].Platform)");
+    assert.equal(page.context.currentProductRows.length, 0);
+    assert.match(page.elements.get('product-count').textContent, /^0 of/);
+});
+
+test('product sorting preserves the exact platform and product behind each detail button', async () => {
+    const page = await dashboard();
+    page.elements.get('global-platform-filter').value = 'all';
+    page.elements.get('product-sort').value = 'cost-asc';
+    page.run("filterProductTable()");
+    const rows = page.context.currentProductRows;
+    assert.ok(rows.length > 1);
+    assert.ok(rows.every((row, i) => !i || row.BilledCost >= rows[i-1].BilledCost));
+    assert.match(page.tables.get('#table-products tbody').children[0].innerHTML, /data-product-index="0"/);
+    assert.ok(rows[0].Platform);
+});

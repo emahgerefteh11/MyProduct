@@ -5,6 +5,10 @@ All notable changes to the **MyProduct** infrastructure analysis tool will be do
 ## [Unreleased]
 
 ### Added
+- Modern workspace UI across the home, dashboard, import and adoption pages: shared design tokens, responsive navigation, redesigned metric cards, tables and report controls, and clear upload/adoption/connection entry points.
+- Local cost-mix, platform and compute visualizations with no chart/font CDN requirement; signed cost bars for credits and platform-chart filtering.
+- Product search/sorting, scoped product detail dialogs, view deep links/history, mobile navigation with focus handling, skip links and reduced-motion support.
+- Chromium checks across 320–1440px widths for demo and imported reports, mobile navigation, safe labels, product details, connection availability, loading and failure states.
 - Billing-to-IaC adoption screen and downloadable Python tool: scoped billing candidates, resource selection, gap reporting, and read-only discovery for AWS EC2/EBS and GCP compute instances/zonal disks.
 - Terraform/OpenTofu adoption repositories with explicit cloud scope and import IDs, live provider configuration generation, an import-only plan guard, state backup, guarded saved-plan adoption, and clean-plan verification. Allowlisted discovery/import inventory can be reopened locally in the browser.
 - Scoped resource evidence in browser/Python reports, including account/project, region/zone, source fingerprints, and charges without resource IDs; flat GCP detailed-export resource paths are retained.
@@ -21,7 +25,7 @@ All notable changes to the **MyProduct** infrastructure analysis tool will be do
 - Report mode no longer generates simulated savings, resource IDs, month-over-month changes, reservation coverage, or arbitrary architecture patterns. Demo simulations are clearly labeled.
 - Legacy reports no longer claim today's date as their analysis time or silently assume USD.
 - Bundled sample data is explicitly labeled, and new per-product provider attribution is used by both IaC builders; ambiguous provider choices require user selection.
-- Dashboard tables remain available when the chart CDN cannot load. Demo generation escapes inline-script terminators and fails when its injection anchor is missing.
+- Dashboard charts and fonts no longer require CDNs, while report tables remain usable independently of the visualization script. Demo generation escapes inline-script terminators and fails when its injection anchor is missing.
 
 ### Scope
 - Browser imports summarize costs and explicit allocation and feed the separate local IaC adoption workflow. Naming inference, hardware sizing, and new-infrastructure starter generation remain in the Python workflow. Adoption initially covers four resource types and uses customer cloud CLI credentials; hosted connectors, full dependency discovery and repository/CI integration remain future work. Real period comparisons, owner workflows and verified savings remain future work.

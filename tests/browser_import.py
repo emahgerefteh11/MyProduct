@@ -79,7 +79,7 @@ class BrowserImport(unittest.TestCase):
         self.choose([{'name': 'aws.csv', 'mimeType': 'text/csv', 'buffer': aws.encode()}, {'name': 'gcp.csv', 'mimeType': 'text/csv', 'buffer': gcp.encode()}])
         self.validate()
         self.accept()
-        self.page.get_by_role('link', name='Adopt into IaC').click()
+        self.page.locator('.page-actions').get_by_role('link', name='Adopt into IaC').click()
         expect(self.page.locator('#workspace')).to_be_visible()
         expect(self.page.locator('#metrics')).to_contain_text('4 resources')
 

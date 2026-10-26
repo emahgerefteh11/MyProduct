@@ -6,7 +6,7 @@ A holistic, multi-phase roadmap aligned with the **FinOps Foundation Framework (
 
 1. **Trustworthy reporting (implemented in this iteration):** fix provider/tag attribution; expose report provenance, currency assumptions, source reconciliation, and unallocated spend; reject invalid or incompatible inputs; keep simulated insights in demo mode.
 2. **Guided import (implemented):** browser CSV upload, schema/column mapping, full-row validation preview, local report storage, JSON download, and an explicit path from sample data to a customer's first report. Browser reports cover costs and explicit allocation; advanced naming and hardware analysis remain in the Python workflow.
-3. **Modern dashboard UI:** substantially refresh the visual design, navigation, charts, and responsive layouts to give the product a polished, modern feel.
+3. **Modern dashboard UI (implemented):** shared visual system across the home, dashboard, import and adoption screens; responsive navigation, local charts, product drill-downs, accessible controls and polished report states.
 4. **Native billing reports and direct cloud connections:** expand AWS CUR/GCP billing-report coverage and add connected-account ingestion that generates and refreshes the reporting dashboard without manual file uploads. Prioritize AWS and GCP, then Azure.
 5. **Explain and assign spend:** actual billing-period comparisons, cost-change drivers, ownership rules, and shared-cost allocation.
 6. **Adopt IaC, verify, and act:** help organizations move from no IaC to managed infrastructure through billing discovery, cloud configuration enrichment, generated definitions, and reviewed imports; then deliver inventory/utilization-backed findings and changes through their IaC repositories and deployment pipelines.
@@ -34,15 +34,17 @@ The longer-term phases below remain directional. Partial FOCUS input handling an
 - [ ] **Refresh and connection management:** manual and configurable scheduled refresh, sync progress, last successful analysis time, actionable errors, and disconnect/revoke controls. Retain the last valid report on a failed sync and visibly mark stale data.
 - [ ] **Shared reporting contract:** apply the same currency/cost-basis validation, attribution rules, source provenance, and reconciliation to uploads and connected data; test account boundaries and provider-specific credits/adjustments.
 
-## Modern dashboard UI — To Do
+## Modern dashboard UI — Implemented
 
-- [ ] Establish a cohesive visual system: modern typography, refined colors, consistent spacing, icons, and reusable components.
-- [ ] Redesign navigation and page layouts with clearer hierarchy, more breathing room, and easier access to key cost insights.
-- [ ] Present clear **Upload billing reports** and **Connect cloud account** entry points, with connection status and data freshness visible once account ingestion is implemented.
-- [ ] Modernize summary cards, charts, tables, filters, and drill-down interactions while keeping report provenance and demo labels visible.
-- [ ] Make the dashboard work comfortably on desktop, tablet, and mobile screens.
-- [ ] Polish loading, empty, error, hover, and focus states; support keyboard navigation, readable contrast, and reduced motion.
-- [ ] Validate the redesign in a real browser across screen sizes using both sample data and imported reports.
+- [x] Establish a cohesive visual system: modern typography, refined colors, consistent spacing, icons, and reusable components.
+- [x] Redesign navigation and page layouts with clearer hierarchy, more breathing room, and easier access to key cost insights.
+- [x] Present clear **Upload billing reports** and **Connect cloud account** entry points. Connection options explicitly show planned status; actual analysis time and observed usage are visible. Connected sync status will follow backend ingestion.
+- [x] Modernize summary cards, charts, tables, filters, and drill-down interactions while keeping report provenance and demo labels visible.
+- [x] Make the dashboard work comfortably on desktop, tablet, and mobile screens.
+- [x] Polish loading, empty, error, hover, and focus states; support keyboard navigation, readable contrast, and reduced motion.
+- [x] Validate the redesign in a real browser across screen sizes using both sample data and imported reports.
+
+The dashboard now uses local charts with signed-cost handling for credits, chart-to-platform filtering, persistent product search/sorting, product detail dialogs, deep links, and a keyboard-accessible mobile navigation drawer. Shared assets require no chart or font CDN. Browser checks cover 320–1440px layouts, report/demo separation, loading and failure states, safe labels, dialogs and focus handling. This UI release does not implement hosted cloud ingestion or verified optimization findings.
 
 ---
 

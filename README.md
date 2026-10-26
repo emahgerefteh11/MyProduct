@@ -7,6 +7,19 @@
 
 **Cloud Cost Atlas** is a multi-cloud infrastructure intelligence and FinOps tool. It ingests supported billing CSV formats from **AWS**, **Microsoft Azure**, and **Google Cloud Platform (GCP)**, normalizes services into a unified taxonomy, extracts hardware sizing and naming conventions, generates interactive dashboards, and creates Terraform starter templates based on reported cloud footprints. Generated infrastructure requires review and validation before deployment.
 
+## Modern workspace
+
+The [home page](index.html), [report dashboard](dashboard.html), [demo](dashboard_demo.html), import and adoption flows share a modern visual system with local fonts, consistent controls and responsive layouts.
+
+- Six dashboard views are available through desktop navigation or a keyboard-accessible mobile drawer. View URLs support deep links and browser back/forward navigation.
+- Cost-mix and platform charts render locally without a CDN. Select a platform bar to filter the report. Negative costs/credits use signed bars instead of a misleading composition chart.
+- Product costs support search by product, platform or environment, spend/name sorting, and a detail dialog with the selected product's platform, environments, provider evidence and reported service costs. Search survives platform filter changes.
+- Report actions, source provenance, actual analysis dates and observed usage remain accessible. Loading, empty, error and unavailable-data states give actionable next steps. Demo simulations stay labeled.
+- Upload and IaC adoption are direct entry points. Cloud connection options show supported billing uploads and clearly mark automatic account sync as planned; they do not request cloud credentials.
+- Skip links, visible focus states, native dialogs, focus restoration, reduced-motion support and contained table scrolling support desktop, tablet and mobile use.
+
+All workspace fonts and charts use local/browser assets. When copying an embedded demo for offline use, keep `atlas.css`, `dashboard.css`, `dashboard_ui.js` and `report_store.js` alongside the HTML file. Embedded data stays in the demo file; browser imports remain separate.
+
 ## Guided billing import
 
 Open [Import billing](import.html) from the home page or dashboard. This works on GitHub Pages without a backend or cloud credentials.
@@ -22,7 +35,7 @@ Files are parsed and validated in a Web Worker on the device. Only an accepted r
 
 The browser report covers **costs, explicit product/platform/environment columns or JSON tags, providers, and scoped resource identifiers as supplied**. It does not infer names, hardware sizing, usage capacity, or utilization. The separate [IaC adoption workflow](#adopt-existing-infrastructure-into-iac) uses these resource identities to discover live configuration and generate Terraform locally. Use the Python analyzer for naming rules, supported hardware/SKU inference, larger files, or new-infrastructure starter templates. Separate GCP credit fields are not subtracted automatically; map an appropriate net-cost column if required. FOCUS header recognition is not full FOCUS conformance. Duplicate checking detects identical file contents, not overlapping rows in distinct exports. Monetary sums use exact decimal arithmetic before rounding totals for display; no currency conversion is performed.
 
-Use a current browser over **HTTPS or localhost**. Opening `import.html` directly through `file://` is not supported. For local use, run `python -m http.server 8000` in the repository and visit `http://localhost:8000/import.html`. The import page has no third-party dependencies; the dashboard still loads charts and fonts from CDNs, with tables available if those resources cannot load.
+Use a current browser over **HTTPS or localhost**. Opening `import.html` directly through `file://` is not supported. For local use, run `python -m http.server 8000` in the repository and visit `http://localhost:8000/import.html`. Import, adoption, dashboard charts and fonts have no third-party runtime dependencies.
 
 ## Direct cloud account connections (planned)
 
@@ -33,7 +46,7 @@ Direct hyperscaler account connections are **planned, not yet implemented**. The
 The report dashboard displays imported costs, not a real-time cloud connection. Its provenance panel shows the actual analysis timestamp, source filenames and SHA-256 fingerprints, row counts, observed usage dates, currency, cost basis, and source-to-report reconciliation. Unallocated product, platform, and environment costs are recorded in the report. Reconciliation checks the imported rows; it does not establish completeness against a cloud invoice.
 
 - **Report mode:** savings, month-over-month changes, and commitment coverage show unavailable states until supporting evidence exists. Billing alone cannot establish idle resources or rightsizing opportunities. Older JSON reports still load, with unknown provenance and currency clearly indicated.
-- **Demo mode:** simulated insights remain available for presentations and are explicitly labeled. Missing demo currency is illustrated in USD. Charts and fonts use external CDNs; when the chart library is unavailable, tables and analysis remain usable.
+- **Demo mode:** simulated insights remain available for presentations and are explicitly labeled. Missing demo currency is illustrated in USD. Charts render locally; tables and analysis remain usable while the visualization assets load.
 - **Bundled sample:** the checked-in `report_data.json` is explicitly marked as sample data and opens in demo mode even through the report page. Running the analysis CLI replaces it with a report marked `sampleData: false`; reports generated from your own mock inputs should still be treated as samples.
 - **Currency:** source currencies are retained. If a file lacks currency and you know its currency, pass `--currency USD` (or another three-letter code). This only fills missing values; it never performs FX conversion. Mixed currencies, or known currencies combined with unspecified currencies, are rejected. Reports with entirely unspecified currencies show numeric amounts without currency symbols and include a warning.
 - **Validation:** invalid or non-finite amounts, empty inputs, identical file contents supplied twice, and mixed billed/effective cost bases are rejected before replacing the output report. Duplicate detection covers whole files, not overlapping rows across different exports.
@@ -108,6 +121,7 @@ GitHub Actions runs these checks, verifies that the generated demo matches `dash
 python -m pip install playwright==1.56.0
 python -m playwright install chromium
 python tests/browser_import.py
+python tests/browser_dashboard.py
 ```
 
 The browser tests start a local server and block third-party requests. Screenshots are written to `test-artifacts/` (ignored by Git); CI retains them for seven days.
@@ -151,7 +165,7 @@ The browser tests start a local server and block third-party requests. Screensho
 4. **Hardware Capacity Introspection:** Translates cloud billing SKUs into tangible compute specs (vCPU count, RAM GiB) and storage capacity (GB-Mo) for capacity planning.
 5. **Dual-Mode Interactive Dashboard:** 
    - **Live Mode (`dashboard.html`):** Dynamically fetches `report_data.json` generated by the analysis engine.
-   - **Demo Mode (`dashboard_demo.html`):** HTML file with embedded data and labeled simulations, ready for presentations and GitHub Pages deployment. Charts require access to the chart-library CDN.
+   - **Demo Mode (`dashboard_demo.html`):** HTML file with embedded data and labeled simulations, ready for presentations and GitHub Pages deployment. Local chart/style assets remove the chart-library CDN requirement.
 6. **Intelligent Terraform Vending (`terraform_generator.py`):** Automatically scaffolds modular Terraform configurations (`main.tf`, `variables.tf`, `outputs.tf`, `terraform.tfvars`) parameterized with discovered instance types, storage allocations, and tags.
 
 ---
