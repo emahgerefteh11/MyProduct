@@ -115,6 +115,13 @@ class BrowserDashboard(unittest.TestCase):
         })''')
         self.assertTrue(durations)
         self.assertLessEqual(max(durations), 700)
+        self.page.evaluate('''async () => {
+            await Promise.all(document.getAnimations().map(animation => animation.finished.catch(() => {})));
+        }''')
+        self.page.locator('.journey-card').nth(0).focus()
+        self.page.locator('.journey-card').nth(1).focus()
+        self.page.evaluate('() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
+        self.assertEqual(self.page.evaluate("document.getAnimations().filter(a => a.playState === 'running' && a.effect.target.matches('.journey-card')).length"), 0, 'Keyboard focus must not replay card entrances')
         self.open_report()
         expect(self.page.locator('#kpi-total')).to_have_text('$150.00')
         self.page.locator('[data-view="products"]').click()

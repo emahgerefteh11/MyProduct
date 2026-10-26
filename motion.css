@@ -109,7 +109,6 @@
     .button:focus-visible, .icon-button:focus-visible, .journey-card:focus-visible {
         transform: none;
     }
-    .journey-card:focus-visible { animation: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
