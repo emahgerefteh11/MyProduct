@@ -1,5 +1,6 @@
 """Browser checks for the modern workspace, with all third-party traffic blocked."""
 import functools
+import base64
 import json
 import os
 import threading
@@ -80,6 +81,12 @@ class BrowserDashboard(unittest.TestCase):
         expect(self.page.locator('#report-content')).to_be_visible()
         expect(self.page.locator('#main-content')).to_have_attribute('aria-busy', 'false')
 
+    def capture(self, name):
+        self.page.screenshot(path=str(self.artifacts / name), full_page=True)
+        if os.environ.get('ATLAS_REVIEW_SCREENSHOTS') == '1':
+            image = self.page.screenshot(type='jpeg', quality=65)
+            print('ATLAS_REVIEW:' + name + ':' + base64.b64encode(image).decode('ascii'), flush=True)
+
     def assert_no_overflow(self):
         self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= window.innerWidth'), f'Page overflow at {self.page.viewport_size}')
 
@@ -88,7 +95,7 @@ class BrowserDashboard(unittest.TestCase):
         expect(self.page.locator('#chart-tco .donut')).to_be_visible()
         expect(self.page.locator('#mode-badge-header')).to_contain_text('DEMO DATA')
         expect(self.page.locator('#evidence-notice')).to_contain_text('simulated examples')
-        self.page.screenshot(path=str(self.artifacts / 'workspace-demo-desktop.png'), full_page=True)
+        self.capture('workspace-demo-desktop.png')
         self.open_report()
         expect(self.page.locator('#kpi-total')).to_have_text('$150.00')
         expect(self.page.locator('#kpi-wasted')).to_have_text('Unavailable')
@@ -99,7 +106,7 @@ class BrowserDashboard(unittest.TestCase):
         expect(self.page.locator('#scope-summary')).to_contain_text('Sep 15, 2026')
         self.page.locator('#global-platform-filter').select_option('all')
         expect(self.page.locator('#kpi-total')).to_have_text('$150.00')
-        self.page.screenshot(path=str(self.artifacts / 'workspace-report-desktop.png'), full_page=True)
+        self.capture('workspace-report-desktop.png')
 
     def test_product_search_sort_details_and_history(self):
         self.open_report(suffix='#products')
@@ -114,7 +121,7 @@ class BrowserDashboard(unittest.TestCase):
         expect(self.page.locator('#product-dialog-platform')).to_have_text('Platform: Data')
         expect(self.page.locator('#product-dialog-metrics')).to_contain_text('$50.00')
         expect(self.page.locator('#product-dialog-services')).to_contain_text('Compute/VM')
-        self.page.screenshot(path=str(self.artifacts / 'workspace-product-detail.png'), full_page=True)
+        self.capture('workspace-product-detail.png')
         self.page.keyboard.press('Escape')
         expect(self.page.locator('#product-dialog')).not_to_be_visible()
         expect(self.page.locator('#table-products .table-link')).to_be_focused()
@@ -163,7 +170,7 @@ class BrowserDashboard(unittest.TestCase):
         self.page.set_viewport_size({'width': 390, 'height': 844})
         self.page.evaluate("location.hash = 'overview'")
         expect(self.page.locator('#tab-overview')).to_be_visible()
-        self.page.screenshot(path=str(self.artifacts / 'workspace-mobile.png'), full_page=True)
+        self.capture('workspace-mobile.png')
 
     def test_cloud_connection_entrypoint_is_truthful_and_keyboard_accessible(self):
         self.page.goto(self.origin + '/dashboard.html#connections')
@@ -230,9 +237,9 @@ class BrowserDashboard(unittest.TestCase):
                 expect(self.page.locator('h1')).to_contain_text(title)
                 self.assert_no_overflow()
             if path == 'index.html':
-                self.page.screenshot(path=str(self.artifacts / 'home-desktop.png'), full_page=True)
+                self.capture('home-desktop.png')
                 self.page.set_viewport_size({'width': 390, 'height': 844})
-                self.page.screenshot(path=str(self.artifacts / 'home-mobile.png'), full_page=True)
+                self.capture('home-mobile.png')
                 self.page.keyboard.press('Tab')
                 expect(self.page.locator('.skip-link')).to_be_focused()
                 self.page.keyboard.press('Enter')
