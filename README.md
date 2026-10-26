@@ -17,8 +17,9 @@ The [home page](index.html), [report dashboard](dashboard.html), [demo](dashboar
 - Report actions, source provenance, actual analysis dates and observed usage remain accessible. Loading, empty, error and unavailable-data states give actionable next steps. Demo simulations stay labeled.
 - Upload and IaC adoption are direct entry points. Cloud connection options show supported billing uploads and clearly mark automatic account sync as planned; they do not request cloud credentials.
 - Skip links, visible focus states, native dialogs, focus restoration, reduced-motion support and contained table scrolling support desktop, tablet and mobile use.
+- Brief, softly eased entrances, dialog transitions, chart reveals and button feedback add motion without changing layout or delaying displayed costs. All motion respects the device's Reduce Motion setting, including changes made while the page is open.
 
-All workspace fonts and charts use local/browser assets. When copying an embedded demo for offline use, keep `atlas.css`, `dashboard.css`, `dashboard_ui.js` and `report_store.js` alongside the HTML file. Embedded data stays in the demo file; browser imports remain separate.
+All workspace fonts and charts use local/browser assets. When copying an embedded demo for offline use, keep `atlas.css`, `dashboard.css`, `motion.css`, `dashboard_ui.js` and `report_store.js` alongside the HTML file. Embedded data stays in the demo file; browser imports remain separate.
 
 ## Guided billing import
 

@@ -90,6 +90,67 @@ class BrowserDashboard(unittest.TestCase):
     def assert_no_overflow(self):
         self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= window.innerWidth'), f'Page overflow at {self.page.viewport_size}')
 
+    def track_motion(self):
+        self.page.add_init_script('''
+            window.motionEvents = [];
+            for (const type of ['animationstart', 'transitionrun']) {
+                document.addEventListener(type, event => {
+                    window.motionEvents.push({
+                        id: event.target.id,
+                        view: event.target.closest('.view-section')?.id,
+                        name: event.animationName || event.propertyName
+                    });
+                }, true);
+            }
+        ''')
+
+    def test_motion_is_brief_and_preserves_view_and_dialog_interactions(self):
+        self.page.emulate_media(reduced_motion='no-preference')
+        self.track_motion()
+        self.page.goto(self.origin + '/index.html', wait_until='domcontentloaded')
+        self.page.wait_for_function("window.motionEvents.some(event => event.name === 'atlas-arrive')")
+        durations = self.page.evaluate('''() => document.getAnimations().map(animation => {
+            const timing = animation.effect.getTiming();
+            return Number(timing.duration) + Number(timing.delay);
+        })''')
+        self.assertTrue(durations)
+        self.assertLessEqual(max(durations), 700)
+        self.open_report()
+        expect(self.page.locator('#kpi-total')).to_have_text('$150.00')
+        self.page.locator('[data-view="products"]').click()
+        self.page.wait_for_function("window.motionEvents.some(event => event.view === 'tab-products' && event.name === 'atlas-arrive')")
+        self.page.locator('#table-products .table-link').first.click()
+        expect(self.page.locator('#product-dialog')).to_be_visible()
+        self.page.wait_for_function("window.motionEvents.some(event => event.id === 'product-dialog')")
+        expect(self.page.locator('#product-dialog-metrics')).to_contain_text('$80.00')
+        self.page.keyboard.press('Escape')
+        expect(self.page.locator('#product-dialog')).not_to_be_visible()
+        expect(self.page.locator('#table-products .table-link').first).to_be_focused()
+        self.page.locator('#table-products .table-link').first.click()
+        self.page.locator('#product-dialog [data-close-dialog]').first.click()
+        expect(self.page.locator('#product-dialog')).not_to_be_visible()
+        expect(self.page.locator('#table-products .table-link').first).to_be_focused()
+        self.assert_no_overflow()
+
+    def test_reduced_motion_is_instant_and_can_change_during_an_animation(self):
+        self.track_motion()
+        self.open_report()
+        self.assertEqual(self.page.evaluate("document.getAnimations().filter(a => a.playState === 'running').length"), 0)
+        self.page.locator('[data-view="products"]').click()
+        self.page.locator('#table-products .table-link').first.click()
+        self.assertEqual(self.page.locator('#product-dialog').evaluate("el => getComputedStyle(el).transitionDuration"), '0s')
+        self.page.keyboard.press('Escape')
+        expect(self.page.locator('#product-dialog')).not_to_be_visible()
+        self.page.emulate_media(reduced_motion='no-preference')
+        self.page.locator('[data-view="overview"]').click()
+        self.page.wait_for_function("window.motionEvents.some(event => event.view === 'tab-overview' && event.name === 'atlas-arrive')")
+        self.page.emulate_media(reduced_motion='reduce')
+        self.page.evaluate('() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
+        self.assertEqual(self.page.evaluate("document.getAnimations().filter(a => a.playState === 'running').length"), 0)
+        self.assertEqual(self.page.locator('#tab-overview .card').first.evaluate('el => getComputedStyle(el).opacity'), '1')
+        self.assertEqual(self.page.locator('#chart-platform .bar-fill').first.evaluate('el => getComputedStyle(el).transform'), 'none')
+        expect(self.page.locator('#kpi-total')).to_have_text('$150.00')
+
     def test_demo_charts_render_locally_and_platform_chart_drills_down(self):
         self.page.goto(self.origin + '/dashboard_demo.html')
         expect(self.page.locator('#chart-tco .donut')).to_be_visible()

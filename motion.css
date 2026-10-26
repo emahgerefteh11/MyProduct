@@ -1,0 +1,118 @@
+/* Restrained, native motion: short travel, soft easing, no layout animation. */
+:root {
+    --motion-ease: cubic-bezier(.22, 1, .36, 1);
+    --motion-feedback: 140ms;
+    --motion-enter: 360ms;
+}
+
+@keyframes atlas-arrive {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+}
+@keyframes atlas-settle {
+    from { opacity: 0; transform: translateY(8px) scale(.988); }
+    to { opacity: 1; transform: none; }
+}
+@keyframes atlas-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+@keyframes atlas-bar {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .button, .icon-button, button.primary, button.secondary {
+        transition: transform var(--motion-feedback) var(--motion-ease),
+            background-color 180ms ease, border-color 180ms ease,
+            box-shadow 220ms ease, opacity 140ms ease;
+    }
+    .button:active, .icon-button:active, button.primary:active, button.secondary:active {
+        transform: scale(.985);
+    }
+    .hero-copy > *, .intro > * {
+        animation: atlas-arrive 460ms var(--motion-ease) backwards;
+    }
+    .hero-copy > :nth-child(2), .intro > :nth-child(2) { animation-delay: 35ms; }
+    .hero-copy > :nth-child(3), .intro > :nth-child(3) { animation-delay: 70ms; }
+    .hero-copy > :nth-child(4) { animation-delay: 105ms; }
+    .hero-copy > :nth-child(5) { animation-delay: 140ms; }
+    .flow-preview { animation: atlas-settle 520ms var(--motion-ease) 90ms backwards; }
+    .page-heading { animation: atlas-arrive var(--motion-enter) var(--motion-ease); }
+
+    .journey-card {
+        animation: atlas-arrive 420ms var(--motion-ease) backwards;
+        transition: transform 260ms var(--motion-ease), border-color 200ms ease, box-shadow 260ms ease;
+    }
+    .journey-card:nth-child(2) { animation-delay: 35ms; }
+    .journey-card:nth-child(3) { animation-delay: 70ms; }
+    .journey-card:nth-child(4) { animation-delay: 105ms; }
+
+    .view-section:not(.hidden) > .card,
+    .view-section:not(.hidden) > .adoption-callout,
+    .view-section:not(.hidden) > .kpi-grid > .card,
+    .view-section:not(.hidden) > .section-grid > .card {
+        animation: atlas-arrive 280ms var(--motion-ease) backwards;
+    }
+    .view-section > .kpi-grid > .card:nth-child(2) { animation-delay: 25ms; }
+    .view-section > .kpi-grid > .card:nth-child(3) { animation-delay: 50ms; }
+    .view-section > .kpi-grid > .card:nth-child(4) { animation-delay: 75ms; }
+    .view-section > .section-grid > .card:nth-child(2) { animation-delay: 35ms; }
+
+    .panel:not([hidden]) { animation: atlas-arrive 280ms var(--motion-ease); }
+    #workspace:not([hidden]) .metric { animation: atlas-arrive 300ms var(--motion-ease); }
+    .steps li, .steps span { transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease; }
+    .drop-zone { transition: background-color 200ms ease, border-color 200ms ease, box-shadow 220ms ease; }
+    .drop-zone.dragging { box-shadow: 0 0 0 4px #26619c0c; }
+
+    .bar-fill { transform-origin: left center; animation: atlas-bar 460ms var(--motion-ease); }
+    .bar-fill.negative { transform-origin: right center; }
+    .donut { animation: atlas-settle 400ms var(--motion-ease); }
+    #workspace-nav a, .sidebar-actions a, .sidebar-actions button {
+        transition: background-color 160ms ease, color 160ms ease;
+    }
+    aside { transition: transform 300ms var(--motion-ease); }
+    #nav-backdrop:not([hidden]) { animation: atlas-fade 180ms ease; }
+    .report-actions[open] .actions-menu { animation: atlas-arrive 180ms var(--motion-ease); }
+
+    /* Native dialogs retain their focus, Escape and top-layer behavior. */
+    dialog[open] { animation: atlas-settle 240ms var(--motion-ease); }
+    dialog[open]::backdrop { animation: atlas-fade 180ms ease; }
+    @supports (transition-behavior: allow-discrete) {
+        dialog {
+            opacity: 0;
+            transform: translateY(8px) scale(.988);
+            transition: opacity 180ms ease, transform 240ms var(--motion-ease),
+                display 180ms allow-discrete, overlay 180ms allow-discrete;
+        }
+        dialog[open] { animation: none; opacity: 1; transform: none; }
+        dialog::backdrop {
+            opacity: 0;
+            transition: opacity 180ms ease, display 180ms allow-discrete, overlay 180ms allow-discrete;
+        }
+        dialog[open]::backdrop { animation: none; opacity: 1; }
+        @starting-style {
+            dialog[open] { opacity: 0; transform: translateY(8px) scale(.988); }
+            dialog[open]::backdrop { opacity: 0; }
+        }
+    }
+    @media (hover: hover) and (pointer: fine) {
+        .button:hover:not(:disabled), .icon-button:hover:not(:disabled), button.primary:hover:not(:disabled), button.secondary:hover:not(:disabled) {
+            transform: translateY(-1px);
+        }
+        .journey-card:hover { transform: translateY(-2px); }
+        .button:active, .icon-button:active, button.primary:active, button.secondary:active {
+            transform: scale(.985);
+        }
+    }
+    .button:focus-visible, .icon-button:focus-visible, .journey-card:focus-visible {
+        transform: none;
+    }
+    .journey-card:focus-visible { animation: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+    .journey-card:hover { transform: none; }
+}
