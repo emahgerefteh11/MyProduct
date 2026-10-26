@@ -63,6 +63,7 @@ select:focus, input:focus { outline-offset: 2px; }
 .quality-panel #last-updated { margin: 8px 0 0; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 23px; min-width: 0; box-shadow: 0 2px 3px #1d382102; }
 .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 23px; }
+#tab-finops .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .kpi-grid > .card { padding: 22px; overflow-wrap: anywhere; }
 #tab-overview .kpi-grid > .card:first-child { background: #204e3d; color: white; border-color: #204e3d; position: relative; }
 #tab-overview .kpi-grid > .card:first-child::after { content: ''; position: absolute; width: 70px; height: 70px; border: 1px solid #c2e0b526; border-radius: 50%; right: -20px; bottom: -28px; pointer-events: none; }
@@ -131,7 +132,7 @@ td:has(.table-link) { min-width: 150px; }
 .badge-aws { background: #faf0df; color: #896125; }
 .badge-demo { background: #fff2d6; color: #805914; font-weight: 650; letter-spacing: .6px; font-size: 9px; padding: 5px 8px; }
 .badge-live { background: #e4f0df; color: #295837; font-weight: 650; letter-spacing: .6px; font-size: 9px; padding: 5px 8px; }
-.token-card { padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: #fafcf8; }
+.token-card { padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: #fafcf8; max-width: 100%; overflow-wrap: anywhere; }
 .token-name { font-size: 9px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
 .token-val { font: 12px var(--mono); }
 .naming-schema { margin-bottom: 20px; }

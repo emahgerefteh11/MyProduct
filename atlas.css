@@ -48,7 +48,8 @@ dialog { padding: 0; border: 1px solid var(--border); border-radius: 18px; backg
 dialog::backdrop { background: #0c28226b; backdrop-filter: blur(3px); }
 .dialog-content { padding: 30px; }
 .dialog-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
-.dialog-top h2 { margin: 6px 0 10px; font-size: 26px; letter-spacing: -1px; line-height: 1.2; }
+.dialog-top > div { min-width: 0; }
+.dialog-top h2 { margin: 6px 0 10px; font-size: 26px; letter-spacing: -1px; line-height: 1.2; overflow-wrap: anywhere; }
 .dialog-top p { margin: 0; }
 .muted { color: var(--muted); }
 @media (prefers-reduced-motion: reduce) {

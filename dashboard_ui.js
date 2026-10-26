@@ -115,7 +115,7 @@
         switchTab(view, document.querySelector(`[data-view="${view}"]`));
         setNavigation(false);
         if (history && window.location.hash !== '#' + view) window.history.pushState(null, '', '#' + view);
-        if (focus) $('page-title').focus({preventScroll: true});
+        if (focus) $('page-title').focus();
     }
     document.querySelectorAll('[data-view]').forEach(link => link.addEventListener('click', event => { event.preventDefault(); activate(link.dataset.view); }));
     window.addEventListener('hashchange', () => { if (window.location.hash === '#connections') $('cloud-dialog').showModal(); else activate(window.location.hash.slice(1) || 'overview', true, false); });

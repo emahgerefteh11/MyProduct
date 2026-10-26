@@ -159,6 +159,7 @@ class BrowserImport(unittest.TestCase):
         expect(self.page.locator('#import-status')).to_contain_text('saved only in this browser')
         self.page.reload()
         expect(self.page.locator('#kpi-total')).to_have_text('$233,951.95')
+        self.page.locator('.report-actions summary').click()
         with self.page.expect_download() as download_info:
             self.page.locator('#download-imported-report').click()
         report = json.loads(Path(download_info.value.path()).read_text())
@@ -171,6 +172,7 @@ class BrowserImport(unittest.TestCase):
         expect(self.page.locator('#mode-badge-header')).to_contain_text('DEMO DATA')
         self.page.goto(self.origin + '/dashboard.html')
         expect(self.page.locator('#kpi-total')).to_have_text('$233,951.95')
+        self.page.locator('.report-actions summary').click()
         self.page.locator('#clear-imported-report').click()
         self.page.wait_for_url('**/import.html')
         self.assertIsNone(self.page.evaluate('ReportStore.get()'))
