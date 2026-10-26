@@ -3,7 +3,7 @@
     'use strict';
     const $ = id => document.getElementById(id);
     const node = (tag, value, className) => { const el = document.createElement(tag); if (value != null) el.textContent = value; if (className) el.className = className; return el; };
-    const colors = ['#315e46', '#a7c692', '#d2bc86', '#75998f', '#c3d0bb'];
+    const colors = ['#26619c', '#86afd6', '#d2bc86', '#6b8baa', '#c0d2e4'];
     const views = {
         overview: ['Spend overview', 'Understand where your cloud spend goes, and what comes next.'],
         products: ['Product costs', 'Follow reported spend from your platforms to the products they support.'],

@@ -30,10 +30,10 @@ p { margin: 8px 0 16px; }
 .steps [aria-current="step"] { color: var(--accent); font-weight: 700; }
 .steps [aria-current="step"] span { background: var(--accent); color: white; border-color: var(--accent); }
 .panel { background: white; padding: 32px; border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 8px 32px #20344106; }
-.drop-zone { margin-top: 24px; padding: 24px; border: 1.5px dashed #86a89e; background: #f7fbf9; border-radius: 12px; display: flex; align-items: center; flex-direction: column; gap: 8px; text-align: center; cursor: pointer; }
-.drop-zone.dragging { background: #dceee8; border-color: var(--accent); }
+.drop-zone { margin-top: 24px; padding: 24px; border: 1.5px dashed #8697a8; background: #f7f9fb; border-radius: 12px; display: flex; align-items: center; flex-direction: column; gap: 8px; text-align: center; cursor: pointer; }
+.drop-zone.dragging { background: #dce5ee; border-color: var(--accent); }
 .drop-zone > span:not(.upload-icon) { font-size: 12px; color: var(--muted); }
-.upload-icon { border-radius: 12px; background: #e3f0eb; color: var(--accent); padding: 0 15px; font-size: 30px; }
+.upload-icon { border-radius: 12px; background: #e3eaf0; color: var(--accent); padding: 0 15px; font-size: 30px; }
 .drop-zone input { max-width: 100%; margin-top: 10px; font-size: 13px; }
 .file-list { margin: 14px 0; padding: 0; list-style: none; }
 .file-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); padding: 9px 0; }
@@ -50,7 +50,7 @@ p { margin: 8px 0 16px; }
 .mapping-file { border: 1px solid var(--border); border-radius: 10px; margin: 22px 0; padding: 22px; }
 .mapping-file h3 { margin: 0; overflow-wrap: anywhere; }
 .mapping-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 18px 0; }
-.mapping-grid .required select { border-color: var(--accent); background: #f6fbf9; }
+.mapping-grid .required select { border-color: var(--accent); background: #f6f8fb; }
 details { border-top: 1px solid var(--border); padding-top: 13px; font-size: 13px; }
 summary { cursor: pointer; font-weight: 600; }
 .table-scroll { overflow: auto; max-height: 360px; border: 1px solid var(--border); border-radius: 8px; margin-top: 10px; }

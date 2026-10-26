@@ -5,6 +5,7 @@ All notable changes to the **MyProduct** infrastructure analysis tool will be do
 ## [Unreleased]
 
 ### Added
+- Lapis Blue (`#26619C`) visual theme across the workspace, home, import and adoption flows, including coordinated chart colors, navigation, buttons and background tints.
 - Modern workspace UI across the home, dashboard, import and adoption pages: shared design tokens, responsive navigation, redesigned metric cards, tables and report controls, and clear upload/adoption/connection entry points.
 - Local cost-mix, platform and compute visualizations with no chart/font CDN requirement; signed cost bars for credits and platform-chart filtering.
 - Product search/sorting, scoped product detail dialogs, view deep links/history, mobile navigation with focus handling, skip links and reduced-motion support.
