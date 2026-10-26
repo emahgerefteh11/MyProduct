@@ -208,8 +208,19 @@ class BrowserDashboard(unittest.TestCase):
         self.assert_no_overflow()
         self.page.unroute('**/report_data.json')
         self.page.route('**/report_data.json', lambda route: route.fulfill(status=200, content_type='application/json', body='{'))
-        self.page.reload()
+        delayed_ui = []
+        self.page.route('**/dashboard_ui.js', lambda route: delayed_ui.append(route))
+        self.page.reload(wait_until='commit')
         expect(self.page.get_by_role('heading', name='Error Loading Data')).to_be_visible()
+        self.assertTrue(delayed_ui)
+        for request in delayed_ui:
+            request.fulfill(status=200, content_type='application/javascript', body=(ROOT / 'dashboard_ui.js').read_text())
+        self.page.wait_for_load_state('domcontentloaded')
+        self.page.set_viewport_size({'width': 390, 'height': 844})
+        self.page.locator('#nav-toggle').click()
+        expect(self.page.locator('#workspace-sidebar')).to_have_attribute('aria-modal', 'true')
+        self.page.keyboard.press('Escape')
+        expect(self.page.locator('#nav-toggle')).to_be_focused()
         self.assert_no_overflow()
 
     def test_negative_costs_and_hostile_labels_remain_honest_and_inert(self):

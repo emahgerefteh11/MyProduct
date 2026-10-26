@@ -60,6 +60,7 @@ async function dashboard({data = fixture, demo = false, available = true, stored
     const prefix = demo ? `const embeddedReportData = ${JSON.stringify(data)};\n` : '';
     await vm.runInContext(prefix + script, context);
     assert.doesNotMatch(main.innerHTML, /Error Loading Data/);
+    assert.doesNotMatch(elements.get('report-content').innerHTML, /Error Loading Data/);
     return {context, elements, tables, main, run: code => vm.runInContext(code, context)};
 }
 
@@ -156,8 +157,8 @@ test('IaC uses source provider attribution and blocks ambiguous provider guesses
 
 test('missing report produces the existing actionable empty state', async () => {
     const page = await dashboard({available: false});
-    assert.match(page.main.innerHTML, /No Analysis Data Yet/);
-    assert.match(page.main.innerHTML, /cur_to_json.py/);
+    assert.match(page.elements.get('report-content').innerHTML, /No Analysis Data Yet/);
+    assert.match(page.elements.get('report-content').innerHTML, /cur_to_json.py/);
 });
 
 test('generated demo uses the current dashboard and explicitly embeds data', () => {

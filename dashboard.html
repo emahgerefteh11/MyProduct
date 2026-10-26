@@ -146,9 +146,7 @@
             populateFilters();
             renderDashboard('all');
         } catch (e) {
-            document.querySelector('main').innerHTML =
-                `<div class="no-data-screen"><div class="icon-big">&#9888;&#65039;</div><h2>Error Loading Data</h2><p>${escapeHtml(e.message)}</p><p><a href="import.html">Import billing files</a></p></div>`;
-            document.querySelector('main').setAttribute?.('aria-busy', 'false');
+            showReportState(`<div class="no-data-screen"><div class="icon-big">&#9888;&#65039;</div><h2>Error Loading Data</h2><p>${escapeHtml(e.message)}</p><p><a href="import.html">Import billing files</a></p></div>`);
         }
     }
 
@@ -212,14 +210,28 @@
         });
     }
 
+    function showReportState(markup) {
+        reportData = null;
+        window.currentProductRows = [];
+        window.finopsRecommendations = [];
+        const content = document.getElementById('report-content');
+        content.dataset.unavailable = 'true';
+        content.innerHTML = markup;
+        content.hidden = false;
+        document.getElementById('loading-state').hidden = true;
+        document.getElementById('page-title').textContent = 'Your reporting workspace';
+        document.getElementById('page-description').textContent = 'Import billing data or explore the demo to get started.';
+        for (const id of ['mode-badge-sidebar', 'mode-badge-header']) {
+            const badge = document.getElementById(id);
+            badge.innerHTML = '<span class="badge badge-gray">NO REPORT</span>';
+            badge.style.display = 'block';
+        }
+        document.getElementById('sidebar-switch-link').innerHTML = '<a href="dashboard_demo.html">Explore the demo &#8599;</a>';
+        document.querySelector('main').setAttribute?.('aria-busy', 'false');
+    }
+
     function showNoDataState() {
-        document.getElementById('last-updated').textContent = 'No data loaded';
-        const sb = document.getElementById('mode-badge-sidebar');
-        sb.innerHTML = '<span class="badge badge-live">REPORT DATA</span>';
-        sb.style.display = 'block';
-        document.getElementById('sidebar-switch-link').innerHTML =
-            '<a href="dashboard_demo.html" style="color:#9ca3af;text-decoration:none;font-size:12px;">View Demo &#8594;</a>';
-        document.querySelector('main').innerHTML = `
+        showReportState(`
             <div class="no-data-screen">
                 <div class="icon-big">&#128202;</div>
                 <h2>No Analysis Data Yet</h2>
@@ -227,8 +239,7 @@
                 <p>For larger exports and hardware sizing, run the command-line analyzer:</p>
                 <code>python cur_to_json.py --input billing_file.csv</code>
                 <p class="demo-link">Want to see it in action? <a href="dashboard_demo.html">View the pre-loaded demo dashboard</a></p>
-            </div>`;
-        document.querySelector('main').setAttribute?.('aria-busy', 'false');
+            </div>`);
     }
 
     function populateFilters() {
@@ -247,6 +258,7 @@
     }
 
     function renderDashboard(platformFilter) {
+        document.getElementById('report-content').dataset.unavailable = 'false';
         document.getElementById('report-content').hidden = false;
         document.getElementById('loading-state').hidden = true;
         let filteredCost = 0, filteredProducts = [], filteredServices = [];

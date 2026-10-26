@@ -164,7 +164,7 @@
         const summary = document.querySelector('.quality-panel summary'); summary.textContent = 'Report provenance & data quality' + (warningCount ? ` · ${warningCount} note${warningCount === 1 ? '' : 's'}` : '');
     };
     // Embedded demos can finish rendering before this deferred script executes.
-    if (typeof reportData !== 'undefined' && reportData) {
+    if (typeof reportData !== 'undefined' && reportData && $('global-platform-filter') && $('report-content')?.dataset.unavailable !== 'true') {
         window.refreshAtlas(); renderCharts($('global-platform-filter').value || 'all');
         activate(window.location.hash.slice(1) || 'overview', false, false);
     } else {
@@ -173,7 +173,7 @@
         const observer = new MutationObserver(() => {
             if (typeof reportData !== 'undefined' && reportData && $('report-content') && !$('report-content').hidden) {
                 activate(window.location.hash.slice(1) || 'overview', false, false); observer.disconnect();
-            } else if (!$('report-content')) observer.disconnect();
+            } else if (!$('report-content') || $('report-content').dataset.unavailable === 'true') observer.disconnect();
         });
         observer.observe(main, {childList: true, subtree: true, attributes: true, attributeFilter: ['hidden']});
     }
