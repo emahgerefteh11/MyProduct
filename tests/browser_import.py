@@ -158,6 +158,70 @@ class BrowserImport(unittest.TestCase):
         self.assertEqual(report['allocation']['unallocatedProductCost'], 30)
         self.assertEqual(next(p for p in report['products'] if p['Product'] == 'Payments')['BilledCost'], 70)
 
+    def test_connected_view_contract_keeps_private_and_uploaded_reports_separate(self):
+        self.choose([ROOT / 'tests' / 'fixtures' / 'cur' / 'synthetic.csv'])
+        self.validate()
+        self.accept()
+        expect(self.page.locator('#kpi-total')).to_have_text('$100.00')
+
+        # The future private route is simulated here. No account, endpoint or
+        # login is exposed by the public dashboard; storage is real IndexedDB.
+        path = self.origin + '/__atlas_fixture_connected.html'
+        html = """<!doctype html><html lang="en"><meta charset="utf-8">
+            <script src="/report_store.js"></script>
+            <script src="/report_view_session.js"></script>
+            <output id="state">hidden</output>
+            <script>
+            const pending = [];
+            let uploadReads = 0;
+            const view = createReportViewSession({
+                readConnected: tenant => new Promise(resolve => pending.push({tenant, resolve})),
+                readUpload: () => { uploadReads++; return ReportStore.get(); },
+                render: ({status, source, report}) => {
+                    document.querySelector('#state').textContent = report
+                        ? source + ':' + report.TotalBilledCost : status;
+                },
+            });
+            addEventListener('pagehide', view.clear);
+            addEventListener('pageshow', event => { if (event.persisted) view.clear(); });
+            </script></html>"""
+        self.page.route(path, lambda route: route.fulfill(content_type='text/html', body=html))
+        self.page.goto(path)
+        state = self.page.locator('#state')
+        expect(state).to_have_text('hidden')
+        self.page.evaluate("() => { void view.openConnected('a'); pending[0].resolve({TotalBilledCost:105}); }")
+        expect(state).to_have_text('connected:105')
+        self.assertEqual(self.page.evaluate('uploadReads'), 0)
+
+        self.page.evaluate("""() => {
+            void view.openConnected('a');
+            void view.openConnected('b');
+            pending[2].resolve({TotalBilledCost:50});
+            pending[1].resolve({TotalBilledCost:105});
+        }""")
+        expect(state).to_have_text('connected:50')
+        self.page.evaluate("""() => {
+            void view.openConnected('b');
+            view.clear();
+            pending[3].resolve({TotalBilledCost:50});
+        }""")
+        expect(state).to_have_text('hidden')
+
+        self.page.evaluate("""() => {
+            void view.openConnected('a');
+            dispatchEvent(new PageTransitionEvent('pagehide', {persisted:true}));
+            dispatchEvent(new PageTransitionEvent('pageshow', {persisted:true}));
+            pending[4].resolve({TotalBilledCost:105});
+        }""")
+        expect(state).to_have_text('hidden')
+        self.page.goto(self.origin + '/import.html')
+        self.page.go_back()
+        expect(state).to_have_text('hidden')
+        self.page.evaluate('view.openUpload()')
+        expect(state).to_have_text('upload:100')
+        self.page.goto(self.origin + '/dashboard.html?source=import')
+        expect(self.page.locator('#kpi-total')).to_have_text('$100.00')
+
     def test_samples_save_reopen_download_demo_isolation_and_clear(self):
         self.choose([ROOT / 'mock_aws_cur_iaas_heavy_named20251122.csv', ROOT / 'mock_gcp_billing.csv'])
         expect(self.page.locator('#format-0')).to_have_value('aws')
