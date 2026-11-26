@@ -143,3 +143,51 @@ test('part order is immaterial and incomplete or incompatible refreshes cannot p
     assert.equal(connector.get({...scope, source: 'different-source'}), null);
     assert.equal(connector.get({...scope, end: '2026-03-01T00:00:00.000Z'}), null);
 });
+
+test('a kept CUR assembly cannot be rolled back or published after its pointer advances', () => {
+    const dir = 'billing/synthetic-cur/20260101-20260201';
+    const manifestKey = dir + '/synthetic-cur-Manifest.json';
+    const version = assemblyId => ({...manifest, assemblyId, reportKeys: [dir + '/' + assemblyId + '/synthetic-cur-00001.csv.gz']});
+    const original = version('20260202T010000Z');
+    const corrected = version('20260202T020000Z');
+    const later = version('20260202T030000Z');
+    const updated = gzipSync(raw.toString().replace(',30,USD,AmazonEC2,', ',35,USD,AmazonEC2,'));
+    const objects = new Map([[original.reportKeys[0], gzip], [corrected.reportKeys[0], updated], [later.reportKeys[0], updated]]);
+    let current = original;
+    let advanceDuringRead = false;
+    let time = new Date('2026-02-02T01:05:00Z');
+    const connector = createLocalCurConnector({
+        readManifest: reference => {
+            assert.deepEqual(reference, {tenant, source, key: manifestKey});
+            return current;
+        },
+        readObject: ({key}) => {
+            if (advanceDuringRead) current = later;
+            return objects.get(key);
+        },
+        now: () => time,
+    });
+    const refresh = () => connector.refreshLatest({tenant, source, manifestKey});
+    const first = refresh();
+    assertReport(first.report, 100, 30);
+    assert.equal(first.assemblyId, original.assemblyId);
+    current = corrected;
+    time = new Date('2026-02-02T02:05:00Z');
+    advanceDuringRead = true;
+    assert.throws(refresh, /advanced during refresh/);
+    assert.deepEqual(connector.get(scope), first);
+    advanceDuringRead = false;
+    current = corrected;
+    const accepted = refresh();
+    assertReport(accepted.report, 105, 35);
+    assert.equal(accepted.acceptedAt, time.toISOString());
+    time = new Date('2026-02-02T03:05:00Z');
+    current = original;
+    assert.deepEqual(refresh(), accepted);
+    assert.deepEqual(connector.get(scope), accepted);
+    current = corrected;
+    assert.deepEqual(refresh(), accepted);
+    current = {...later, reportKeys: original.reportKeys};
+    assert.throws(refresh, /outside its expected report assembly/);
+    assert.deepEqual(connector.get(scope), accepted);
+});
