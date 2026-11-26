@@ -15,6 +15,15 @@ The longer-term phases below remain directional. Partial FOCUS input handling an
 
 ## Billing reports and direct cloud connections
 
+### AWS MVP delivery checkpoint
+
+- **Synthetic acceptance:** commit [`edb3ade`](https://github.com/emahgerefteh11/MyProduct/commit/edb3adecb0fd8e82d6746103949e8319563bb092) records the classic CUR fixture, credential-free manifest adapter and regression coverage on the billing-parity branch. The local Node suite reconciles the browser worker and gzip connector at $100 USD net ($70 Payments, $30 unallocated); retries remain $100, the correction gives $105 with $35 unallocated, and a failed refresh preserves the accepted report and timestamp.
+- **Additional local parity:** the same test file covers multipart order, a missing manifest-listed part, incompatible currency, out-of-period rows, unsupported parts, and tenant/source/period scoping. The fixture is synthetic. No live AWS access or deployment happened.
+- **Scope:** classic, comma-delimited, UTF-8 AWS CUR CSV gzip parts named in a manifest, with per-row matching billing dates, explicit currency, and billed unblended cost. Parquet, effective/mixed-basis input, native CUR 2.0 manifests and alerting are excluded. The adapter stores a single validated in-memory snapshot per tenant, source and period. It cannot determine whether an upstream manifest omitted a part or which of two different complete manifests is newer; a pilot importer needs authoritative revision/completeness metadata before it can automate those cases. No local test proves authenticated server-side tenant isolation.
+- **Verify:** run `node --test tests/cur_parity.test.cjs`; the browser import suite also has a synthetic fixture assertion. Local Python and Node regressions and generated-page checks passed for the first commit. Browser execution and hosted CI are separately tracked; do not count this checkpoint as a live pilot.
+- **Next:** resolve browser/CI evidence, verify the actual AWS export variant and revision metadata required by the pilot, then settle the private AWS ingestion architecture before building hosted ingestion. The live pilot needs approved account access and production approval.
+
+
 **Product requirement:** provide two paths to the same reporting dashboard: upload AWS CUR or GCP billing reports, or connect a hyperscaler account and retrieve its billing data. Both paths should generate results without requiring the user to prepare report JSON or run Python manually.
 
 ### Build a dashboard directly from billing reports

@@ -100,3 +100,46 @@ test('real upload and local manifest reconcile through retries, revisions and a 
     assert.deepEqual(connector.get(scope), revised);
     assert.equal(connector.get({...scope, tenant: 'another-tenant'}), null);
 });
+
+test('part order is immaterial and incomplete or incompatible refreshes cannot publish', async () => {
+    const [header, ...rows] = raw.toString().trimEnd().split('\n');
+    const part = (...lines) => gzipSync([header, ...lines, ''].join('\n'));
+    const [keyA, keyB] = manifest.reportKeys.concat('synthetic-cur/20260101-20260201/synthetic-00002.csv.gz');
+    const keys = [keyA, keyB];
+    const objects = new Map([[keyA, part(...rows.slice(0, 2))], [keyB, part(rows[2])]]);
+    const manifestWith = reportKeys => ({...manifest, reportKeys});
+    const connector = createLocalCurConnector({
+        readObject: ({key}) => objects.get(key),
+        now: () => new Date('2026-02-02T04:00:00Z'),
+    });
+    const refresh = (reportKeys = keys) => connector.refresh({tenant, source, manifest: manifestWith(reportKeys)});
+    const initial = refresh();
+    assertReport(initial.report, 100, 30);
+    assert.equal(initial.report.analysis.sourceCount, 2);
+    assert.deepEqual(refresh([...keys].reverse()), initial);
+
+    objects.delete(keyB);
+    assert.throws(() => refresh(), /object is missing/);
+    assert.deepEqual(connector.get(scope), initial);
+
+    objects.set(keyB, part(rows[2].replace(',USD,', ',EUR,')));
+    assert.throws(() => refresh(), /Cannot combine USD, EUR/);
+    assert.deepEqual(connector.get(scope), initial);
+
+    objects.set(keyB, part(rows[2].replace('2026-01-01,2026-02-01', '2025-12-01,2026-01-01')));
+    assert.throws(() => refresh(), /match the manifest billing period/);
+    assert.deepEqual(connector.get(scope), initial);
+
+    objects.set(keyB, gzipSync('EffectiveCost,BillingCurrency\n30,USD\n'));
+    assert.throws(() => refresh(), /classic AWS CUR CSV/);
+    assert.throws(() => refresh([keyA, 'part-00002.parquet']), /gzip CSV/);
+    assert.throws(() => refresh([keyA, keyA]), /unique gzip CSV/);
+    assert.deepEqual(connector.get(scope), initial);
+
+    objects.set(keyB, part(rows[2].replace(',30,USD,', ',35,USD,')));
+    const revised = refresh();
+    assertReport(revised.report, 105, 35);
+    assertReport(await upload(Buffer.from(raw.toString().replace(',30,USD,', ',35,USD,'))), 105, 35);
+    assert.equal(connector.get({...scope, source: 'different-source'}), null);
+    assert.equal(connector.get({...scope, end: '2026-03-01T00:00:00.000Z'}), null);
+});
