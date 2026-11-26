@@ -43,6 +43,13 @@ The longer-term phases below remain directional. Partial FOCUS input handling an
 - [ ] **Refresh and connection management:** manual and configurable scheduled refresh, sync progress, last successful analysis time, actionable errors, and disconnect/revoke controls. Retain the last valid report on a failed sync and visibly mark stale data.
 - [ ] **Shared reporting contract:** apply the same currency/cost-basis validation, attribution rules, source provenance, and reconciliation to uploads and connected data; test account boundaries and provider-specific credits/adjustments.
 
+### Private AWS ingestion: publication contract
+
+- A local, executable SQLite contract (`tests/test_ingestion_publish_contract.py`) records the generation at job capture and checks it in the same write that publishes the report. It verifies a validated $105 result cannot displace the last accepted $100 report or its timestamp after a disconnect or after reconnecting. A fresh job can publish after reconnect. It also checks that two tenants with the same source and period use separate report records.
+- This is a storage contract under synthetic data, not an authenticated service, a production database choice, or live AWS evidence. The hosted implementation must derive tenant identity from authentication, fence updates transactionally across workers, preserve revision-order behavior, and pass cross-tenant authorization and revoked-access tests.
+- Connected entry points should explicitly request a connected report, never silently fall back to a browser-local import or replace the existing browser-local slot. After sign-out or a tenant switch, delayed responses and browser back navigation must not show another tenant's data. The existing manual upload remains independent.
+- Next: select an authenticated hosting path, verify the existing pilot export format and ownership mapping, and implement the smallest private vertical slice without granting AWS access or deploying until approved.
+
 ## Modern dashboard UI — Implemented
 
 - [x] Establish a cohesive visual system: modern typography, refined colors, consistent spacing, icons, and reusable components.
