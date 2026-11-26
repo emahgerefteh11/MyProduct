@@ -1,0 +1,5 @@
+{
+  "reportName": "synthetic-cur",
+  "billingPeriod": {"start": "20260101T000000.000Z", "end": "20260201T000000.000Z"},
+  "reportKeys": ["synthetic-cur/20260101-20260201/synthetic-00001.csv.gz"]
+}

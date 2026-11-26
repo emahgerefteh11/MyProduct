@@ -142,6 +142,22 @@ class BrowserImport(unittest.TestCase):
         expect(self.page.locator('#download-package')).to_be_disabled()
         expect(self.page.locator('#resource-rows input')).to_be_disabled()
 
+    def test_cur_parity_fixture_reaches_the_dashboard(self):
+        self.choose([ROOT / 'tests' / 'fixtures' / 'cur' / 'synthetic.csv'])
+        expect(self.page.locator('#format-0')).to_have_value('aws')
+        self.validate()
+        expect(self.page.locator('#preview-metrics')).to_contain_text('$100.00')
+        self.accept()
+        expect(self.page.locator('#kpi-total')).to_have_text('$100.00')
+        self.page.locator('.report-actions summary').click()
+        with self.page.expect_download() as download:
+            self.page.locator('#download-imported-report').click()
+        report = json.loads(Path(download.value.path()).read_text())
+        self.assertEqual(report['analysis']['currency'], 'USD')
+        self.assertEqual(report['analysis']['billingPeriod']['start'], '2026-01-01T00:00:00.000Z')
+        self.assertEqual(report['allocation']['unallocatedProductCost'], 30)
+        self.assertEqual(next(p for p in report['products'] if p['Product'] == 'Payments')['BilledCost'], 70)
+
     def test_samples_save_reopen_download_demo_isolation_and_clear(self):
         self.choose([ROOT / 'mock_aws_cur_iaas_heavy_named20251122.csv', ROOT / 'mock_gcp_billing.csv'])
         expect(self.page.locator('#format-0')).to_have_value('aws')

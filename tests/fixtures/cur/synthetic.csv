@@ -1,0 +1,4 @@
+bill/BillingPeriodStartDate,bill/BillingPeriodEndDate,lineItem/UnblendedCost,lineItem/CurrencyCode,lineItem/ProductCode,lineItem/LineItemType,resourceTags/user:Product
+2026-01-01,2026-02-01,80,USD,AmazonS3,Usage,Payments
+2026-01-01,2026-02-01,-10,USD,AmazonS3,Credit,Payments
+2026-01-01,2026-02-01,30,USD,AmazonEC2,Usage,
