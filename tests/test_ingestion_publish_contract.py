@@ -20,10 +20,12 @@ class PublicationStore:
             CREATE TABLE connection (
                 tenant TEXT NOT NULL, source TEXT NOT NULL,
                 generation INTEGER NOT NULL, connected INTEGER NOT NULL,
+                mapping_version INTEGER NOT NULL,
                 PRIMARY KEY (tenant, source)
             );
             CREATE TABLE accepted (
                 tenant TEXT NOT NULL, source TEXT NOT NULL, period TEXT NOT NULL,
+                assembly TEXT NOT NULL, digest TEXT NOT NULL, mapping_version INTEGER NOT NULL,
                 report TEXT NOT NULL, accepted_at TEXT NOT NULL,
                 PRIMARY KEY (tenant, source, period)
             );
@@ -45,7 +47,7 @@ class PublicationStore:
 
     def _change(self, tenant, source, connected):
         return self._query("""
-            INSERT INTO connection VALUES (?, ?, 1, ?)
+            INSERT INTO connection VALUES (?, ?, 1, ?, 1)
             ON CONFLICT (tenant, source) DO UPDATE SET
                 generation = connection.generation + 1,
                 connected = excluded.connected
@@ -54,22 +56,39 @@ class PublicationStore:
 
     def capture(self, tenant, source):
         row = self._query("""
-            SELECT generation FROM connection
+            SELECT generation, mapping_version FROM connection
             WHERE tenant = ? AND source = ? AND connected = 1
+        """, (tenant, source))
+        return row
+
+    def change_mapping(self, tenant, source):
+        row = self._query("""
+            UPDATE connection SET mapping_version = mapping_version + 1
+            WHERE tenant = ? AND source = ? AND connected = 1
+            RETURNING mapping_version
         """, (tenant, source))
         return row[0] if row else None
 
-    def publish(self, tenant, source, period, generation, report, accepted_at):
-        # This single write is the commit boundary. Checking the generation
-        # before a separate write would leave a disconnect/publication race.
+    def publish(self, tenant, source, period, job, assembly, digest, report, accepted_at):
+        # Jobs carry a validated kept-versions UTC assembly ID (sortable) and
+        # fingerprint. Current connection state and monotonic report revision
+        # must be checked in the same atomic write across workers.
+        generation, mapping_version = job
         return self._query("""
-            INSERT INTO accepted (tenant, source, period, report, accepted_at)
-            SELECT tenant, source, ?, ?, ? FROM connection
-            WHERE tenant = ? AND source = ? AND connected = 1 AND generation = ?
+            INSERT INTO accepted (tenant, source, period, assembly, digest, mapping_version, report, accepted_at)
+            SELECT tenant, source, ?, ?, ?, mapping_version, ?, ? FROM connection
+            WHERE tenant = ? AND source = ? AND connected = 1
+              AND generation = ? AND mapping_version = ?
             ON CONFLICT (tenant, source, period) DO UPDATE SET
+                assembly = excluded.assembly, digest = excluded.digest,
+                mapping_version = excluded.mapping_version,
                 report = excluded.report, accepted_at = excluded.accepted_at
+            WHERE excluded.assembly > accepted.assembly
+               OR (excluded.assembly = accepted.assembly AND excluded.digest = accepted.digest
+                   AND excluded.mapping_version > accepted.mapping_version)
             RETURNING 1
-        """, (period, json.dumps(report), accepted_at, tenant, source, generation)) is not None
+        """, (period, assembly, digest, json.dumps(report), accepted_at,
+              tenant, source, generation, mapping_version)) is not None
 
     def latest(self, tenant, source, period):
         row = self._query("""
@@ -89,33 +108,70 @@ class ConnectedPublishContractTest(unittest.TestCase):
         self.first = {"total": 100, "currency": "USD"}
         self.correction = {"total": 105, "currency": "USD"}
         self.earlier, self.later = "2026-02-02T01:00:00Z", "2026-02-02T02:00:00Z"
+        self.v1 = ("20260202T005500Z", "input-a")
+        self.v2 = ("20260202T015500Z", "input-b")
 
     def test_disconnect_fences_a_validated_job_even_after_reconnect(self):
         self.store.connect(self.tenant, self.source)
-        generation = self.store.capture(self.tenant, self.source)
-        self.assertTrue(self.store.publish(*self.scope, generation, self.first, self.earlier))
+        first_job = self.store.capture(self.tenant, self.source)
+        self.assertTrue(self.store.publish(*self.scope, first_job, *self.v1, self.first, self.earlier))
 
         # The corrected job has already finished validation but not committed.
         corrected_job = self.store.capture(self.tenant, self.source)
         self.store.disconnect(self.tenant, self.source)
         self.assertIsNone(self.store.capture(self.tenant, self.source))
-        self.assertFalse(self.store.publish(*self.scope, corrected_job, self.correction, self.later))
+        self.assertFalse(self.store.publish(*self.scope, corrected_job, *self.v2, self.correction, self.later))
         self.assertEqual(self.store.latest(*self.scope), (self.first, self.earlier))
 
-        new_generation = self.store.connect(self.tenant, self.source)
-        self.assertNotEqual(new_generation, corrected_job)
-        self.assertFalse(self.store.publish(*self.scope, corrected_job, self.correction, self.later))
+        self.store.connect(self.tenant, self.source)
+        new_job = self.store.capture(self.tenant, self.source)
+        self.assertNotEqual(new_job, corrected_job)
+        self.assertFalse(self.store.publish(*self.scope, corrected_job, *self.v2, self.correction, self.later))
         self.assertEqual(self.store.latest(*self.scope), (self.first, self.earlier))
-        self.assertTrue(self.store.publish(*self.scope, new_generation, self.correction, self.later))
+        self.assertTrue(self.store.publish(*self.scope, new_job, *self.v2, self.correction, self.later))
         self.assertEqual(self.store.latest(*self.scope), (self.correction, self.later))
 
     def test_same_source_and_period_are_separate_for_two_tenants(self):
-        gen_a = self.store.connect(self.tenant, self.source)
-        gen_b = self.store.connect("tenant-b", self.source)
-        self.assertTrue(self.store.publish(*self.scope, gen_a, self.first, self.earlier))
+        self.store.connect(self.tenant, self.source)
+        self.store.connect("tenant-b", self.source)
+        job_a = self.store.capture(self.tenant, self.source)
+        job_b = self.store.capture("tenant-b", self.source)
+        self.assertTrue(self.store.publish(*self.scope, job_a, *self.v1, self.first, self.earlier))
         self.assertIsNone(self.store.latest("tenant-b", self.source, self.period))
-        self.assertTrue(self.store.publish("tenant-b", self.source, self.period, gen_b, self.correction, self.later))
+        self.assertTrue(self.store.publish("tenant-b", self.source, self.period, job_b, *self.v2, self.correction, self.later))
         self.store.disconnect(self.tenant, self.source)
         self.assertEqual(self.store.latest(*self.scope), (self.first, self.earlier))
         self.assertEqual(self.store.latest("tenant-b", self.source, self.period), (self.correction, self.later))
         self.assertIsNone(self.store.latest(self.tenant, self.source, "2026-02"))
+
+
+    def test_late_older_assembly_and_exact_retry_do_not_move_accepted_time(self):
+        self.store.connect(self.tenant, self.source)
+        slow = self.store.capture(self.tenant, self.source)
+        fast = self.store.capture(self.tenant, self.source)
+        self.assertEqual(slow, fast)
+        self.assertTrue(self.store.publish(*self.scope, fast, *self.v2, self.correction, self.later))
+        late = "2026-02-02T03:00:00Z"
+        self.assertFalse(self.store.publish(*self.scope, slow, *self.v1, self.first, late))
+        self.assertFalse(self.store.publish(*self.scope, fast, *self.v2, self.correction, late))
+        self.assertEqual(self.store.latest(*self.scope), (self.correction, self.later))
+
+    def test_only_current_mapping_may_reprocess_exact_current_assembly(self):
+        self.store.connect(self.tenant, self.source)
+        old_mapping = self.store.capture(self.tenant, self.source)
+        self.assertTrue(self.store.publish(*self.scope, old_mapping, *self.v2, self.correction, self.later))
+        self.store.change_mapping(self.tenant, self.source)
+        new_mapping = self.store.capture(self.tenant, self.source)
+        self.assertEqual(new_mapping[0], old_mapping[0])
+        self.assertGreater(new_mapping[1], old_mapping[1])
+        after_change = "2026-02-02T03:00:00Z"
+        remapped = {**self.correction, "unallocated": 35}
+        v3 = ("20260202T025500Z", "input-c")
+        self.assertFalse(self.store.publish(*self.scope, old_mapping, *v3, remapped, after_change))
+        self.assertFalse(self.store.publish(*self.scope, new_mapping, *self.v1, self.first, after_change))
+        self.assertFalse(self.store.publish(
+            *self.scope, new_mapping, self.v2[0], "different-input", remapped, after_change
+        ))
+        self.assertEqual(self.store.latest(*self.scope), (self.correction, self.later))
+        self.assertTrue(self.store.publish(*self.scope, new_mapping, *self.v2, remapped, after_change))
+        self.assertEqual(self.store.latest(*self.scope), (remapped, after_change))
