@@ -32,7 +32,7 @@ async function upload(bytes) {
         worker.postMessage = message => { response = message; };
         await worker.onmessage({data: {id: 1, ...data}});
         assert.ok(response, 'the worker returned a response');
-        assert.equal(response.error, undefined);
+        if (response.error) throw new Error(response.error);
         return response.result;
     }
     const [file] = await run({type: 'prepare', delimiter: ',', files: [
@@ -190,4 +190,60 @@ test('a kept CUR assembly cannot be rolled back or published after its pointer a
     current = {...later, reportKeys: original.reportKeys};
     assert.throws(refresh, /outside its expected report assembly/);
     assert.deepEqual(connector.get(scope), accepted);
+});
+
+test('a matching header-only CUR part adds no spend, but unavailable or invalid parts prevent publication', async () => {
+    const dir = 'billing/synthetic-cur/20260101-20260201';
+    const manifestKey = dir + '/synthetic-cur-Manifest.json';
+    const version = assemblyId => ({...manifest, assemblyId, reportKeys: [1, 2].map(i =>
+        dir + '/' + assemblyId + '/synthetic-cur-0000' + i + '.csv.gz')});
+    const original = version('20260202T010000Z');
+    const corrected = version('20260202T020000Z');
+    const header = raw.toString().split('\n')[0] + '\n';
+    const empty = gzipSync(header);
+    const revisedRaw = Buffer.from(raw.toString().replace(',30,USD,AmazonEC2,', ',35,USD,AmazonEC2,'));
+    const objects = new Map([[original.reportKeys[0], gzip], [original.reportKeys[1], empty]]);
+    let current = original;
+    let now = new Date('2026-02-02T01:05:00Z');
+    const connector = createLocalCurConnector({readManifest: () => current, readObject: ({key}) => objects.get(key), now: () => now});
+    const refresh = () => connector.refreshLatest({tenant, source, manifestKey});
+    const accepted = refresh();
+    const uploaded = await upload(raw);
+    assertReport(uploaded, 100, 30);
+    await assert.rejects(() => upload(Buffer.from(header)), /header but no billing rows/);
+    assertReport(accepted.report, 100, 30);
+    assert.deepEqual(accepted.report.analysis.sources.map(s => s.sha256), Array.from(uploaded.analysis.sources, s => s.sha256));
+    assert.deepEqual(refresh(), accepted);
+
+    now = new Date('2026-02-02T02:05:00Z');
+    current = corrected;
+    const [part, emptyPart] = corrected.reportKeys;
+    objects.set(part, gzipSync(revisedRaw));
+    for (const [bad, error] of [
+        [undefined, /object is missing/],
+        [Buffer.from('not gzip'), /header check/],
+        [gzipSync(''), /file is empty/],
+        [gzipSync('"unclosed'), /no closing quote/],
+        [gzipSync(header.replace('Product', 'Different')), /match the headers/],
+        [gzipSync(header + 'not-a-billing-row\n'), /match the manifest billing period/],
+    ]) {
+        objects.set(emptyPart, bad);
+        assert.throws(refresh, error);
+        assert.deepEqual(connector.get(scope), accepted);
+    }
+    objects.set(part, empty);
+    objects.set(emptyPart, empty);
+    assert.throws(refresh, /No billing rows/);
+    assert.deepEqual(connector.get(scope), accepted);
+
+    objects.set(part, gzipSync(revisedRaw));
+    const revised = refresh();
+    assertReport(await upload(revisedRaw), 105, 35);
+    assertReport(revised.report, 105, 35);
+    assert.equal(revised.acceptedAt, now.toISOString());
+
+    now = new Date('2026-02-02T02:10:00Z');
+    objects.set(emptyPart, gzipSync(header + '\n'));
+    assert.throws(refresh, /changed an accepted assembly/);
+    assert.deepEqual(connector.get(scope), revised);
 });

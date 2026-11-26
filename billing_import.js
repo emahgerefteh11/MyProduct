@@ -11,7 +11,7 @@
     };
     const FORMATS = {aws: 'AWS CUR', azure: 'Azure Cost Management', gcp: 'Google Cloud billing', focus: 'FOCUS', custom: 'Custom CSV'};
 
-    function parseCSV(text, delimiter = ',') {
+    function parseCSV(text, delimiter = ',', {allowHeaderOnly = false} = {}) {
         if (![',', ';', '\t'].includes(delimiter)) throw new Error('Choose comma, semicolon, or tab as the delimiter.');
         text = text.replace(/^\uFEFF/, '');
         const records = [];
@@ -49,7 +49,7 @@
         if (headers.length > LIMITS.columns) throw new Error(`At most ${LIMITS.columns} columns are supported.`);
         if (headers.some(h => !h)) throw new Error('Every column needs a non-empty header.');
         if (new Set(headers.map(h => h.toLowerCase())).size !== headers.length) throw new Error('Column headers must be unique (ignoring case).');
-        if (!records.length) throw new Error('This file has a header but no billing rows.');
+        if (!records.length && !allowHeaderOnly) throw new Error('This file has a header but no billing rows.');
         return {headers, records};
     }
 

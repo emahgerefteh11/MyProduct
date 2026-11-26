@@ -75,13 +75,22 @@ function createLocalCurConnector({readObject, readManifest, now = () => new Date
             const bytes = gunzipSync(compressed, {maxOutputLength: bytesLeft});
             bytesLeft -= bytes.length;
             const raw = new TextDecoder('utf-8', {fatal: true}).decode(bytes);
-            const parsed = BillingImport.parseCSV(raw, ',');
+            const parsed = BillingImport.parseCSV(raw, ',', {allowHeaderOnly: true});
             return {name: key.split('/').at(-1).slice(0, -3), size: bytes.length, delimiter: ',', ...parsed,
                 sha256: createHash('sha256').update(bytes).digest('hex')};
         });
-        const configs = files.map(file => BillingImport.detect(file.headers));
+        const populated = files.filter(file => file.records.length);
+        if (!populated.length) throw new Error('No billing rows were available in the CUR assembly.');
+        // A listed empty partition must still be readable, valid gzip CSV, and
+        // have the same headers as a populated part. Keep it in the revision
+        // hash and limits, but not in the aggregation or period coverage.
+        const populatedHeaders = new Set(populated.map(file => JSON.stringify(file.headers)));
+        if (files.some(file => !file.records.length && !populatedHeaders.has(JSON.stringify(file.headers)))) {
+            throw new Error('An empty CUR partition must match the headers of a populated part.');
+        }
+        const configs = populated.map(file => BillingImport.detect(file.headers));
         if (configs.some(config => config.format !== 'aws')) throw new Error('Expected classic AWS CUR CSV columns.');
-        for (const [i, file] of files.entries()) {
+        for (const [i, file] of populated.entries()) {
             const {billing_start, billing_end} = configs[i].mapping;
             const a = file.headers.indexOf(billing_start), b = file.headers.indexOf(billing_end);
             if (a < 0 || b < 0 || file.records.some(({cells}) =>
@@ -96,7 +105,7 @@ function createLocalCurConnector({readObject, readManifest, now = () => new Date
         const identical = previous?.revision === revision;
         if (identical && !current) return structuredClone(previous);
 
-        const result = BillingImport.validate(files, configs, '');
+        const result = BillingImport.validate(populated, configs, '');
         if (!result.ok) throw new Error(result.errors[0]?.message ?? 'CUR validation failed.');
         if (!result.report.analysis.currency) throw new Error('CUR currency must be specified.');
         if (current && current.readAgain().signature !== current.signature) {
