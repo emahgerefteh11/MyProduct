@@ -19,7 +19,7 @@ const source = 'fixture-source';
 const period = {start: '2026-01-01T00:00:00.000Z', end: '2026-02-01T00:00:00.000Z'};
 const scope = {tenant, source, ...period};
 
-async function upload(bytes) {
+async function upload(bytes, costColumn = null) {
     const worker = {postMessage: null};
     const context = vm.createContext({TextDecoder, crypto: webcrypto, self: worker});
     context.importScripts = file => {
@@ -38,6 +38,7 @@ async function upload(bytes) {
     const [file] = await run({type: 'prepare', delimiter: ',', files: [
         {name: 'synthetic.csv', size: bytes.length, arrayBuffer: async () => bytes},
     ]});
+    if (costColumn) file.detected.mapping.cost = costColumn;
     const result = await run({type: 'validate', configs: [file.detected], currency: ''});
     assert.equal(result.ok, true, JSON.stringify(result.errors));
     return result.report;
@@ -246,4 +247,28 @@ test('a matching header-only CUR part adds no spend, but unavailable or invalid 
     objects.set(emptyPart, gzipSync(header + '\n'));
     assert.throws(refresh, /changed an accepted assembly/);
     assert.deepEqual(connector.get(scope), revised);
+});
+
+test('pilot parity is pinned to the exact cost column, not the billed label alone', async () => {
+    const unblendedColumn = 'lineItem/UnblendedCost';
+    const netColumn = 'lineItem/NetUnblendedCost';
+    const [header, storage, credit, compute] = raw.toString().trimEnd().split('\n');
+    const csv = Buffer.from([
+        header + ',' + netColumn, storage + ',68', credit + ',-10', compute + ',30', '',
+    ].join('\n'));
+    const connector = createLocalCurConnector({readObject: () => gzipSync(csv)});
+    const connected = connector.refresh({tenant, source, manifest}).report;
+    const uploaded = await upload(csv);
+    assertReport(connected, 100, 30);
+    assertReport(uploaded, 100, 30);
+    for (const report of [connected, uploaded]) {
+        assert.equal(report.analysis.sources[0].costColumn, unblendedColumn);
+    }
+
+    const net = await upload(csv, netColumn);
+    assert.equal(net.analysis.costBasis, 'billed');
+    assert.equal(net.analysis.sources[0].costColumn, netColumn);
+    assert.equal(net.TotalBilledCost, 88);
+    assert.equal(net.products.find(p => p.Product === 'Payments').BilledCost, 58);
+    assert.equal(net.allocation.unallocatedProductCost, 30);
 });
