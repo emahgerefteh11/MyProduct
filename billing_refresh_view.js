@@ -8,7 +8,17 @@
     const acceptedReport = value => value?.report?.sampleData === false &&
         typeof value.lastSuccessfulSync === 'string' && Number.isFinite(Date.parse(value.lastSuccessfulSync)) ? value : null;
 
-    function createBillingRefreshView({submit, readJob, readReport, disconnect, render,
+    // A rejected write is not proof that report access was revoked. 403
+    // covers read-only grants and intent failures. 409 can be an obsolete
+    // generation. Recheck authoritative selection for either, without resending.
+    async function decodeBillingActionResponse(response) {
+        if (response.status === 401) return {status: 'denied'};
+        if ([403, 404, 409].includes(response.status)) return {status: 'revalidate'};
+        if (!response.ok) throw new Error('The billing action was not confirmed.');
+        return response.json();
+    }
+
+    function createBillingRefreshView({submit, readJob, readReport, disconnect, readSelection, render,
         newRequestId = () => root.crypto.randomUUID()}) {
         let active = null;
         const current = (view, operation) => active === view && view.operation === operation;
@@ -24,13 +34,40 @@
             render({status: 'hidden', accepted: null});
         }
 
-        function select(selection, accepted = null) {
-            clear();
-            // The caller must select again (even with the same source/period)
-            // when a session or tenant changes. Do not send a tenant claim.
+        function useSelection(selection, accepted, canManageBilling, status) {
             const {source, period, generation} = selection;
-            active = {scope: Object.freeze({source, period, generation}), accepted: acceptedReport(accepted)};
-            show(active, 'idle');
+            active = {scope: Object.freeze({source, period, generation}), accepted: acceptedReport(accepted),
+                blocked: !canManageBilling};
+            show(active, status);
+        }
+
+        function select(selection, accepted = null, {canManageBilling = false} = {}) {
+            clear();
+            // The caller supplies a verified selection and must select again
+            // when the session changes. Do not send a tenant claim.
+            useSelection(selection, accepted, canManageBilling === true,
+                canManageBilling === true ? 'idle' : 'read-only');
+        }
+
+        async function revalidate(view, signal, stillCurrent) {
+            view.blocked = true;
+            view.accepted = null;
+            show(view, 'verifying-access');
+            try {
+                signal.throwIfAborted();
+                const next = await readSelection(view.scope, {signal});
+                if (!stillCurrent()) return;
+                if (next?.status === 'denied') return clear();
+                if (!next?.scope || next.scope.source !== view.scope.source || next.scope.period !== view.scope.period ||
+                    !Number.isSafeInteger(next.scope.generation) || next.scope.generation < 1 ||
+                    (next.accepted != null && !acceptedReport(next.accepted))) {
+                    throw new Error('Invalid billing selection.');
+                }
+                const canManage = next.canManageBilling === true;
+                useSelection(next.scope, next.accepted, canManage, canManage ? 'selection-reloaded' : 'read-only');
+            } catch {
+                if (stillCurrent()) show(view, 'selection-unavailable');
+            }
         }
 
         async function perform(view, onError, callback) {
@@ -58,6 +95,7 @@
                 const result = await submit(view.scope, {requestId: view.requestId, signal});
                 if (!stillCurrent()) return;
                 if (result?.status === 'denied') return clear();
+                if (result?.status === 'revalidate') return revalidate(view, signal, stillCurrent);
                 if (result?.status !== 'accepted' || !validId(result.jobId)) throw new Error('Invalid refresh confirmation.');
                 view.jobId = result.jobId;
                 show(view, 'queued');
@@ -106,6 +144,7 @@
                 const result = await disconnect(view.scope, {signal});
                 if (!stillCurrent()) return;
                 if (result?.status === 'denied') return clear();
+                if (result?.status === 'revalidate') return revalidate(view, signal, stillCurrent);
                 if (result?.status !== 'disconnected') throw new Error('Unconfirmed disconnect.');
                 view.requestId = view.jobId = null;
                 show(view, 'disconnected');
@@ -115,6 +154,6 @@
         return {select, clear, refresh, check, stop};
     }
 
-    if (typeof module !== 'undefined' && module.exports) module.exports = {createBillingRefreshView};
-    else root.createBillingRefreshView = createBillingRefreshView;
+    if (typeof module !== 'undefined' && module.exports) module.exports = {createBillingRefreshView, decodeBillingActionResponse};
+    else Object.assign(root, {createBillingRefreshView, decodeBillingActionResponse});
 })(globalThis);

@@ -2,8 +2,9 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const {createBillingRefreshView} = require('../billing_refresh_view.js');
+const {createBillingRefreshView, decodeBillingActionResponse} = require('../billing_refresh_view.js');
 
+const manager = {canManageBilling: true};
 const jan = {source: 'aws', period: '2026-01', generation: 1};
 const feb = {...jan, period: '2026-02'};
 const first = {report: {sampleData: false, TotalBilledCost: 100}, lastSuccessfulSync: '2026-02-02T01:00:00.000Z'};
@@ -33,7 +34,7 @@ function setup(deps = {}) {
 
 test('accepted report and timestamp only change after a completed job and fresh report read', async () => {
     const h = setup();
-    h.view.select({...jan, tenant: 'never-sent'}, first);
+    h.view.select({...jan, tenant: 'never-sent'}, first, manager);
     await h.view.refresh();
     assert.deepEqual(h.submits[0][0], jan);
     assert.deepEqual(h.last(), {status: 'queued', accepted: first});
@@ -63,7 +64,7 @@ test('a lost response retries the same action and a failed report fetch does not
             return corrected;
         },
     });
-    h.view.select(jan, first);
+    h.view.select(jan, first, manager);
     await h.view.refresh();
     assert.deepEqual(h.last(), {status: 'retry-submit', accepted: first});
     await h.view.refresh();
@@ -90,11 +91,11 @@ test('a stale poll and a stale follow-up report cannot overwrite a new selection
         },
         readReport: (_scope, {signal}) => {reportSignal = signal; return report.promise;},
     });
-    h.view.select(jan, first);
+    h.view.select(jan, first, manager);
     await h.view.refresh();
     h.suspendPoll = true;
     const oldPoll = h.view.check();
-    h.view.select(feb, freshScope);
+    h.view.select(feb, freshScope, manager);
     assert.equal(pollSignal.aborted, true);
     poll.resolve({status: 'completed'});
     await oldPoll;
@@ -102,12 +103,12 @@ test('a stale poll and a stale follow-up report cannot overwrite a new selection
     assert.deepEqual(h.last(), {status: 'idle', accepted: freshScope});
 
     h.suspendPoll = false;
-    h.view.select(jan, first);
+    h.view.select(jan, first, manager);
     await h.view.refresh();
     const oldReport = h.view.check();
     await Promise.resolve();
     assert.ok(reportSignal);
-    h.view.select(feb, freshScope);
+    h.view.select(feb, freshScope, manager);
     assert.equal(reportSignal.aborted, true);
     report.resolve(corrected);
     await oldReport;
@@ -121,7 +122,7 @@ test('disconnect fences a late completion without removing an authorized accepte
         readJob: async () => ({status: 'completed'}),
         readReport: (_scope, {signal}) => {reportSignal = signal; return report.promise;},
     });
-    h.view.select(jan, first);
+    h.view.select(jan, first, manager);
     await h.view.refresh();
     const checking = h.view.check();
     await Promise.resolve();
@@ -137,7 +138,7 @@ test('disconnect fences a late completion without removing an authorized accepte
 
 test('canceled jobs keep the last amount; authorization loss clears it', async () => {
     const h = setup();
-    h.view.select(jan, first);
+    h.view.select(jan, first, manager);
     await h.view.refresh();
     h.jobStatus = 'canceled';
     await h.view.check();
@@ -150,12 +151,86 @@ test('canceled jobs keep the last amount; authorization loss clears it', async (
 
 test('an unconfirmed disconnect keeps the accepted report but blocks new actions until reload', async () => {
     const h = setup({disconnect: async () => {throw new Error('disconnected or response lost');}});
-    h.view.select(jan, first);
+    h.view.select(jan, first, manager);
     await h.view.stop();
     assert.deepEqual(h.last(), {status: 'disconnect-unconfirmed', accepted: first});
     await h.view.refresh();
     assert.equal(h.submits.length, 0);
-    h.view.select(jan, first);
+    h.view.select(jan, first, manager);
     await h.view.refresh();
     assert.equal(h.submits.length, 1);
+});
+
+const refusal = status => new Response('untrusted provider details', {status});
+
+test('a write 403 requires an authorized fresh read before showing a report to a viewer', async () => {
+    const read = pending();
+    let reads = 0, submits = 0;
+    const h = setup({
+        submit: async () => {submits++; return decodeBillingActionResponse(refusal(403));},
+        readSelection: async () => {reads++; return read.promise;},
+    });
+    h.view.select(jan, first, manager);
+    const write = h.view.refresh();
+    await new Promise(setImmediate);
+    assert.equal(reads, 1);
+    assert.deepEqual(h.last(), {status: 'verifying-access', accepted: null});
+    read.resolve({scope: jan, accepted: corrected, canManageBilling: false});
+    await write;
+    assert.deepEqual(h.last(), {status: 'read-only', accepted: corrected});
+    await h.view.refresh();
+    await h.view.stop();
+    assert.equal(submits, 1);
+    h.view.select(jan, corrected);
+    assert.deepEqual(h.last(), {status: 'read-only', accepted: corrected});
+});
+
+test('a revoked session hides private data, whether detected at write or on revalidation', async () => {
+    let code = 403, reads = 0;
+    const h = setup({
+        submit: () => decodeBillingActionResponse(refusal(code)),
+        readSelection: async () => {reads++; return {status: 'denied'};},
+    });
+    h.view.select(jan, first, manager);
+    await h.view.refresh();
+    assert.deepEqual(h.last(), {status: 'hidden', accepted: null});
+    assert.equal(reads, 1);
+    code = 401;
+    h.view.select(jan, corrected, manager);
+    await h.view.refresh();
+    assert.deepEqual(h.last(), {status: 'hidden', accepted: null});
+    assert.equal(reads, 1);
+});
+
+test('a stale disconnect reloads the generation without retrying the disconnect', async () => {
+    const disconnects = [];
+    const newer = {...jan, generation: 2};
+    const h = setup({
+        async disconnect(scope) {disconnects.push(scope); return decodeBillingActionResponse(refusal(409));},
+        readSelection: async () => ({scope: newer, accepted: corrected, canManageBilling: true}),
+    });
+    h.view.select(jan, first, manager);
+    await h.view.stop();
+    assert.deepEqual(disconnects, [jan]);
+    assert.deepEqual(h.last(), {status: 'selection-reloaded', accepted: corrected});
+    await h.view.refresh();
+    assert.deepEqual(h.submits[0][0], newer);
+});
+
+test('an old scope cannot restore a report from a delayed permission recheck', async () => {
+    const read = pending();
+    let signal;
+    const h = setup({
+        submit: () => decodeBillingActionResponse(refusal(403)),
+        readSelection: (_scope, options) => {signal = options.signal; return read.promise;},
+    });
+    h.view.select(jan, first, manager);
+    const old = h.view.refresh();
+    await new Promise(setImmediate);
+    assert.ok(signal);
+    h.view.select(feb, freshScope, manager);
+    assert.equal(signal.aborted, true);
+    read.resolve({scope: jan, accepted: corrected, canManageBilling: false});
+    await old;
+    assert.deepEqual(h.last(), {status: 'idle', accepted: freshScope});
 });
