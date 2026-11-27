@@ -21,6 +21,8 @@ Before storing pilot data, restore to an isolated destination and check that the
 
 Keep restored workers and private reads disabled until the operator verifies current tenant access, connection grants and revocations, and reconciles pending jobs against what happened after the backup. Never auto-run queued jobs from a restored snapshot. Test recovery and data retention on the selected private host before allowing real billing data.
 
+A local synthetic rehearsal force-stops its writer process just before and just after commit. The replacement sees either the complete prior report and queued correction, or the complete new report, overview, and terminal job. A committed replay makes no synthetic object read. This does not test host, volume, identity provider, or data recovery after infrastructure loss.
+
 ## Private host readiness gate (synthetic data only)
 
 No hosting option is selected. First ask whether there is an approved existing host, identity provider and operator. Record the candidate, owner, access boundary, available resources, incremental cost estimate and rollback path. Request approval before provisioning, granting AWS or pilot access, or enabling any live route.

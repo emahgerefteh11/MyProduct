@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const {spawnSync} = require('node:child_process');
 const {mkdtempSync, rmSync} = require('node:fs');
 const {tmpdir} = require('node:os');
 const {join} = require('node:path');
@@ -387,4 +388,56 @@ test('a stored billing overview commits and rolls back together with its report 
         host?.close();
         rmSync(dir, {recursive: true, force: true});
     }
+});
+
+test('abrupt local writer replacement restores either the whole old or the whole committed billing revision', async t => {
+    for (const point of ['before-commit', 'after-commit']) await t.test(point, async () => {
+        const dir = mkdtempSync(join(tmpdir(), 'atlas-writer-crash-'));
+        const file = join(dir, 'report.sqlite');
+        const h = {hour: 1, cloudCalls: 0};
+        const request = new Request(origin + '/private', {headers: {Authorization: 'Bearer fixture-a'}});
+        const scope = {source, period: '2026-01'};
+        let host;
+        try {
+            host = openTestHost(file, h);
+            host.seed();
+            assert.equal((await host.run({tenant, jobId: 'first'})).status, 'completed');
+            const baseline = host.storedOverview(request, scope);
+            host.close();
+            host = null;
+            const child = spawnSync(process.execPath, [join(__dirname, 'fixtures', 'cur_crash_worker.cjs'), file, point],
+                {encoding: 'utf8', timeout: 10_000, maxBuffer: 128 * 1024});
+            assert.ifError(child.error);
+            assert.equal(child.signal, 'SIGKILL', child.stderr);
+            assert.equal(child.stdout.trim(), point, 'the child reached the exact transaction boundary');
+
+            h.hour = 2;
+            host = openTestHost(file, h);
+            const status = async () => (await (await host.read(request, {kind: 'job', jobId: 'correction'})).json()).status;
+            const stored = () => host.storedOverview(request, scope);
+            const full = async () => (await host.read(request, {kind: 'report', ...scope})).json();
+            if (point === 'before-commit') {
+                assert.deepEqual(stored(), baseline);
+                assert.equal((await full()).report.TotalBilledCost, 100);
+                assert.equal(await status(), 'queued');
+                assert.equal((await host.run({tenant, jobId: 'correction'})).status, 'completed');
+                assert.ok(h.cloudCalls > 0);
+            } else {
+                const calls = h.cloudCalls;
+                assert.equal(await status(), 'completed');
+                assert.equal((await host.run({tenant, jobId: 'correction'})).status, 'completed');
+                assert.equal(h.cloudCalls, calls);
+            }
+            const final = stored().overview;
+            assert.equal(final.totals.amount, 105);
+            assert.equal(final.allocation.unallocatedProductCost, 35);
+            const result = await full();
+            assert.equal(result.report.TotalBilledCost, 105);
+            assert.equal(result.lastSuccessfulSync, final.lastSuccessfulSync);
+            assert.equal(await status(), 'completed');
+        } finally {
+            host?.close();
+            rmSync(dir, {recursive: true, force: true});
+        }
+    });
 });

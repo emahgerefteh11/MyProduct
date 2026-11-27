@@ -218,8 +218,10 @@ function openTestHost(file, h, {hostOrigin = origin, acceptedTokenKey} = {}) {
                     const result = published ? {status: 'completed', publishedAt: acceptedAt} : {status: 'canceled'};
                     writer.prepare('UPDATE job SET outcome = ? WHERE tenant = ? AND id = ?')
                         .run(JSON.stringify(result), tenant, jobId);
+                    h.afterJobResultBeforeCommit?.();
                     return result;
                 });
+                h.afterCommit?.();
                 if (h.loseAck) throw new Error('lost acknowledgement');
                 return outcome;
             },
