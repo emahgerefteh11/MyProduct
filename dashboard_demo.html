@@ -58,7 +58,7 @@
             <div class="section-grid">
                 <div class="card"><div class="card-heading"><div><h3>Where your spend goes</h3><p class="subtitle">Reported cost by service family</p></div><span class="pill">Cost mix</span></div><div class="chart-container" id="chart-tco" aria-label="Cost by service family"></div></div>
                 <div class="card"><div class="card-heading"><div><h3>Spend by platform</h3><p class="subtitle">Compare all platforms · Select one to explore</p></div><span class="pill">Drill down ↗</span></div><div class="chart-container" id="chart-platform" aria-label="Reported platform costs"></div></div>
-                <div class="card full-width"><div class="flex-between"><div><h3>Service breakdown</h3><p class="subtitle">Your ten largest normalized service families in this scope</p></div><span class="pill">Cross-cloud view</span></div><div class="table-container" role="region" aria-label="Service cost breakdown" tabindex="0"><table id="table-services"><thead><tr><th scope="col">Service family</th><th scope="col">Classification</th><th scope="col">Reported spend</th><th scope="col">Share of scope</th></tr></thead><tbody></tbody></table></div></div>
+                <div class="card full-width"><div class="flex-between"><div><h3>Service breakdown</h3><p class="subtitle" id="service-breakdown-note">Your ten largest normalized service families in this scope</p></div><span class="pill">Cross-cloud view</span></div><div class="table-container" role="region" aria-label="Service cost breakdown" tabindex="0"><table id="table-services"><thead><tr><th scope="col">Service family</th><th scope="col">Classification</th><th scope="col">Reported spend</th><th scope="col">Share of scope</th></tr></thead><tbody></tbody></table></div></div>
             </div>
         </section>
         <section id="tab-products" class="view-section hidden" aria-label="Product costs">
@@ -18750,13 +18750,17 @@
         // Render Services Table
         const svcTbody = document.querySelector('#table-services tbody');
         svcTbody.innerHTML = '';
+        const hasServiceShare = Number.isFinite(filteredCost) && filteredCost !== 0;
+        document.getElementById('service-breakdown-note').textContent = filteredServices.length && filteredCost === 0
+            ? 'Share is unavailable when net spend is zero. Charges and credits are shown below.'
+            : 'Your ten largest normalized service families in this scope';
         filteredServices.slice(0, 10).forEach(s => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><span style="font-weight:600">${escapeHtml(s.ServiceCategory)}</span></td>
                 <td><span class="badge badge-gray">Normalized</span></td>
                 <td>${fmtCurrency(s.BilledCost)}</td>
-                <td>${fmtPct((s.BilledCost / (filteredCost || 1)) * 100)}</td>
+                <td>${hasServiceShare ? fmtPct((s.BilledCost / filteredCost) * 100) : 'N/A'}</td>
             `;
             svcTbody.appendChild(tr);
         });

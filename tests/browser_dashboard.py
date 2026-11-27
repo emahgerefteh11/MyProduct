@@ -308,6 +308,33 @@ class BrowserDashboard(unittest.TestCase):
         self.assertEqual(self.page.locator('#product-dialog img').count(), 0)
         self.assertFalse(self.page.evaluate('Boolean(window.injected)'))
 
+    def test_zero_net_spend_has_no_service_share_but_keeps_signed_costs(self):
+        value = report_fixture()
+        value['TotalBilledCost'] = 0
+        value['services'] = [
+            *value['platforms'][0]['services'],
+            {'ServiceCategory': 'Credits', 'BilledCost': -100},
+        ]
+        value['analysis']['reconciliation'].update(sourceTotal=0, reportTotal=0)
+        value['platforms'][1]['BilledCost'] = -100
+        value['platforms'][1]['services'] = [value['services'][-1]]
+        value['platforms'][1]['products'] = []
+        value['providers'][1]['BilledCost'] = -100
+        value['products'] = value['platforms'][0]['products']
+        value['allocation']['unallocatedProductCost'] = -100
+        self.open_report(value)
+        table = self.page.locator('#table-services')
+        expect(table.get_by_role('cell', name='N/A', exact=True)).to_have_count(3)
+        expect(table.get_by_role('cell', name='$80.00', exact=True)).to_be_visible()
+        expect(table.get_by_role('cell', name='-$100.00', exact=True)).to_be_visible()
+        expect(self.page.locator('#service-breakdown-note')).to_contain_text('net spend is zero')
+        self.page.locator('#global-platform-filter').select_option('Core')
+        expect(table.get_by_role('cell', name='80.0%', exact=True)).to_be_visible()
+        expect(table.get_by_role('cell', name='N/A', exact=True)).to_have_count(0)
+        expect(self.page.locator('#service-breakdown-note')).not_to_contain_text('net spend is zero')
+        self.page.locator('#global-platform-filter').select_option('all')
+        expect(table.get_by_role('cell', name='N/A', exact=True)).to_have_count(3)
+
     def test_home_and_existing_flows_share_responsive_design_and_skip_links(self):
         for path, title in [('index.html', 'A clearer view'), ('import.html', 'From billing files'), ('adoption.html', 'Your infrastructure.')]:
             for width in [320, 390, 768, 1440]:

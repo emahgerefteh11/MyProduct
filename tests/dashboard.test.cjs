@@ -132,6 +132,20 @@ test('cost tables and IaC preview survive an unavailable chart CDN', async () =>
     assert.match(page.elements.get('iac-preview').textContent, /terraform/);
 });
 
+test('service shares are unavailable when charges and credits offset to zero', async () => {
+    const data = structuredClone(fixture);
+    data.TotalBilledCost = 0;
+    data.services = [
+        {ServiceCategory: 'Compute/VM', BilledCost: 100},
+        {ServiceCategory: 'Credits', BilledCost: -100},
+    ];
+    const page = await dashboard({data});
+    const [charge, credit] = page.tables.get('#table-services tbody').children;
+    assert.match(charge.innerHTML, /<td>100[.]00<[/]td>\s*<td>N[/]A<[/]td>/);
+    assert.match(credit.innerHTML, /<td>-100[.]00<[/]td>\s*<td>N[/]A<[/]td>/);
+    assert.match(page.elements.get('service-breakdown-note').textContent, /net spend is zero/);
+});
+
 test('unknown architecture is not replaced with a hashed live pattern', async () => {
     const data = structuredClone(fixture);
     for (const platform of data.platforms) {
