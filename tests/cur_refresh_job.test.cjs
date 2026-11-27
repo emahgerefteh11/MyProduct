@@ -341,3 +341,50 @@ test('accepted overview and detail stay on the same scoped revision even at the 
         rmSync(dir, {recursive: true, force: true});
     }
 });
+
+test('a stored billing overview commits and rolls back together with its report and job result', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'atlas-materialized-overview-'));
+    const file = join(dir, 'report.sqlite');
+    const h = {hour: 1, cloudCalls: 0};
+    let host;
+    try {
+        host = openTestHost(file, h);
+        host.seed();
+        const target = {source, period: '2026-01'};
+        const session = actor => new Request(origin + '/private', {headers: {Authorization: 'Bearer ' + actor}});
+        const current = () => host.storedOverview(session('fixture-a'), target);
+        const request = session('fixture-a');
+        const job = id => host.read(request, {kind: 'job', jobId: id}).then(response => response.json());
+        assert.equal(current(), null);
+        assert.equal((await host.run({tenant, jobId: 'first'})).status, 'completed');
+        const first = current();
+        assert.equal(first.overview.totals.amount, 100);
+        h.hour = 2;
+        h.failBeforeJobResult = true;
+        await assert.rejects(host.run({tenant, jobId: 'correction'}), /synthetic outcome failure/);
+        assert.deepEqual(current(), first);
+        assert.equal((await job('correction')).status, 'queued');
+        h.failBeforeJobResult = false;
+        assert.equal((await host.run({tenant, jobId: 'correction'})).status, 'completed');
+        const revised = current();
+        assert.equal(revised.overview.totals.amount, 105);
+        assert.equal(revised.overview.allocation.unallocatedProductCost, 35);
+        assert.notEqual(revised.revision, first.revision);
+        const full = await host.read(request, {kind: 'report', ...target}).then(response => response.json());
+        assert.equal(revised.overview.totals.amount, full.report.TotalBilledCost);
+        assert.equal(revised.overview.lastSuccessfulSync, full.lastSuccessfulSync);
+        host.close();
+        host = openTestHost(file, h);
+        assert.deepEqual(current(), revised);
+        assert.equal((await job('correction')).status, 'completed');
+        const calls = h.cloudCalls;
+        assert.equal((await host.run({tenant, jobId: 'correction'})).status, 'completed');
+        assert.equal(h.cloudCalls, calls);
+        assert.equal(host.storedOverview(session('fixture-b'), target), null);
+        host.revokeRead();
+        assert.equal(current(), null);
+    } finally {
+        host?.close();
+        rmSync(dir, {recursive: true, force: true});
+    }
+});

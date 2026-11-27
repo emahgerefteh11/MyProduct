@@ -10,6 +10,7 @@ const {gzipSync} = require('node:zlib');
 const {bindKeptCurS3Reader} = require('../../server/scoped_cur_s3.cjs');
 const {createCurRefreshJobRunner} = require('../../server/cur_refresh_job.cjs');
 const {createPrivateBillingRead} = require('../../server/private_billing_read.cjs');
+const {projectPrivateBillingOverview} = require('../../server/private_billing_overview.cjs');
 const {createPrivateBillingWrite} = require('../../server/private_billing_write.cjs');
 
 const tenant = 'test-tenant', source = 'aws', origin = 'https://atlas.invalid';
@@ -62,7 +63,7 @@ function openTestHost(file, h, {hostOrigin = origin, acceptedTokenKey} = {}) {
         );
         CREATE TABLE IF NOT EXISTS accepted (
             tenant TEXT, source TEXT, period TEXT, assembly TEXT, revision TEXT,
-            mapping INTEGER, report TEXT, accepted_at TEXT, PRIMARY KEY (tenant, source, period)
+            mapping INTEGER, report TEXT, accepted_at TEXT, overview TEXT NOT NULL, PRIMARY KEY (tenant, source, period)
         );
     `);
     assert.equal(writer.prepare('PRAGMA journal_mode').get().journal_mode, 'wal');
@@ -76,11 +77,11 @@ function openTestHost(file, h, {hostOrigin = origin, acceptedTokenKey} = {}) {
     const readSource = writer.prepare('SELECT generation, mapping AS mappingVersion FROM connection WHERE tenant = ? AND source = ? AND active = 1');
     const accept = writer.prepare(`
         INSERT INTO accepted
-        SELECT tenant, source, ?, ?, ?, mapping, ?, ? FROM connection
+        SELECT tenant, source, ?, ?, ?, mapping, ?, ?, ? FROM connection
         WHERE tenant = ? AND source = ? AND generation = ? AND mapping = ? AND active = 1
         ON CONFLICT (tenant, source, period) DO UPDATE SET assembly = excluded.assembly,
             revision = excluded.revision, mapping = excluded.mapping, report = excluded.report,
-            accepted_at = excluded.accepted_at
+            accepted_at = excluded.accepted_at, overview = excluded.overview
         WHERE excluded.assembly > accepted.assembly
            OR (excluded.assembly = accepted.assembly AND excluded.revision = accepted.revision
                AND excluded.mapping > accepted.mapping)
@@ -94,6 +95,12 @@ function openTestHost(file, h, {hostOrigin = origin, acceptedTokenKey} = {}) {
         JOIN grant_state g ON g.tenant = c.tenant AND g.actor = ?
         LEFT JOIN accepted a ON a.tenant = c.tenant AND a.source = c.source AND a.period = ?
         WHERE c.tenant = ? AND c.source = ?
+    `);
+    // Deliberately not selecting the full report on this experimental path.
+    const getStoredOverview = reader.prepare(`
+        SELECT a.overview, a.assembly, a.revision, a.mapping
+        FROM accepted a JOIN grant_state g ON g.tenant = a.tenant AND g.actor = ?
+        WHERE a.tenant = ? AND a.source = ? AND a.period = ?
     `);
     const readStreamObject = fixtureReader(h);
     const canManage = writer.prepare('SELECT can_manage FROM grant_state WHERE tenant = ? AND actor = ?');
@@ -117,6 +124,13 @@ function openTestHost(file, h, {hostOrigin = origin, acceptedTokenKey} = {}) {
     }
     return {
         resolveSession,
+        storedOverview(request, {source, period}) {
+            const session = resolveSession(request);
+            if (!session) return null;
+            const row = getStoredOverview.get(session.actor, session.tenantId, source, period);
+            return row ? {overview: JSON.parse(row.overview), assembly: row.assembly, revision: row.revision,
+                mappingVersion: row.mapping} : null;
+        },
         connectionState: (tenant, source) => writer.prepare(
             'SELECT generation, active FROM connection WHERE tenant = ? AND source = ?'
         ).get(tenant, source),
@@ -197,8 +211,10 @@ function openTestHost(file, h, {hostOrigin = origin, acceptedTokenKey} = {}) {
                         [source, period, generation, mappingVersion]);
                     if (job.outcome) return JSON.parse(job.outcome);
                     const {assemblyId, revision, report, acceptedAt} = snapshot;
-                    const published = accept.run(period, assemblyId, revision, JSON.stringify(report), acceptedAt,
+                    const overview = JSON.stringify(projectPrivateBillingOverview({report, acceptedAt}));
+                    const published = accept.run(period, assemblyId, revision, JSON.stringify(report), acceptedAt, overview,
                         tenant, source, generation, mappingVersion).changes;
+                    if (h.failBeforeJobResult) throw new Error('synthetic outcome failure');
                     const result = published ? {status: 'completed', publishedAt: acceptedAt} : {status: 'canceled'};
                     writer.prepare('UPDATE job SET outcome = ? WHERE tenant = ? AND id = ?')
                         .run(JSON.stringify(result), tenant, jobId);

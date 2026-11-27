@@ -11,6 +11,7 @@ const {DatabaseSync} = require('node:sqlite');
 const {performance} = require('node:perf_hooks');
 const {parseCSV, detect, validate} = require('../billing_import.js');
 const {createPrivateBillingRead} = require('../server/private_billing_read.cjs');
+const {projectPrivateBillingOverview} = require('../server/private_billing_overview.cjs');
 
 const tenant = 'synthetic', actor = 'reader', source = 'aws', period = '2026-01';
 const acceptedAt = '2026-02-02T02:00:00.000Z';
@@ -20,8 +21,8 @@ const round = n => Number(n.toFixed(2));
 function seed(file) {
     const db = new DatabaseSync(file);
     try {
-        db.exec('CREATE TABLE snapshot (scenario TEXT PRIMARY KEY, tenant TEXT, actor TEXT, source TEXT, period TEXT, report TEXT)');
-        const insert = db.prepare('INSERT INTO snapshot VALUES (?, ?, ?, ?, ?, ?)');
+        db.exec('CREATE TABLE snapshot (scenario TEXT PRIMARY KEY, tenant TEXT, actor TEXT, source TEXT, period TEXT, report TEXT, overview TEXT, report_bytes INTEGER)');
+        const insert = db.prepare('INSERT INTO snapshot VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
         for (const scenario of ['one-product', 'distinct-products']) {
             const lines = ['lineItem/UnblendedCost,lineItem/CurrencyCode,lineItem/ProductCode,lineItem/ResourceId,resourceTags/user:Product,resourceTags/user:Platform,bill/BillingPeriodStartDate,bill/BillingPeriodEndDate'];
             for (let i = 0; i < rows; i++) lines.push([
@@ -33,18 +34,21 @@ function seed(file) {
             const result = validate([{name: 'synthetic.csv', sha256: 'synthetic', ...parsed}], [detect(parsed.headers)]);
             assert.equal(result.ok, true);
             assert.equal(result.report.TotalBilledCost, 650);
-            insert.run(scenario, tenant, actor, source, period, JSON.stringify(result.report));
+            const report = JSON.stringify(result.report);
+            insert.run(scenario, tenant, actor, source, period, report,
+                JSON.stringify(projectPrivateBillingOverview({report: result.report, acceptedAt})), Buffer.byteLength(report));
         }
     } finally {
         db.close();
     }
 }
 
-async function measure(file, scenario, batchSize) {
+async function measure(file, scenario, batchSize, mode) {
     const db = new DatabaseSync(file, {readOnly: true});
     try {
         const get = db.prepare('SELECT report FROM snapshot WHERE scenario=? AND tenant=? AND actor=? AND source=? AND period=?');
-        const snapshotBytes = db.prepare('SELECT length(CAST(report AS BLOB)) AS bytes FROM snapshot WHERE scenario=?').get(scenario).bytes;
+        const getOverview = db.prepare('SELECT overview FROM snapshot WHERE scenario=? AND tenant=? AND actor=? AND source=? AND period=?');
+        const snapshotBytes = db.prepare('SELECT report_bytes AS bytes FROM snapshot WHERE scenario=?').get(scenario).bytes;
         const queryMs = [], parseMs = [], requestMs = [];
         const handle = createPrivateBillingRead({
             resolveSession: () => ({tenantId: tenant, actor}),
@@ -60,11 +64,23 @@ async function measure(file, scenario, batchSize) {
                     snapshot: {tenant, source, period, report, acceptedAt, assembly: 'synthetic', revision: 'one', mappingVersion: 1}};
             },
         });
+        // Comparator for the experimental stored path. It selects only the
+        // projection under the same scope but isn't an installed API adapter.
+        const fromStored = () => {
+            const start = performance.now();
+            const {overview} = getOverview.get(scenario, tenant, actor, source, period);
+            const fetched = performance.now();
+            const projected = JSON.parse(overview);
+            queryMs.push(fetched - start);
+            parseMs.push(performance.now() - fetched);
+            return Response.json({acceptedRevision: 'a'.repeat(64), overview: projected});
+        };
         const rssBeforeMiB = round(process.memoryUsage.rss() / 1048576);
         let overviewBytes;
         const request = async () => {
             const start = performance.now();
-            const result = await handle(new Request('http://127.0.0.1/overview'), {kind: 'overview', source, period});
+            const result = mode === 'stored' ? await fromStored() :
+                await handle(new Request('http://127.0.0.1/overview'), {kind: 'overview', source, period});
             assert.equal(result.status, 200);
             const text = await result.text();
             const payload = JSON.parse(text);
@@ -77,7 +93,7 @@ async function measure(file, scenario, batchSize) {
         };
         for (let i = 0; i < reads; i += batchSize) await Promise.all(Array.from({length: batchSize}, request));
         const p95 = values => round(values.sort((a, b) => a - b)[Math.ceil(values.length * 0.95) - 1]);
-        return {scenario, batchSize, reads, snapshotBytes, overviewBytes, rssBeforeMiB,
+        return {scenario, mode, batchSize, reads, snapshotBytes, overviewBytes, rssBeforeMiB,
             maxRssMiB: round(process.resourceUsage().maxRSS / 1024),
             p95LocalReadMs: p95(requestMs), p95SqliteMs: p95(queryMs), p95ParseMs: p95(parseMs)};
     } finally {
@@ -87,10 +103,10 @@ async function measure(file, scenario, batchSize) {
 
 async function main() {
     if (process.argv[2] === '--measure') {
-        const [, , , file, scenario, batch] = process.argv;
-        assert.ok(file && ['one-product', 'distinct-products'].includes(scenario) && ['1', '4'].includes(batch),
+        const [, , , file, scenario, batch, mode] = process.argv;
+        assert.ok(file && ['one-product', 'distinct-products'].includes(scenario) && ['1', '4'].includes(batch) && ['stored', 'full'].includes(mode),
             'Invalid internal benchmark arguments.');
-        console.log(JSON.stringify(await measure(file, scenario, Number(batch))));
+        console.log(JSON.stringify(await measure(file, scenario, Number(batch), mode)));
         return;
     }
     const dir = mkdtempSync(join(tmpdir(), 'atlas-overview-bench-'));
@@ -99,8 +115,8 @@ async function main() {
         seed(file);
         const results = [];
         for (const scenario of ['one-product', 'distinct-products']) {
-            for (const batchSize of [1, 4]) {
-                const worker = spawnSync(process.execPath, [__filename, '--measure', file, scenario, String(batchSize)],
+            for (const [batchSize, mode] of [[1, 'full'], [4, 'full'], [4, 'stored']]) {
+                const worker = spawnSync(process.execPath, [__filename, '--measure', file, scenario, String(batchSize), mode],
                     {encoding: 'utf8', timeout: 60_000, maxBuffer: 1024 * 1024});
                 if (worker.status !== 0) throw new Error(worker.stderr || String(worker.error));
                 results.push(JSON.parse(worker.stdout));
