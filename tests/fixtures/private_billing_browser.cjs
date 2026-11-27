@@ -44,13 +44,15 @@ const reportPath = fixturePath + '/report';
 const fixtureHtml = `<!doctype html><html lang="en"><meta charset="utf-8">
 <script src="/report_store.js"></script><script src="/report_view_session.js"></script>
 <button id="connected">Open connected report</button><button id="upload">Open local report</button>
-<output id="fixture-output">hidden</output>
+<output id="fixture-output">hidden</output><output id="fixture-response"></output>
 <script>
 const view = createReportViewSession({
     async readConnected(_, signal) {
         const response = await fetch('${reportPath}?source=aws&period=${period}&tenant=tenant-a', {signal});
-        if (!response.ok) return null;
-        return (await response.json()).report;
+        const body = await response.json();
+        const evidence = body.report ? [body.lastSuccessfulSync, body.report.allocation.unallocatedProductCost].join('|') : 'no report';
+        document.querySelector('#fixture-response').textContent = [response.status, response.headers.get('cache-control'), evidence].join('|');
+        return response.ok ? body.report : null;
     },
     readUpload: () => ReportStore.get(),
     render: ({status, source, report}) => {

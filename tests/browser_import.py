@@ -49,9 +49,7 @@ class BrowserImport(unittest.TestCase):
     def setUp(self):
         self.context = self.browser.new_context(viewport={'width': 1440, 'height': 1000}, locale='en-US')
         # No third-party scripts or data requests are needed to import or view costs.
-        self.allowed_origins = {urlparse(self.origin).netloc}
-        self.context.route('**/*', lambda route: route.continue_() if
-                           urlparse(route.request.url).netloc in self.allowed_origins else route.abort())
+        self.context.route('**/*', lambda route: route.continue_() if urlparse(route.request.url).netloc == urlparse(self.origin).netloc else route.abort())
         self.page = self.context.new_page()
         self.js_errors = []
         self.page.on('pageerror', lambda error: self.js_errors.append(str(error)))
@@ -253,42 +251,52 @@ class BrowserImport(unittest.TestCase):
         except (Empty, ValueError):
             self.fail(f'Private HTTP fixture could not start; process exit: {proc.poll()}')
         origin = f'http://127.0.0.1:{port}'
-        self.allowed_origins.add(urlparse(origin).netloc)
-        self.page.set_default_timeout(10_000)
-        self.page.goto(origin + '/import.html')
-        self.choose([ROOT / 'tests/fixtures/cur/synthetic.csv'])
-        self.validate()
-        self.accept()
-        expect(self.page.locator('#kpi-total')).to_have_text('$100.00')
+        # No request interception on this independent loopback-only page. Log
+        # unexpected origins without holding network traffic during assertions.
+        context = self.browser.new_context(locale='en-US')
+        self.addCleanup(context.close)
+        page = context.new_page()
+        page.set_default_timeout(10_000)
+        errors, external = [], []
+        page.on('pageerror', lambda error: errors.append(str(error)))
+        page.on('request', lambda request: external.append(request.url) if
+                urlparse(request.url).netloc != urlparse(origin).netloc else None)
+        print('private browser fixture ready', flush=True)
+        page.goto(origin + '/import.html')
+        page.locator('#billing-files').set_input_files(ROOT / 'tests/fixtures/cur/synthetic.csv')
+        page.locator('#read-files').click()
+        expect(page.locator('#step-2')).to_be_visible()
+        page.locator('#validate').click()
+        expect(page.locator('#step-3')).to_be_visible()
+        page.locator('#acknowledge').check()
+        page.locator('#open-report').click()
+        expect(page.locator('#kpi-total')).to_have_text('$100.00')
+        print('private browser original upload verified', flush=True)
 
-        self.page.goto(origin + '/__fixture/private-browser')
-        state = self.page.locator('#fixture-output')
-        connected = self.page.get_by_role('button', name='Open connected report')
+        page.goto(origin + '/__fixture/private-browser')
+        state = page.locator('#fixture-output')
+        headers = page.locator('#fixture-response')
+        connected = page.get_by_role('button', name='Open connected report')
 
-        def open_connected(token, status):
-            self.context.add_cookies([{
+        def open_connected(token, status, view_state, evidence):
+            print(f'private browser setting fixture session for HTTP {status}', flush=True)
+            context.add_cookies([{
                 'name': 'atlas-fixture-session', 'value': token, 'url': origin, 'httpOnly': True,
             }])
-            with self.page.expect_response(lambda response: urlparse(response.url).path ==
-                                           '/__fixture/private-browser/report') as pending:
-                connected.click()
-            response = pending.value
-            self.assertEqual(response.status, status)
-            self.assertEqual(response.header_value('cache-control'), 'private, no-store')
-            return response
+            connected.click()
+            expect(headers).to_have_text(f'{status}|private, no-store|{evidence}')
+            expect(state).to_have_text(view_state)
 
-        accepted = open_connected('fx-965ed1', 200).json()
-        expect(state).to_have_text('connected:105')
-        self.assertEqual(accepted['lastSuccessfulSync'], '2026-02-02T02:00:00.000Z')
-        self.assertEqual(accepted['report']['allocation']['unallocatedProductCost'], 35)
-        self.assertNotIn('report', open_connected('fx-ab64d3', 404).json())
-        expect(state).to_have_text('unavailable')
-        self.assertNotIn('report', open_connected('fx-1186c0', 401).json())
-        expect(state).to_have_text('unavailable')
-        self.page.get_by_role('button', name='Open local report').click()
+        open_connected('fx-965ed1', 200, 'connected:105', '2026-02-02T02:00:00.000Z|35')
+        open_connected('fx-ab64d3', 404, 'unavailable', 'no report')
+        open_connected('fx-1186c0', 401, 'unavailable', 'no report')
+        page.get_by_role('button', name='Open local report').click()
         expect(state).to_have_text('upload:100')
-        self.page.goto(origin + '/dashboard.html?source=import')
-        expect(self.page.locator('#kpi-total')).to_have_text('$100.00')
+        page.goto(origin + '/dashboard.html?source=import')
+        expect(page.locator('#kpi-total')).to_have_text('$100.00')
+        self.assertEqual(errors, [])
+        self.assertEqual(external, [])
+        print('private browser response and preserved upload verified', flush=True)
 
     def test_samples_save_reopen_download_demo_isolation_and_clear(self):
         self.choose([ROOT / 'mock_aws_cur_iaas_heavy_named20251122.csv', ROOT / 'mock_gcp_billing.csv'])
