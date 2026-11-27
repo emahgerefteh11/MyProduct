@@ -22,11 +22,12 @@ const manifestFor = hour => {
         reportKeys: ['fixture/export/20260101-20260201/' + assemblyId + '/atlas-00001.csv.gz']};
 };
 
-function fixtureReader(h) {
+function fixtureReader(h, session) {
     return bindKeptCurS3Reader({
         tenant, source, manifestKey, bucket: 'fixture-cur', expectedBucketOwner: '111122223333',
         sendGetObject: async ({Key, IfMatch}) => {
             h.cloudCalls++;
+            await h.beforeRead?.({session, Key, IfMatch});
             const latest = manifestFor(h.hour);
             const etag = '"' + latest.assemblyId + '"';
             if (Key === manifestKey) {
@@ -44,7 +45,6 @@ function setup() {
     const h = {hour: 1, opens: 0, committed: 0, cloudCalls: 0, loseAck: false, activeGeneration: 1,
         jobs: new Map(), latest: null, hook: null};
     h.seed = jobId => h.jobs.set(jobId, {tenant, jobId, source, period: '2026-01', generation: 1, mappingVersion: 0});
-    const adapter = fixtureReader(h);
     h.run = createCurRefreshJobRunner({
         now: () => new Date(Date.UTC(2026, 1, 2, h.hour)),
         loadJob: async ({tenant: scope, jobId}) => scope === tenant ? h.jobs.get(jobId) : null,
@@ -53,7 +53,8 @@ function setup() {
             assert.equal(binding.tenant, tenant);
             assert.equal(binding.source, source);
             assert.equal(binding.period, '2026-01');
-            return {generation: h.activeGeneration, mappingVersion: 0, manifestKey, readStreamObject: adapter};
+            return {generation: h.activeGeneration, mappingVersion: 0, manifestKey,
+                readStreamObject: fixtureReader(h, h.opens)};
         },
         commitJob: async ({tenant: scope, jobId, source: candidateSource, generation, mappingVersion, snapshot}) => {
             const job = h.jobs.get(jobId);
@@ -112,6 +113,42 @@ test('a removed connection or another tenant cannot publish', async () => {
     assert.deepEqual(await h.run({tenant, jobId: 'after-disconnect'}), {status: 'not_published'});
     assert.equal(h.committed, 1);
     assert.equal(h.latest, accepted);
+});
+
+test('expiry during final manifest verification retains the last report; retry reopens the source', async () => {
+    const h = setup();
+    h.seed('first');
+    h.seed('correction');
+    assert.equal(h.opens, 0, 'queued jobs must not acquire source access');
+    const reads = [];
+    h.beforeRead = ({session, Key, IfMatch}) => {
+        reads.push({session, Key, IfMatch});
+        if (session === 2 && IfMatch) {
+            throw Object.assign(new Error('Fixture session expired.'), {name: 'ExpiredToken'});
+        }
+    };
+
+    await h.run({tenant, jobId: 'first'});
+    const before = structuredClone(h.latest);
+    h.hour = 2;
+    await assert.rejects(h.run({tenant, jobId: 'correction'}), {name: 'ExpiredToken'});
+    assert.deepEqual(h.latest, before);
+    assert.equal(h.committed, 1);
+    assert.equal(h.jobs.get('correction').outcome, undefined);
+    const failed = reads.filter(read => read.session === 2);
+    assert.deepEqual(failed.map(read => read.Key), [manifestKey, manifestFor(2).reportKeys[0], manifestKey]);
+    assert.equal(failed[2].IfMatch, '"' + manifestFor(2).assemblyId + '"');
+
+    const corrected = await h.run({tenant, jobId: 'correction'});
+    assert.equal(corrected.status, 'completed');
+    assert.equal(h.latest.report.TotalBilledCost, 105);
+    assert.notEqual(h.latest.acceptedAt, before.acceptedAt);
+    assert.deepEqual(reads.filter(read => read.session === 3),
+        failed.map(read => ({...read, session: 3})));
+    const checkpoint = reads.length;
+    assert.deepEqual(await h.run({tenant, jobId: 'correction'}), corrected);
+    assert.equal(h.opens, 3);
+    assert.equal(reads.length, checkpoint);
 });
 
 // A test-only host: no HTTP routes, real sessions, AWS credentials or implied
