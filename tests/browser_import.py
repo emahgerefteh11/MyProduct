@@ -180,7 +180,11 @@ class BrowserImport(unittest.TestCase):
             self.assertEqual(report['allocation']['unallocatedProductCost'], unallocated)
             self.assertEqual(next(p for p in report['products'] if p['Product'] == 'Payments')['BilledCost'], 70)
             if total == 100:
+                menu = self.page.locator('.report-actions')
+                if menu.get_attribute('open') is None:
+                    menu.locator('summary').click()
                 self.page.get_by_role('link', name='Import a new report').click()
+                self.page.wait_for_url('**/import.html')
         self.page.reload()
         expect(self.page.locator('#kpi-total')).to_have_text('$105.00')
 
