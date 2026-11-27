@@ -62,6 +62,52 @@ addEventListener('pagehide', clear);
 addEventListener('pageshow', event => { if (event.persisted) clear(); });
 </script></html>`;
 
+const detailPage = `<!doctype html><html lang="en"><meta charset="utf-8">
+<script src="/billing_detail_view.js"></script>
+<button id="overview-load">Load overview</button><button id="detail-load">Show product detail</button>
+<button id="hold">Hold next successful detail</button><button id="release">Release detail</button>
+<output id="view-status"></output><output id="total"></output><output id="rows"></output>
+<output id="held"></output><output id="asked-offset"></output>
+<script>
+const at = id => document.getElementById(id);
+let shouldHold = false, release;
+async function fetchRead(path, fields, signal) {
+    const response = await fetch('/' + path + '?' + new URLSearchParams(fields), {signal});
+    if ([401, 403, 404].includes(response.status)) return {status: 'denied'};
+    if (response.status === 409) return {status: 'stale'};
+    if (!response.ok) throw new Error('Unable to read billing.');
+    return response.json();
+}
+const view = createBillingDetailView({
+    readOverview: (scope, {signal}) => fetchRead('overview', scope, signal),
+    async readDetail(scope, {dimension, offset, acceptedRevision, signal}) {
+        at('asked-offset').textContent = offset;
+        const response = await fetchRead('detail', {...scope, dimension, offset, acceptedRevision}, signal);
+        if (shouldHold && response.detail) {
+            shouldHold = false;
+            await new Promise(resolve => { release = resolve; at('held').textContent = 'held'; });
+            // This response has already arrived. Deliberately continue even
+            // after its signal was canceled to test the display-side fence.
+            setTimeout(() => { at('held').textContent = 'released'; }, 0);
+        }
+        return response;
+    },
+    render({status, overview, detail}) {
+        at('view-status').textContent = status;
+        at('total').textContent = overview?.totals.amount ?? '';
+        at('rows').textContent = detail?.entries.map(x => x.amount).join(',') ?? '';
+        at('detail-load').disabled = !['ready', 'detail-ready', 'detail-unavailable'].includes(status);
+    },
+});
+at('overview-load').onclick = () => view.load({});
+at('detail-load').onclick = () => view.page('products');
+at('hold').onclick = () => { shouldHold = true; };
+at('release').onclick = () => { release?.(); };
+view.clear();
+addEventListener('pagehide', view.clear);
+addEventListener('pageshow', event => { if (event.persisted) view.clear(); });
+</script></html>`;
+
 function requestFor(incoming, url) {
     const headers = new Headers(incoming.headers);
     const cookie = /(?:^|;\s*)atlas-action-session=([a-z0-9-]+)(?:;|$)/.exec(headers.get('Cookie') ?? '')?.[1];
@@ -72,6 +118,10 @@ function requestFor(incoming, url) {
 }
 
 async function control(command) {
+    if (command === 'correction' || command === 'newer') {
+        model.hour = command === 'correction' ? 2 : 3;
+        return Response.json(await host.run({tenant, jobId: command}));
+    }
     if (command === 'state') return Response.json({queued, submits, disconnects});
     if (command === 'viewer' || command === 'manager') host.setManage(command === 'manager');
     else if (command === 'advance-generation') host.advanceGeneration();
@@ -102,7 +152,15 @@ const server = createServer(async (incoming, outgoing) => {
         const request = requestFor(incoming, url);
         let response;
         if (url.pathname === '/') response = new Response(page, {headers: {'Content-Type': 'text/html', 'Cache-Control': 'no-store'}});
-        else if (url.pathname === '/billing_refresh_view.js') {
+        else if (url.pathname === '/detail-view') {
+            response = new Response(detailPage, {headers: {'Content-Type': 'text/html', 'Cache-Control': 'no-store'}});
+        } else if (url.pathname === '/billing_detail_view.js') {
+            response = new Response(readFileSync(join(__dirname, '../../billing_detail_view.js')), {headers: {'Content-Type': 'text/javascript'}});
+        } else if (url.pathname === '/overview' || url.pathname === '/detail') {
+            response = await host.read(request, {...reportTarget, kind: url.pathname.slice(1),
+                dimension: url.searchParams.get('dimension'), offset: Number(url.searchParams.get('offset')),
+                acceptedRevision: url.searchParams.get('acceptedRevision')});
+        } else if (url.pathname === '/billing_refresh_view.js') {
             response = new Response(readFileSync(join(__dirname, '../../billing_refresh_view.js')), {headers: {'Content-Type': 'text/javascript'}});
         } else if (url.pathname === '/report') response = await host.read(request, reportTarget);
         else if (url.pathname === '/job') response = await host.read(request, {kind: 'job', jobId: url.searchParams.get('jobId')});
@@ -136,7 +194,7 @@ process.on('exit', () => {host?.close(); rmSync(directory, {recursive: true, for
 process.on('SIGTERM', () => process.exit(0));
 server.listen(0, '127.0.0.1', async () => {
     origin = 'http://127.0.0.1:' + server.address().port;
-    host = openTestHost(join(directory, 'billing.sqlite'), model, {hostOrigin: origin});
+    host = openTestHost(join(directory, 'billing.sqlite'), model, {hostOrigin: origin, acceptedTokenKey: Buffer.alloc(32, 23)});
     host.seed();
     await host.run({tenant, jobId: 'first'});
     process.stdout.write(server.address().port + '\n');

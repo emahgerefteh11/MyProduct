@@ -387,6 +387,66 @@ class BrowserImport(unittest.TestCase):
         expect(page.locator('#check')).to_be_disabled()
         self.assertEqual(errors, [])
 
+    def test_private_drilldown_discards_stale_and_delayed_success(self):
+        origin = self.start_node_fixture('private_billing_actions_browser.cjs')
+        context = self.browser.new_context(locale='en-US')
+        self.addCleanup(context.close)
+        page = context.new_page()
+        page.set_default_timeout(10_000)
+        errors = []
+        page.on('pageerror', lambda error: errors.append(str(error)))
+
+        def cookie(value):
+            context.add_cookies([{
+                'name': 'atlas-action-session', 'value': value, 'url': origin, 'httpOnly': True,
+            }])
+
+        def publish(command):
+            request = Request(origin + '/__control?command=' + command, method='POST',
+                              headers={'X-Atlas-Fixture-Control': 'yes'})
+            with urlopen(request, timeout=8) as response:
+                self.assertEqual(json.load(response)['status'], 'completed')
+
+        def click(id):
+            page.locator('#' + id).click()
+
+        def view(state, total='', rows=''):
+            expect(page.locator('#view-status')).to_have_text(state)
+            expect(page.locator('#total')).to_have_text(total)
+            expect(page.locator('#rows')).to_have_text(rows)
+
+        cookie('fx-operator')
+        page.goto(origin + '/detail-view')
+        click('overview-load')
+        view('ready', '100')
+        publish('correction')
+        # The request reaches the server after the correction. Its 409 triggers
+        # a fresh overview without applying a detail from the old revision.
+        click('detail-load')
+        view('ready', '105')
+        click('detail-load')
+        view('detail-ready', '105', '70,35')
+
+        # This time the old request already succeeded before publication.
+        click('hold')
+        click('detail-load')
+        expect(page.locator('#held')).to_have_text('held')
+        publish('newer')
+        click('overview-load')
+        view('ready', '110')
+        click('detail-load')
+        view('detail-ready', '110', '70,40')
+        expect(page.locator('#asked-offset')).to_have_text('0')
+        click('release')
+        expect(page.locator('#held')).to_have_text('released')
+        view('detail-ready', '110', '70,40')
+
+        cookie('fx-revoked')
+        click('detail-load')
+        view('hidden')
+        expect(page.locator('#detail-load')).to_be_disabled()
+        self.assertEqual(errors, [])
+
     def test_samples_save_reopen_download_demo_isolation_and_clear(self):
         self.choose([ROOT / 'mock_aws_cur_iaas_heavy_named20251122.csv', ROOT / 'mock_gcp_billing.csv'])
         expect(self.page.locator('#format-0')).to_have_value('aws')
