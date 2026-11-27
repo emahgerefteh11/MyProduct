@@ -333,10 +333,21 @@ test('accepted overview and detail stay on the same scoped revision even at the 
             assert.equal((await read(query, 'fixture-b')).status, 404);
             assert.equal((await read(query, 'revoked')).status, 401);
         }
+        // The actor remains signed in as a member. Disconnect only removes
+        // write capability; removing the billing grant revokes every read.
+        const disconnect = new Request(origin + '/disconnect', {method: 'POST', headers: {
+            Authorization: 'Bearer fixture-a', Origin: origin, 'X-CSRF-Token': 'fixture-a',
+        }});
+        const endpoints = [{kind: 'selection'}, current, freshDetail, {kind: 'report'},
+            {kind: 'job', jobId: 'newer'}];
+        assert.equal((await host.write(disconnect, {kind: 'disconnect', source, generation: 1})).status, 200);
+        for (const target of endpoints) assert.equal((await read(target)).status, 200);
+        assert.equal((await read(endpoints[0])).body.canManageBilling, false);
         host.revokeRead();
-        assert.equal((await read(current)).status, 404);
-        assert.equal((await read(olderDetail)).status, 404);
-        assert.equal((await read(freshDetail)).status, 404);
+        assert.equal(host.resolveSession(new Request(origin, {headers: {Authorization: 'Bearer fixture-a'}})).tenantId, tenant);
+        for (const target of [...endpoints, olderDetail, {kind: 'job', jobId: 'missing'}]) {
+            assert.deepEqual(await read(target), {status: 404, body: {error: 'Not found.'}});
+        }
     } finally {
         host?.close();
         rmSync(dir, {recursive: true, force: true});

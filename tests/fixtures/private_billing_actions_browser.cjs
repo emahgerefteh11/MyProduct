@@ -124,6 +124,7 @@ async function control(command) {
     }
     if (command === 'state') return Response.json({queued, submits, disconnects});
     if (command === 'viewer' || command === 'manager') host.setManage(command === 'manager');
+    else if (command === 'revoke-read') host.revokeRead();
     else if (command === 'advance-generation') host.advanceGeneration();
     else if (command === 'start' && queued && !work) {
         const jobId = queued;

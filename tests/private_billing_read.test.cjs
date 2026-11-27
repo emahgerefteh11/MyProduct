@@ -33,7 +33,10 @@ function setup() {
     const sessions = new Map([['test-a', 'tenant-a'], ['test-b', 'tenant-b']]);
     const lookups = [];
     const handle = createPrivateBillingRead({
-        resolveSession: async req => ({tenantId: sessions.get(req.headers.get('Authorization'))}),
+        resolveSession: async req => {
+            const actor = req.headers.get('Authorization');
+            return {tenantId: sessions.get(actor), actor};
+        },
         readReport: async query => {
             lookups.push(query);
             if (query.source === 'storage-error') throw new Error('provider-error-detail');
@@ -73,8 +76,8 @@ test('connector reports feed the view selected under the server session without 
     assert.equal(visible.report.TotalBilledCost, 100);
     assert.equal(localReads, 1);
     assert.deepEqual(h.lookups, [
-        {tenant: 'tenant-a', source, period: currentPeriod},
-        {tenant: 'tenant-b', source, period: currentPeriod},
+        {tenant: 'tenant-a', actor: 'test-a', source, period: currentPeriod},
+        {tenant: 'tenant-b', actor: 'test-b', source, period: currentPeriod},
     ]);
 });
 

@@ -73,7 +73,11 @@ function openTestHost(file, h, {hostOrigin = origin, acceptedTokenKey} = {}) {
         FROM job WHERE tenant = ? AND id = ?
     `);
     const getJob = findJob(writer);
-    const getStatus = findJob(reader);
+    const getStatus = reader.prepare(`
+        SELECT j.outcome FROM job j
+        JOIN grant_state g ON g.tenant = j.tenant AND g.actor = ?
+        WHERE j.tenant = ? AND j.id = ?
+    `);
     const readSource = writer.prepare('SELECT generation, mapping AS mappingVersion FROM connection WHERE tenant = ? AND source = ? AND active = 1');
     const accept = writer.prepare(`
         INSERT INTO accepted
@@ -86,7 +90,11 @@ function openTestHost(file, h, {hostOrigin = origin, acceptedTokenKey} = {}) {
            OR (excluded.assembly = accepted.assembly AND excluded.revision = accepted.revision
                AND excluded.mapping > accepted.mapping)
     `);
-    const getReport = reader.prepare('SELECT report, accepted_at FROM accepted WHERE tenant = ? AND source = ? AND period = ?');
+    const getReport = reader.prepare(`
+        SELECT a.report, a.accepted_at FROM accepted a
+        JOIN grant_state g ON g.tenant = a.tenant AND g.actor = ?
+        WHERE a.tenant = ? AND a.source = ? AND a.period = ?
+    `);
     const getSelection = reader.prepare(`
         SELECT c.tenant, c.source, ? AS period, c.generation, c.active, g.can_manage, a.report, a.accepted_at,
                a.tenant AS report_tenant, a.source AS report_source, a.period AS report_period,
@@ -228,8 +236,8 @@ function openTestHost(file, h, {hostOrigin = origin, acceptedTokenKey} = {}) {
         }),
         read: createPrivateBillingRead({
             resolveSession, acceptedTokenKey,
-            readJob({tenant, jobId}) {
-                const job = getStatus.get(tenant, jobId);
+            readJob({tenant, actor, jobId}) {
+                const job = getStatus.get(actor, tenant, jobId);
                 return job && (JSON.parse(job.outcome) ?? {status: h.running === jobId ? 'running' : 'queued'});
             },
             readSelection({tenant, actor, source, period}) {
@@ -242,8 +250,8 @@ function openTestHost(file, h, {hostOrigin = origin, acceptedTokenKey} = {}) {
                         period: row.report_period, report: JSON.parse(row.report), acceptedAt: row.accepted_at,
                         assembly: row.assembly, revision: row.revision, mappingVersion: row.report_mapping}};
             },
-            readReport({tenant, source, period}) {
-                const row = getReport.get(tenant, source, period);
+            readReport({tenant, actor, source, period}) {
+                const row = getReport.get(actor, tenant, source, period);
                 return row && {report: JSON.parse(row.report), acceptedAt: row.accepted_at};
             },
         }),

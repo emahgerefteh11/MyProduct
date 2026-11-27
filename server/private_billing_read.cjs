@@ -33,10 +33,10 @@ function revisionToken(s, key) {
         .digest('hex');
 }
 
-// readSelection must confirm the actor's current read grant and return the
-// connection and optional accepted snapshot in one consistent scoped read.
-// A missing grant/connection/period returns null. A disconnected source may
-// retain a report for authorized readers but must never enable writes.
+// Every read callback must authorize the current actor and read the requested
+// record in one scoped operation. Session identity alone is not a billing grant.
+// Missing records and absent read grants both return null. A disconnected source
+// may retain a report for authorized readers but must never enable writes.
 function createPrivateBillingRead({resolveSession, readReport, readJob, readSelection, acceptedTokenKey}) {
     if (acceptedTokenKey != null && (!Buffer.isBuffer(acceptedTokenKey) || acceptedTokenKey.length < 32)) {
         throw new Error('Invalid accepted revision key.');
@@ -47,20 +47,19 @@ function createPrivateBillingRead({resolveSession, readReport, readJob, readSele
 
         try {
             const session = await resolveSession(request);
-            const tenant = session?.tenantId;
-            if (!valid(ID, tenant)) return json({error: 'Sign-in required.'}, 401);
+            const tenant = session?.tenantId, actor = session?.actor;
+            if (!valid(ID, tenant) || !valid(ID, actor)) return json({error: 'Sign-in required.'}, 401);
 
             if (target?.kind === 'report' && valid(ID, target.source) && valid(PERIOD, target.period)) {
-                const snapshot = await readReport({tenant, source: target.source, period: target.period});
+                const snapshot = await readReport({tenant, actor, source: target.source, period: target.period});
                 if (snapshot == null) return notFound();
                 return json(reportEnvelope(snapshot));
             }
             const kind = target?.kind;
             if ((kind === 'selection' || (key && ['overview', 'detail'].includes(kind))) &&
                 valid(ID, target.source) && valid(PERIOD, target.period)) {
-                if (!valid(ID, session.actor)) return json({error: 'Sign-in required.'}, 401);
                 const {source, period} = target;
-                const selection = await readSelection({tenant, actor: session.actor, source, period});
+                const selection = await readSelection({tenant, actor, source, period});
                 if (selection == null) return notFound();
                 const {generation, active, canManageBilling, snapshot} = selection;
                 if (selection.tenant !== tenant || selection.source !== source || selection.period !== period ||
@@ -93,7 +92,7 @@ function createPrivateBillingRead({resolveSession, readReport, readJob, readSele
                     accepted: snapshot == null ? null : reportEnvelope(snapshot)});
             }
             if (target?.kind === 'job' && valid(ID, target.jobId)) {
-                const job = await readJob({tenant, jobId: target.jobId});
+                const job = await readJob({tenant, actor, jobId: target.jobId});
                 if (job == null) return notFound();
                 if (!JOB_STATES.has(job.status)) return unavailable();
                 return json({status: job.status});

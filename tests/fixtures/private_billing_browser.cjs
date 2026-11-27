@@ -22,9 +22,9 @@ const connector = createLocalCurConnector({
 });
 const accepted = connector.refresh({...scope, manifest});
 const sessions = new Map([
-    ['fx-965ed1', {tenantId: scope.tenant}],
-    ['fx-ab64d3', {tenantId: 'tenant-b'}],
-    ['fx-1186c0', {tenantId: scope.tenant, revoked: true}],
+    ['fx-965ed1', {tenantId: scope.tenant, actor: 'fixture-reader'}],
+    ['fx-ab64d3', {tenantId: 'tenant-b', actor: 'fixture-foreign'}],
+    ['fx-1186c0', {tenantId: scope.tenant, actor: 'fixture-revoked', revoked: true}],
 ]);
 const readPrivate = createPrivateBillingRead({
     resolveSession(request) {
@@ -33,7 +33,7 @@ const readPrivate = createPrivateBillingRead({
         return session?.revoked ? null : session;
     },
     readReport(request) {
-        return request.tenant === scope.tenant && request.source === scope.source &&
+        return request.tenant === scope.tenant && request.actor === 'fixture-reader' && request.source === scope.source &&
             request.period === period ? accepted : null;
     },
     readJob: () => null,
