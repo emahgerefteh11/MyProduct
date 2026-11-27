@@ -13,6 +13,7 @@ const JOB_STATES = new Set(['queued', 'running', 'completed', 'failed', 'cancele
 const headers = {'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff'};
 const json = (body, status = 200, extra = {}) => Response.json(body, {status, headers: {...headers, ...extra}});
 const notFound = () => json({error: 'Not found.'}, 404);
+const stale = () => json({error: 'Billing report changed. Reload the overview.'}, 409);
 const unavailable = () => json({error: 'Private billing is unavailable. Try again.'}, 503);
 const valid = (pattern, value) => typeof value === 'string' && pattern.test(value);
 
@@ -37,7 +38,12 @@ function revisionToken(s, key) {
 // record in one scoped operation. Session identity alone is not a billing grant.
 // Missing records and absent read grants both return null. A disconnected source
 // may retain a report for authorized readers but must never enable writes.
-function createPrivateBillingRead({resolveSession, readReport, readJob, readSelection, acceptedTokenKey}) {
+function matchesScope(row, {tenant, source, period}) {
+    return row.tenant === tenant && row.source === source && row.period === period;
+}
+
+function createPrivateBillingRead({resolveSession, readReport, readJob, readSelection, acceptedTokenKey,
+    readDetailMetadata, readDetailBody}) {
     if (acceptedTokenKey != null && (!Buffer.isBuffer(acceptedTokenKey) || acceptedTokenKey.length < 32)) {
         throw new Error('Invalid accepted revision key.');
     }
@@ -56,35 +62,45 @@ function createPrivateBillingRead({resolveSession, readReport, readJob, readSele
                 return json(reportEnvelope(snapshot));
             }
             const kind = target?.kind;
-            if ((kind === 'selection' || (key && ['overview', 'detail'].includes(kind))) &&
+            if (kind === 'detail' && key && typeof readDetailMetadata === 'function' && typeof readDetailBody === 'function' &&
                 valid(ID, target.source) && valid(PERIOD, target.period)) {
+                const scope = {tenant, actor, source: target.source, period: target.period};
+                const snapshot = await readDetailMetadata(scope);
+                if (snapshot == null) return notFound();
+                if (!matchesScope(snapshot, scope)) return unavailable();
+                if (!validDetail(target.dimension, target.offset) || !valid(ACCEPTED_TOKEN, target.acceptedRevision)) {
+                    return json({error: 'An accepted revision and detail selection are required.'}, 400);
+                }
+                const acceptedRevision = revisionToken(snapshot, key);
+                if (!timingSafeEqual(Buffer.from(target.acceptedRevision), Buffer.from(acceptedRevision))) return stale();
+
+                // The body lookup must recheck the live grant and exact tuple
+                // in the same operation that reads report bytes.
+                const {assembly, revision, mappingVersion} = snapshot;
+                const matched = await readDetailBody({...scope, assembly, revision, mappingVersion});
+                if (matched == null) {
+                    const current = await readDetailMetadata(scope);
+                    if (current == null) return notFound();
+                    if (!matchesScope(current, scope) || revisionToken(current, key) === acceptedRevision) return unavailable();
+                    return stale();
+                }
+                if (!matchesScope(matched, scope) || revisionToken(matched, key) !== acceptedRevision) return unavailable();
+                const {report} = reportEnvelope(matched);
+                const detail = projectPrivateBillingDetail(report, target.dimension, target.offset);
+                return detail == null ? notFound() : json({acceptedRevision, detail});
+            }
+            if ((kind === 'selection' || (kind === 'overview' && key)) && valid(ID, target.source) && valid(PERIOD, target.period)) {
                 const {source, period} = target;
-                const selection = await readSelection({tenant, actor, source, period});
+                const scope = {tenant, actor, source, period};
+                const selection = await readSelection(scope);
                 if (selection == null) return notFound();
                 const {generation, active, canManageBilling, snapshot} = selection;
-                if (selection.tenant !== tenant || selection.source !== source || selection.period !== period ||
-                    !Number.isSafeInteger(generation) || generation < 1 || typeof active !== 'boolean' ||
-                    typeof canManageBilling !== 'boolean' || (snapshot != null &&
-                    (snapshot.tenant !== tenant || snapshot.source !== source || snapshot.period !== period))) {
-                    return unavailable();
-                }
-                if (kind !== 'selection') {
+                if (!matchesScope(selection, scope) || !Number.isSafeInteger(generation) || generation < 1 ||
+                    typeof active !== 'boolean' || typeof canManageBilling !== 'boolean' ||
+                    (snapshot != null && !matchesScope(snapshot, scope))) return unavailable();
+                if (kind === 'overview') {
                     if (snapshot == null) return notFound();
-                    const acceptedRevision = revisionToken(snapshot, key);
-                    if (kind === 'overview') {
-                        return json({acceptedRevision, overview: projectPrivateBillingOverview(snapshot)});
-                    }
-                    if (!validDetail(target.dimension, target.offset) || !valid(ACCEPTED_TOKEN, target.acceptedRevision)) {
-                        return json({error: 'An accepted revision and detail selection are required.'}, 400);
-                    }
-                    // Not an HTTP If-Match header: this is an application-level
-                    // precondition for the same scoped accepted snapshot.
-                    if (!timingSafeEqual(Buffer.from(target.acceptedRevision), Buffer.from(acceptedRevision))) {
-                        return json({error: 'Billing report changed. Reload the overview.'}, 409);
-                    }
-                    const {report} = reportEnvelope(snapshot);
-                    const detail = projectPrivateBillingDetail(report, target.dimension, target.offset);
-                    return detail == null ? notFound() : json({acceptedRevision, detail});
+                    return json({acceptedRevision: revisionToken(snapshot, key), overview: projectPrivateBillingOverview(snapshot)});
                 }
                 return json({scope: {source, period, generation},
                     connectionStatus: active ? 'active' : 'disconnected',

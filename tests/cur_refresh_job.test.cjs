@@ -316,16 +316,27 @@ test('accepted overview and detail stay on the same scoped revision even at the 
         const old = await read(olderDetail);
         assert.equal(old.status, 200);
         assert.ok(old.body.detail.entries.some(row => row.amount === 35));
-        h.hour = 3;
-        assert.equal((await host.run({tenant, jobId: 'newer'})).status, 'completed');
-        const stale = await read(olderDetail);
-        assert.deepEqual(stale, {status: 409, body: {error: 'Billing report changed. Reload the overview.'}});
+        const bodies = h.detailBodiesRead;
+        assert.equal(bodies, 1);
+        h.beforeDetailBody = async () => {
+            h.beforeDetailBody = null;
+            h.hour = 3;
+            assert.equal((await host.run({tenant, jobId: 'newer'})).status, 'completed');
+        };
+        const conflict = {status: 409, body: {error: 'Billing report changed. Reload the overview.'}};
+        assert.deepEqual(await read(olderDetail), conflict, 'revision changed between metadata and report query');
+        assert.equal(h.detailBodiesRead, bodies);
+        h.beforeDetailBody = () => assert.fail('stale metadata should not query the report body');
+        assert.deepEqual(await read(olderDetail), conflict, 'stale at the metadata query');
+        assert.equal(h.detailBodiesRead, bodies);
+        h.beforeDetailBody = null;
         const fresh = await read(current);
         assert.equal(fresh.body.overview.totals.amount, 110);
         assert.equal(fresh.body.overview.lastSuccessfulSync, first.body.overview.lastSuccessfulSync);
         assert.notEqual(fresh.body.acceptedRevision, first.body.acceptedRevision);
         const freshDetail = requestDetail(fresh.body.acceptedRevision);
         assert.ok((await read(freshDetail)).body.detail.entries.some(row => row.amount === 40));
+        assert.equal(h.detailBodiesRead, bodies + 1);
         assert.equal((await read({...freshDetail, offset: -1})).status, 400);
         assert.equal((await read({...freshDetail, dimension: 'constructor'})).status, 400);
         assert.equal((await read({...freshDetail, offset: 100_000})).status, 404);
@@ -343,7 +354,10 @@ test('accepted overview and detail stay on the same scoped revision even at the 
         assert.equal((await host.write(disconnect, {kind: 'disconnect', source, generation: 1})).status, 200);
         for (const target of endpoints) assert.equal((await read(target)).status, 200);
         assert.equal((await read(endpoints[0])).body.canManageBilling, false);
-        host.revokeRead();
+        const beforeGrantChange = h.detailBodiesRead;
+        h.beforeDetailBody = () => { h.beforeDetailBody = null; host.revokeRead(); };
+        assert.deepEqual(await read(freshDetail), {status: 404, body: {error: 'Not found.'}});
+        assert.equal(h.detailBodiesRead, beforeGrantChange);
         assert.equal(host.resolveSession(new Request(origin, {headers: {Authorization: 'Bearer fixture-a'}})).tenantId, tenant);
         for (const target of [...endpoints, olderDetail, {kind: 'job', jobId: 'missing'}]) {
             assert.deepEqual(await read(target), {status: 404, body: {error: 'Not found.'}});

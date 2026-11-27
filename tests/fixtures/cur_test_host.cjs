@@ -110,6 +110,16 @@ function openTestHost(file, h, {hostOrigin = origin, acceptedTokenKey} = {}) {
         FROM accepted a JOIN grant_state g ON g.tenant = a.tenant AND g.actor = ?
         WHERE a.tenant = ? AND a.source = ? AND a.period = ?
     `);
+    const detailScope = `
+        SELECT a.tenant, a.source, a.period, a.assembly, a.revision, a.mapping AS mappingVersion
+    `;
+    const detailFrom = `
+        FROM accepted a JOIN grant_state g ON g.tenant = a.tenant AND g.actor = ?
+        WHERE a.tenant = ? AND a.source = ? AND a.period = ?
+    `;
+    const getDetailMetadata = reader.prepare(detailScope + detailFrom);
+    const getDetailBody = reader.prepare(detailScope + ', a.report, a.accepted_at ' + detailFrom +
+        ' AND a.assembly = ? AND a.revision = ? AND a.mapping = ?');
     const readStreamObject = fixtureReader(h);
     const canManage = writer.prepare('SELECT can_manage FROM grant_state WHERE tenant = ? AND actor = ?');
     const resolveSession = request => {
@@ -239,6 +249,18 @@ function openTestHost(file, h, {hostOrigin = origin, acceptedTokenKey} = {}) {
             readJob({tenant, actor, jobId}) {
                 const job = getStatus.get(actor, tenant, jobId);
                 return job && (JSON.parse(job.outcome) ?? {status: h.running === jobId ? 'running' : 'queued'});
+            },
+            readDetailMetadata({tenant, actor, source, period}) {
+                return getDetailMetadata.get(actor, tenant, source, period);
+            },
+            async readDetailBody({tenant, actor, source, period, assembly, revision, mappingVersion}) {
+                await h.beforeDetailBody?.();
+                const row = getDetailBody.get(actor, tenant, source, period, assembly, revision, mappingVersion);
+                if (!row) return null;
+                h.detailBodiesRead = (h.detailBodiesRead ?? 0) + 1;
+                return {tenant: row.tenant, source: row.source, period: row.period, assembly: row.assembly,
+                    revision: row.revision, mappingVersion: row.mappingVersion,
+                    acceptedAt: row.accepted_at, report: JSON.parse(row.report)};
             },
             readSelection({tenant, actor, source, period}) {
                 if (period !== '2026-01') return null;
