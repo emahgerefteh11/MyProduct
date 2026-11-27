@@ -50,7 +50,17 @@ function partKeys(manifest) {
     return [...keys].sort();
 }
 
-function createLocalCurConnector({readObject, readManifest, readStreamObject, now = () => new Date()}) {
+function ownershipMapping(value) {
+    if (value == null) return {version: 0, productColumn: null};
+    const {version, productColumn = null} = value;
+    if (!Number.isSafeInteger(version) || version < 1 ||
+        (productColumn !== null && (typeof productColumn !== 'string' || !productColumn || productColumn.trim() !== productColumn))) {
+        throw new Error('Expected a versioned, exact ownership column or explicit automatic mapping.');
+    }
+    return {version, productColumn};
+}
+
+function createLocalCurConnector({readObject, readManifest, readStreamObject, readSourceMapping, now = () => new Date()}) {
     const accepted = new Map();
     const keyFor = ({tenant, source, start, end}) => JSON.stringify([tenant, source, start, end]);
 
@@ -95,7 +105,17 @@ function createLocalCurConnector({readObject, readManifest, readStreamObject, no
         if (files.some(file => !file.records.length && !populatedHeaders.has(JSON.stringify(file.headers)))) {
             throw new Error('An empty CUR partition must match the headers of a populated part.');
         }
-        const configs = populated.map(file => BillingImport.detect(file.headers));
+        const mapping = current?.mapping;
+        const configs = populated.map(file => {
+            const config = BillingImport.detect(file.headers);
+            if (mapping?.productColumn) {
+                if (!file.headers.includes(mapping.productColumn)) {
+                    throw new Error('The configured ownership column is not present in every populated CUR part.');
+                }
+                config.mapping.product = mapping.productColumn;
+            }
+            return config;
+        });
         if (configs.some(config => config.format !== 'aws')) throw new Error('Expected classic AWS CUR CSV columns.');
         for (const [i, file] of populated.entries()) {
             const {billing_start, billing_end} = configs[i].mapping;
@@ -123,17 +143,26 @@ function createLocalCurConnector({readObject, readManifest, readStreamObject, no
             // Re-read at commit time, not before an awaited manifest read.
             const last = accepted.get(key);
             if (assemblyId && last?.assemblyId > assemblyId) return structuredClone(last);
-            if (current && last && last.assemblyId === assemblyId) {
-                if (last.revision !== revision || last.manifestSignature !== current.signature) {
-                    throw new Error('CUR data changed an accepted assembly; keeping the previous report.');
+            if (current && last) {
+                const active = last.mappingVersion ?? 0;
+                const incoming = mapping?.version ?? 0;
+                if (active > incoming) throw new Error('A stale CUR ownership mapping cannot publish.');
+                if (active === incoming && (last.productColumn ?? null) !== (mapping?.productColumn ?? null)) {
+                    throw new Error('CUR ownership mapping changed without a new version.');
                 }
-                return structuredClone(last);
+                if (last.assemblyId === assemblyId) {
+                    if (last.revision !== revision || last.manifestSignature !== current.signature) {
+                        throw new Error('CUR data changed an accepted assembly; keeping the previous report.');
+                    }
+                    if (active === incoming) return structuredClone(last);
+                }
             }
             const report = result.report;
             const acceptedAt = now().toISOString();
             Object.assign(report.analysis, {importMethod: 'local-cur-connector', generatedAt: acceptedAt});
             const snapshot = {revision, acceptedAt, report};
             if (current) Object.assign(snapshot, {assemblyId, manifestSignature: current.signature});
+            if (mapping?.version) Object.assign(snapshot, {mappingVersion: mapping.version, productColumn: mapping.productColumn});
             accepted.set(key, snapshot);
             return structuredClone(snapshot);
         }
@@ -156,6 +185,9 @@ function createLocalCurConnector({readObject, readManifest, readStreamObject, no
                 getObject: input => readStreamObject({tenant, source, ...input}),
                 key, maxBytes, ifMatch, signal,
             });
+            // Source mapping is server-owned. Do not accept it from refresh input.
+            const resolveMapping = async () => ownershipMapping(await readSourceMapping?.({tenant, source}));
+            const mapping = await resolveMapping();
             const current = await read(manifestKey, MANIFEST_LIMIT);
             const validate = bytes => keptManifest(JSON.parse(new TextDecoder('utf-8', {fatal: true}).decode(bytes)), manifestKey);
             const {manifest, signature} = validate(current.bytes);
@@ -167,8 +199,15 @@ function createLocalCurConnector({readObject, readManifest, readStreamObject, no
                 compressedLeft -= bytes.length;
                 objects.set(key, bytes);
             }
-            const readAgain = async () => validate((await read(manifestKey, MANIFEST_LIMIT, current.etag ?? undefined)).bytes);
-            return refresh({tenant, source, manifest}, {signature, objects, signal, readAgain});
+            const readAgain = async () => {
+                const latest = validate((await read(manifestKey, MANIFEST_LIMIT, current.etag ?? undefined)).bytes);
+                const active = await resolveMapping();
+                if (mapping.version !== active.version || mapping.productColumn !== active.productColumn) {
+                    throw new Error('CUR ownership mapping advanced during refresh; retry with the current mapping.');
+                }
+                return latest;
+            };
+            return refresh({tenant, source, manifest}, {signature, objects, mapping, signal, readAgain});
         },
         refreshLatest({tenant, source, manifestKey}) {
             if (!readManifest || !tenant || !source || typeof manifestKey !== 'string' || !manifestKey) {

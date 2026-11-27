@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const {webcrypto} = require('node:crypto');
 const {readFileSync} = require('node:fs');
 const {join} = require('node:path');
+const {Readable} = require('node:stream');
 const test = require('node:test');
 const vm = require('node:vm');
 const {gzipSync} = require('node:zlib');
@@ -19,7 +20,7 @@ const source = 'fixture-source';
 const period = {start: '2026-01-01T00:00:00.000Z', end: '2026-02-01T00:00:00.000Z'};
 const scope = {tenant, source, ...period};
 
-async function upload(bytes, costColumn = null) {
+async function upload(bytes, costColumn = null, productColumn = null) {
     const worker = {postMessage: null};
     const context = vm.createContext({TextDecoder, crypto: webcrypto, self: worker});
     context.importScripts = file => {
@@ -39,6 +40,7 @@ async function upload(bytes, costColumn = null) {
         {name: 'synthetic.csv', size: bytes.length, arrayBuffer: async () => bytes},
     ]});
     if (costColumn) file.detected.mapping.cost = costColumn;
+    if (productColumn) file.detected.mapping.product = productColumn;
     const result = await run({type: 'validate', configs: [file.detected], currency: ''});
     assert.equal(result.ok, true, JSON.stringify(result.errors));
     return result.report;
@@ -271,4 +273,64 @@ test('pilot parity is pinned to the exact cost column, not the billed label alon
     assert.equal(net.TotalBilledCost, 88);
     assert.equal(net.products.find(p => p.Product === 'Payments').BilledCost, 58);
     assert.equal(net.allocation.unallocatedProductCost, 30);
+});
+
+test('an exact server-owned product alias matches the manual upload and can remap one unchanged assembly', async () => {
+    const dir = 'billing/synthetic-cur/20260101-20260201';
+    const assemblyId = '20260202T010000Z';
+    const manifestKey = dir + '/synthetic-cur-Manifest.json';
+    const dataKey = dir + '/' + assemblyId + '/synthetic-cur-00001.csv.gz';
+    const kept = {...manifest, assemblyId, reportKeys: [dataKey]};
+    const owner = 'resourceTags/user:Owner';
+    const costCenter = 'resourceTags/user:CostCenter';
+    const [header, storage, credit, compute] = raw.toString().trimEnd().split('\n');
+    const csv = Buffer.from([header.replace('resourceTags/user:Product', owner) + ',' + costCenter,
+        storage + ',Shared', credit + ',Shared', compute + ',Shared', ''].join('\n'));
+    let config = {version: 1, productColumn: owner};
+    let time = new Date('2026-02-02T01:05:00Z');
+    let switchWhileReading = null;
+    const connector = createLocalCurConnector({
+        readSourceMapping: async request => {
+            assert.deepEqual(request, {tenant, source});
+            return config;
+        },
+        readStreamObject: async ({key}) => {
+            if (key === manifestKey) return {Body: Readable.from([Buffer.from(JSON.stringify(kept))])};
+            assert.equal(key, dataKey);
+            if (switchWhileReading) config = switchWhileReading;
+            return {Body: Readable.from([gzipSync(csv)])};
+        },
+        now: () => time,
+    });
+    const refresh = () => connector.refreshLatestAsync({tenant, source, manifestKey, productColumn: 'ignored'});
+    const first = await refresh();
+    assertReport(await upload(csv, null, owner), 100, 30);
+    assertReport(first.report, 100, 30);
+    assert.equal(first.mappingVersion, 1);
+    assert.equal(first.report.analysis.sources[0].columnMapping.product, owner);
+    assert.deepEqual(await refresh(), first);
+
+    time = new Date('2026-02-02T02:05:00Z');
+    config = {version: 2, productColumn: owner};
+    switchWhileReading = {version: 3, productColumn: costCenter};
+    await assert.rejects(refresh(), /mapping advanced during refresh/);
+    assert.deepEqual(connector.get(scope), first);
+
+    switchWhileReading = null;
+    const updated = await refresh();
+    const manual = await upload(csv, null, costCenter);
+    assert.equal(updated.revision, first.revision, 'immutable input bytes');
+    assert.equal(updated.mappingVersion, 3);
+    assert.equal(updated.acceptedAt, time.toISOString());
+    assert.equal(updated.report.TotalBilledCost, 100);
+    assert.deepEqual(updated.report.products, structuredClone(manual.products));
+    assert.equal(updated.report.allocation.unallocatedProductCost, 0);
+
+    config = {version: 3, productColumn: owner};
+    await assert.rejects(refresh(), /without a new version/);
+    config = {version: 2, productColumn: owner};
+    await assert.rejects(refresh(), /stale CUR ownership mapping/);
+    config = {version: 4, productColumn: 'resourceTags/user:costcenter'};
+    await assert.rejects(refresh(), /not present in every populated/);
+    assert.deepEqual(connector.get(scope), updated);
 });
