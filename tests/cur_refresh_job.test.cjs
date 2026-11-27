@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const {mkdtempSync, readFileSync, rmSync} = require('node:fs');
 const {tmpdir} = require('node:os');
 const {join} = require('node:path');
-const {DatabaseSync} = require('node:sqlite');
+const {backup, DatabaseSync} = require('node:sqlite');
 const {Readable} = require('node:stream');
 const test = require('node:test');
 const {gzipSync} = require('node:zlib');
@@ -156,6 +156,7 @@ test('expiry during final manifest verification retains the last report; retry r
 function openTestHost(file, h) {
     const writer = new DatabaseSync(file);
     writer.exec(`
+        PRAGMA journal_mode = WAL;
         PRAGMA synchronous = FULL;
         CREATE TABLE IF NOT EXISTS job (
             tenant TEXT, id TEXT, source TEXT, period TEXT, generation INTEGER,
@@ -170,6 +171,7 @@ function openTestHost(file, h) {
             mapping INTEGER, report TEXT, accepted_at TEXT, PRIMARY KEY (tenant, source, period)
         );
     `);
+    assert.equal(writer.prepare('PRAGMA journal_mode').get().journal_mode, 'wal');
     const reader = new DatabaseSync(file, {readOnly: true});
     const findJob = db => db.prepare(`
         SELECT tenant, id AS jobId, source, period, generation, mapping AS mappingVersion, outcome
@@ -193,6 +195,7 @@ function openTestHost(file, h) {
     const readStreamObject = fixtureReader(h);
     return {
         close: () => { reader.close(); writer.close(); },
+        backupTo: destination => backup(reader, destination),
         seed() {
             writer.prepare('INSERT INTO connection VALUES (?, ?, 1, 0)').run(tenant, source);
             const insert = writer.prepare('INSERT INTO job VALUES (?, ?, ?, ?, 1, 0, NULL)');
@@ -306,6 +309,56 @@ test('an on-disk restart preserves a committed correction and a private historic
         await expectReport(110, 3);
     } finally {
         host?.close();
+        rmSync(dir, {recursive: true, force: true});
+    }
+});
+
+test('a live SQLite backup restores the report and its job outcome at the same checkpoint', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'atlas-backup-'));
+    const file = join(dir, 'active.sqlite');
+    const snapshot = join(dir, 'restored.sqlite');
+    const h = {hour: 1, cloudCalls: 0};
+    const report = {kind: 'report', source, period: '2026-01'};
+    const run = (host, jobId) => host.run({tenant, jobId});
+    const read = (host, target, token = 'fixture-a') =>
+        host.read(new Request('https://atlas.invalid', {headers: {Authorization: 'Bearer ' + token}}), target);
+    let active, restored;
+    try {
+        active = openTestHost(file, h);
+        active.seed();
+        await run(active, 'first');
+        h.hour = 2;
+        const correction = await run(active, 'correction');
+        assert.ok((await active.backupTo(snapshot)) > 0);
+
+        h.hour = 3;
+        const newer = await run(active, 'newer');
+        assert.equal((await (await read(active, report)).json()).report.TotalBilledCost, 110);
+
+        // Never restore over the active storage. Post-snapshot $110 must not appear
+        // in the .sqlite backup or be implied by the restored job table.
+        restored = openTestHost(snapshot, h);
+        const result = await read(restored, report);
+        assert.equal(result.status, 200);
+        assert.equal(result.headers.get('Cache-Control'), 'private, no-store');
+        const body = await result.json();
+        assert.equal(body.report.TotalBilledCost, 105);
+        assert.equal(body.lastSuccessfulSync, correction.publishedAt);
+        assert.notEqual(body.lastSuccessfulSync, newer.publishedAt);
+        const restoredJob = {kind: 'job', jobId: 'correction'};
+        assert.deepEqual(await (await read(restored, restoredJob)).json(), {status: 'completed'});
+        assert.deepEqual(await (await read(restored, {kind: 'job', jobId: 'newer'})).json(), {status: 'queued'});
+
+        assert.equal((await read(restored, report, 'fixture-b')).status, 404);
+        assert.equal((await read(restored, restoredJob, 'fixture-b')).status, 404);
+        assert.equal((await read(restored, report, 'invalid')).status, 401);
+        const calls = h.cloudCalls;
+        assert.deepEqual(await run(restored, 'correction'), correction);
+        assert.equal(h.cloudCalls, calls);
+        assert.equal((await (await read(active, report)).json()).report.TotalBilledCost, 110);
+    } finally {
+        restored?.close();
+        active?.close();
         rmSync(dir, {recursive: true, force: true});
     }
 });
