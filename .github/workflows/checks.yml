@@ -18,7 +18,7 @@ jobs:
       - run: python -m unittest discover -s tests -p 'test_*.py' -v
       - run: node tests/dashboard.test.cjs
       - run: node tests/import.test.cjs
-      - run: node --test tests/cur_parity.test.cjs tests/report_view_session.test.cjs tests/private_billing_read.test.cjs tests/bounded_s3_read.test.cjs
+      - run: node --test tests/cur_parity.test.cjs tests/report_view_session.test.cjs tests/private_billing_read.test.cjs tests/bounded_s3_read.test.cjs tests/async_cur_refresh.test.cjs
       - run: node tests/adoption.test.cjs
       - name: Check the generated demo is current
         run: |

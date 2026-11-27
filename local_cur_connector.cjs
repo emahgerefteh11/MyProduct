@@ -1,10 +1,12 @@
 'use strict';
 
-// In-memory, credential-free adapter for classic CUR CSV manifests. The reader
-// is scoped by its caller to one source; this is not a hosted AWS connector.
+// In-memory, credential-free adapter for classic CUR CSV manifests. Readers
+// are scoped by their caller; this is not a hosted AWS connector.
 const {createHash} = require('node:crypto');
 const {gunzipSync} = require('node:zlib');
 const BillingImport = require('./billing_import.js');
+const {readBoundedS3Object} = require('./server/bounded_s3_read.cjs');
+const MANIFEST_LIMIT = 256 * 1024;
 
 function periodDate(value) {
     if (typeof value !== 'string' || !/^\d{8}T000000\.000Z$/.test(value)) return null;
@@ -38,24 +40,29 @@ function keptManifest(manifest, manifestKey) {
     return {manifest: {assemblyId, reportName, billingPeriod: {...billingPeriod}, reportKeys: [...reportKeys]}, signature};
 }
 
-function createLocalCurConnector({readObject, readManifest, now = () => new Date()}) {
+function partKeys(manifest) {
+    const keys = manifest.reportKeys;
+    if (!Array.isArray(keys) || !keys.length || keys.length > BillingImport.LIMITS.files ||
+        keys.some(key => typeof key !== 'string' || !key.endsWith('.csv.gz')) ||
+        new Set(keys).size !== keys.length) {
+        throw new Error('Expected unique gzip CSV report object keys within the import file limit.');
+    }
+    return [...keys].sort();
+}
+
+function createLocalCurConnector({readObject, readManifest, readStreamObject, now = () => new Date()}) {
     const accepted = new Map();
     const keyFor = ({tenant, source, start, end}) => JSON.stringify([tenant, source, start, end]);
 
-    // The local API is synchronous. The optional final pointer read happens
-    // after validation and before committing anything to accepted storage.
+    // Final pointer verification happens after validating all parts and before
+    // committing. A streamed refresh may pause for that verification.
     function refresh({tenant, source, manifest}, current = null) {
         const start = periodDate(manifest?.billingPeriod?.start);
         const end = periodDate(manifest?.billingPeriod?.end);
         if (!tenant || !source || !start || !end || start >= end) {
             throw new Error('A tenant, source and valid CUR billing period are required.');
         }
-        const keys = manifest.reportKeys;
-        if (!Array.isArray(keys) || !keys.length || keys.length > BillingImport.LIMITS.files ||
-            keys.some(key => typeof key !== 'string' || !key.endsWith('.csv.gz')) ||
-            new Set(keys).size !== keys.length) {
-            throw new Error('Expected unique gzip CSV report object keys within the import file limit.');
-        }
+        const keys = partKeys(manifest);
 
         const scope = {tenant, source, start, end};
         const key = keyFor(scope);
@@ -67,8 +74,8 @@ function createLocalCurConnector({readObject, readManifest, now = () => new Date
         }
 
         let bytesLeft = BillingImport.LIMITS.bytes;
-        const files = [...keys].sort().map(key => {
-            const compressed = readObject({tenant, source, key});
+        const files = keys.map(key => {
+            const compressed = current?.objects ? current.objects.get(key) : readObject({tenant, source, key});
             if (!Buffer.isBuffer(compressed) || compressed.length > BillingImport.LIMITS.bytes || !bytesLeft) {
                 throw new Error('CUR object is missing or exceeds the import byte limit.');
             }
@@ -108,17 +115,29 @@ function createLocalCurConnector({readObject, readManifest, now = () => new Date
         const result = BillingImport.validate(populated, configs, '');
         if (!result.ok) throw new Error(result.errors[0]?.message ?? 'CUR validation failed.');
         if (!result.report.analysis.currency) throw new Error('CUR currency must be specified.');
-        if (current && current.readAgain().signature !== current.signature) {
-            throw new Error('CUR current manifest advanced during refresh; retry the new revision.');
+        function finish(latest) {
+            current?.signal?.throwIfAborted();
+            if (current && latest.signature !== current.signature) {
+                throw new Error('CUR current manifest advanced during refresh; retry the new revision.');
+            }
+            // Re-read at commit time, not before an awaited manifest read.
+            const last = accepted.get(key);
+            if (assemblyId && last?.assemblyId > assemblyId) return structuredClone(last);
+            if (current && last && last.assemblyId === assemblyId) {
+                if (last.revision !== revision || last.manifestSignature !== current.signature) {
+                    throw new Error('CUR data changed an accepted assembly; keeping the previous report.');
+                }
+                return structuredClone(last);
+            }
+            const report = result.report;
+            const acceptedAt = now().toISOString();
+            Object.assign(report.analysis, {importMethod: 'local-cur-connector', generatedAt: acceptedAt});
+            const snapshot = {revision, acceptedAt, report};
+            if (current) Object.assign(snapshot, {assemblyId, manifestSignature: current.signature});
+            accepted.set(key, snapshot);
+            return structuredClone(snapshot);
         }
-        if (identical && previous.assemblyId === assemblyId) return structuredClone(previous);
-        const report = result.report;
-        const acceptedAt = now().toISOString();
-        Object.assign(report.analysis, {importMethod: 'local-cur-connector', generatedAt: acceptedAt});
-        const snapshot = {revision, acceptedAt, report};
-        if (current) Object.assign(snapshot, {assemblyId, manifestSignature: current.signature});
-        accepted.set(key, snapshot);
-        return structuredClone(snapshot);
+        return current?.objects ? current.readAgain().then(finish) : finish(current?.readAgain());
     }
 
     return {
@@ -126,8 +145,30 @@ function createLocalCurConnector({readObject, readManifest, now = () => new Date
             return structuredClone(accepted.get(keyFor(scope)) ?? null);
         },
         refresh(input) {
-            if (readManifest) throw new Error('Versioned connectors must refresh from the current CUR manifest.');
+            if (readManifest || readStreamObject) throw new Error('Versioned connectors must refresh from the current CUR manifest.');
             return refresh(input);
+        },
+        async refreshLatestAsync({tenant, source, manifestKey, signal}) {
+            if (!readStreamObject || !tenant || !source || typeof manifestKey !== 'string' || !manifestKey) {
+                throw new Error('A tenant, source, manifest key, and scoped stream reader are required.');
+            }
+            const read = (key, maxBytes, ifMatch) => readBoundedS3Object({
+                getObject: input => readStreamObject({tenant, source, ...input}),
+                key, maxBytes, ifMatch, signal,
+            });
+            const current = await read(manifestKey, MANIFEST_LIMIT);
+            const validate = bytes => keptManifest(JSON.parse(new TextDecoder('utf-8', {fatal: true}).decode(bytes)), manifestKey);
+            const {manifest, signature} = validate(current.bytes);
+            const objects = new Map();
+            let compressedLeft = BillingImport.LIMITS.bytes;
+            for (const key of partKeys(manifest)) {
+                if (!compressedLeft) throw new Error('CUR assembly exceeds the compressed byte limit.');
+                const {bytes} = await read(key, compressedLeft);
+                compressedLeft -= bytes.length;
+                objects.set(key, bytes);
+            }
+            const readAgain = async () => validate((await read(manifestKey, MANIFEST_LIMIT, current.etag ?? undefined)).bytes);
+            return refresh({tenant, source, manifest}, {signature, objects, signal, readAgain});
         },
         refreshLatest({tenant, source, manifestKey}) {
             if (!readManifest || !tenant || !source || typeof manifestKey !== 'string' || !manifestKey) {
