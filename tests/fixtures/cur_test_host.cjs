@@ -37,7 +37,13 @@ function fixtureReader(h, session) {
             }
             assert.equal(Key, latest.reportKeys[0]);
             if (h.hook) await h.hook();
-            return {Body: Readable.from([gzipSync(csv.replace(',30,USD,', ',' + (25 + 5 * h.hour) + ',USD,'))])};
+            let report = csv.replace(',30,USD,', ',' + (25 + 5 * h.hour) + ',USD,');
+            if (h.largeFixture) {
+                const zeroCost = Array.from({length: 24_997}, (_, i) =>
+                    '2026-01-01,2026-02-01,0,USD,AmazonEC2,Usage,Synthetic-' + i);
+                report = report.trimEnd() + '\n' + zeroCost.join('\n') + '\n';
+            }
+            return {Body: Readable.from([gzipSync(report)])};
         },
     });
 }

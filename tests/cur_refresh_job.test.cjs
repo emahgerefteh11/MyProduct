@@ -1,11 +1,14 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const {spawnSync} = require('node:child_process');
-const {mkdtempSync, rmSync} = require('node:fs');
+const {spawn, spawnSync} = require('node:child_process');
+const {once} = require('node:events');
+const {mkdtempSync, rmSync, statSync, writeFileSync} = require('node:fs');
 const {tmpdir} = require('node:os');
 const {join} = require('node:path');
 const test = require('node:test');
+const {performance} = require('node:perf_hooks');
+const {createInterface} = require('node:readline');
 const {createCurRefreshJobRunner} = require('../server/cur_refresh_job.cjs');
 
 const {tenant, source, origin, manifestFor, manifestKey, fixtureReader, openTestHost} = require('./fixtures/cur_test_host.cjs');
@@ -465,4 +468,69 @@ test('abrupt local writer replacement restores either the whole old or the whole
             rmSync(dir, {recursive: true, force: true});
         }
     });
+});
+
+test('detail reads stay revision-consistent while a separate refresh holds and commits its writes', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'atlas-reader-writer-overlap-'));
+    const file = join(dir, 'report.sqlite');
+    const gate = join(dir, 'release');
+    const largeFixture = process.env.ATLAS_LARGE_REFRESH_REHEARSAL === '1';
+    const h = {hour: 1, cloudCalls: 0, largeFixture};
+    const target = {source, period: '2026-01'};
+    const request = new Request(origin + '/private', {headers: {Authorization: 'Bearer fixture-a'}});
+    let host, child, closed, lines;
+    try {
+        host = openTestHost(file, h, {acceptedTokenKey: Buffer.alloc(32, 21)});
+        host.seed();
+        assert.equal((await host.run({tenant, jobId: 'first'})).status, 'completed');
+        const read = async extra => {
+            const result = await host.read(request, {...target, ...extra});
+            return {status: result.status, data: await result.json()};
+        };
+        const spec = revision => ({kind: 'detail', dimension: 'products', offset: 0, acceptedRevision: revision});
+        const current = await read({kind: 'overview'});
+        assert.equal(current.status, 200);
+        assert.equal(current.data.overview.totals.rowCount, largeFixture ? 25_000 : 3);
+        const old = spec(current.data.acceptedRevision);
+        child = spawn(process.execPath, [join(__dirname, 'fixtures', 'cur_overlap_worker.cjs'),
+            file, gate, largeFixture ? 'large' : 'small'], {stdio: ['ignore', 'pipe', 'pipe'], timeout: 45_000});
+        let stderr = '';
+        child.stderr.on('data', data => {stderr = (stderr + data).slice(-8192);});
+        closed = once(child, 'close');
+        // Attach a rejection handler immediately so a spawn error is not unhandled.
+        closed.catch(() => {});
+        lines = createInterface({input: child.stdout})[Symbol.asyncIterator]();
+        assert.equal((await lines.next()).value, 'holding', stderr);
+        const timings = [];
+        for (let i = 0; i < (largeFixture ? 8 : 2); i++) {
+            const start = performance.now();
+            const detail = await read(old);
+            timings.push(performance.now() - start);
+            assert.equal(detail.status, 200);
+            assert.equal(detail.data.acceptedRevision, old.acceptedRevision);
+            assert.deepEqual(detail.data.detail.entries.slice(0, 2).map(row => row.amount), [70, 30]);
+        }
+        const heldWalBytes = statSync(file + '-wal').size;
+        const bodiesBeforeCommit = h.detailBodiesRead;
+        writeFileSync(gate, 'release');
+        const line = (await lines.next()).value;
+        const [code] = await closed;
+        assert.equal(code, 0, stderr);
+        const writer = JSON.parse(line);
+        assert.equal(writer.status, 'completed');
+        assert.equal((await read(old)).status, 409);
+        assert.equal(h.detailBodiesRead, bodiesBeforeCommit);
+        const fresh = await read({kind: 'overview'});
+        assert.equal(fresh.data.overview.totals.amount, 105);
+        const detail = await read(spec(fresh.data.acceptedRevision));
+        assert.equal(detail.status, 200);
+        assert.deepEqual(detail.data.detail.entries.slice(0, 2).map(row => row.amount), [70, 35]);
+        if (largeFixture) console.log(JSON.stringify({fixtureRows: 25_000, heldWalBytes, detailReadMs: timings, writer,
+            readerProcessPeakRssKiB: process.resourceUsage().maxRSS}));
+    } finally {
+        if (child && child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+        await closed?.catch(() => {});
+        host?.close();
+        rmSync(dir, {recursive: true, force: true});
+    }
 });
