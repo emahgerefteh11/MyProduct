@@ -86,6 +86,14 @@ function openTestHost(file, h, {hostOrigin = origin} = {}) {
                AND excluded.mapping > accepted.mapping)
     `);
     const getReport = reader.prepare('SELECT report, accepted_at FROM accepted WHERE tenant = ? AND source = ? AND period = ?');
+    const getSelection = reader.prepare(`
+        SELECT c.tenant, c.source, ? AS period, c.generation, c.active, g.can_manage, a.report, a.accepted_at,
+               a.tenant AS report_tenant, a.source AS report_source, a.period AS report_period
+        FROM connection c
+        JOIN grant_state g ON g.tenant = c.tenant AND g.actor = ?
+        LEFT JOIN accepted a ON a.tenant = c.tenant AND a.source = c.source AND a.period = ?
+        WHERE c.tenant = ? AND c.source = ?
+    `);
     const readStreamObject = fixtureReader(h);
     const canManage = writer.prepare('SELECT can_manage FROM grant_state WHERE tenant = ? AND actor = ?');
     const resolveSession = request => {
@@ -202,6 +210,15 @@ function openTestHost(file, h, {hostOrigin = origin} = {}) {
             readJob({tenant, jobId}) {
                 const job = getStatus.get(tenant, jobId);
                 return job && (JSON.parse(job.outcome) ?? {status: h.running === jobId ? 'running' : 'queued'});
+            },
+            readSelection({tenant, actor, source, period}) {
+                if (period !== '2026-01') return null;
+                const row = getSelection.get(period, actor, period, tenant, source);
+                if (!row) return null;
+                return {tenant: row.tenant, source: row.source, period: row.period, generation: row.generation,
+                    active: row.active === 1, canManageBilling: row.can_manage === 1,
+                    snapshot: row.report == null ? null : {tenant: row.report_tenant, source: row.report_source,
+                        period: row.report_period, report: JSON.parse(row.report), acceptedAt: row.accepted_at}};
             },
             readReport({tenant, source, period}) {
                 const row = getReport.get(tenant, source, period);

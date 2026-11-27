@@ -65,7 +65,9 @@ addEventListener('pageshow', event => { if (event.persisted) clear(); });
 function requestFor(incoming, url) {
     const headers = new Headers(incoming.headers);
     const cookie = /(?:^|;\s*)atlas-action-session=([a-z0-9-]+)(?:;|$)/.exec(headers.get('Cookie') ?? '')?.[1];
-    headers.set('Authorization', cookie === 'fx-operator' ? 'Bearer fixture-a' : 'Bearer revoked');
+    headers.set('Authorization', ({
+        'fx-operator': 'Bearer fixture-a', 'fx-foreign': 'Bearer fixture-b',
+    })[cookie] ?? 'Bearer revoked');
     return new Request(url, {method: incoming.method, headers});
 }
 
@@ -105,15 +107,8 @@ const server = createServer(async (incoming, outgoing) => {
         } else if (url.pathname === '/report') response = await host.read(request, reportTarget);
         else if (url.pathname === '/job') response = await host.read(request, {kind: 'job', jobId: url.searchParams.get('jobId')});
         else if (url.pathname === '/selection') {
-            const report = await host.read(request, reportTarget);
-            response = report;
-            if (report.ok) {
-                const session = host.resolveSession(request);
-                const connection = host.connectionState(session.tenantId, source);
-                response = Response.json({scope: {source, period, generation: connection.generation},
-                    accepted: await report.json(), canManageBilling: session.canManageBilling && connection.active === 1},
-                    {headers: {'Cache-Control': 'private, no-store'}});
-            }
+            response = await host.read(request, {kind: 'selection',
+                source: url.searchParams.get('source') ?? source, period: url.searchParams.get('period') ?? period});
         } else if (url.pathname === '/refresh') {
             submits++;
             response = await host.write(request, {kind: 'refresh', source, period});

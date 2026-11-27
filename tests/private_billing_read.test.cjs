@@ -102,3 +102,53 @@ test('private read rejects unauthenticated requests, limits job data and hides s
         assert.equal(reply.headers.get('Cache-Control'), 'private, no-store');
     }
 });
+
+test('private selection uses current scoped grant, connection generation, and accepted report', async () => {
+    const scope = {tenant: 'tenant-a', source, period: currentPeriod};
+    const target = {kind: 'selection', source, period: currentPeriod, tenant: 'untrusted'};
+    const acceptedAt = '2026-02-02T02:05:00Z';
+    const report = {sampleData: false, TotalBilledCost: 105};
+    let selection = {...scope, active: true, canManageBilling: true, generation: 3,
+        snapshot: {...scope, acceptedAt, report}, internal: 'never-return-this'};
+    const seen = [];
+    const handle = createPrivateBillingRead({
+        resolveSession: req => req.headers.get('Authorization') === 'test-a'
+            ? {tenantId: 'tenant-a', actor: 'alice', canManageBilling: true} : null,
+        readSelection(query) {seen.push(query); return selection;},
+    });
+    const load = async (token = 'test-a', destination = target) => {
+        const res = await handle(request(token), destination);
+        assert.equal(res.headers.get('Cache-Control'), 'private, no-store');
+        return [res.status, await res.json()];
+    };
+    assert.equal((await load('revoked'))[0], 401);
+    assert.equal((await load('test-a', {...target, period: '2026-00'}))[0], 404);
+    assert.deepEqual(seen, []);
+    const scoped = {source, period: currentPeriod, generation: 3};
+    const accepted = {report, lastSuccessfulSync: acceptedAt};
+    assert.deepEqual(await load(), [200, {scope: scoped, connectionStatus: 'active', canManageBilling: true, accepted}]);
+    assert.deepEqual(seen, [{...scope, actor: 'alice'}]);
+    selection.canManageBilling = false;
+    assert.deepEqual(await load(), [200, {scope: scoped, connectionStatus: 'active', canManageBilling: false, accepted}]);
+    selection = {...selection, active: false, canManageBilling: true, generation: 4};
+    assert.deepEqual(await load(), [200, {scope: {...scoped, generation: 4},
+        connectionStatus: 'disconnected', canManageBilling: false, accepted}]);
+    selection = {...selection, active: true, snapshot: null};
+    assert.deepEqual(await load(), [200, {scope: {...scoped, generation: 4},
+        connectionStatus: 'active', canManageBilling: true, accepted: null}]);
+    for (const value of [
+        {tenant: 'foreign'}, {source: 'wrong'}, {period: '2026-02'}, {generation: 0},
+        {snapshot: {...scope, tenant: 'foreign', acceptedAt, report}},
+        {snapshot: {...scope, source: 'wrong', acceptedAt, report}},
+        {snapshot: {...scope, period: '2026-02', acceptedAt, report}},
+        {snapshot: {...scope, acceptedAt: 'private-storage-detail', report}},
+        {snapshot: {...scope, acceptedAt, report: {...report, sampleData: true}}},
+    ]) {
+        const previous = selection;
+        selection = {...selection, ...value};
+        assert.deepEqual(await load(), [503, {error: 'Private billing is unavailable. Try again.'}]);
+        selection = previous;
+    }
+    selection = null;
+    assert.deepEqual(await load(), [404, {error: 'Not found.'}]);
+});

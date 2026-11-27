@@ -12,20 +12,47 @@ const notFound = () => json({error: 'Not found.'}, 404);
 const unavailable = () => json({error: 'Private billing is unavailable. Try again.'}, 503);
 const valid = (pattern, value) => typeof value === 'string' && pattern.test(value);
 
-function createPrivateBillingRead({resolveSession, readReport, readJob}) {
+function reportEnvelope(snapshot) {
+    const {report, acceptedAt} = snapshot;
+    if (!report || report.sampleData !== false || typeof acceptedAt !== 'string' ||
+        !Number.isFinite(Date.parse(acceptedAt))) throw new Error('Invalid accepted report.');
+    return {report, lastSuccessfulSync: acceptedAt};
+}
+
+// readSelection must confirm the actor's current read grant and return the
+// connection and optional accepted snapshot in one consistent scoped read.
+// A missing grant/connection/period returns null. A disconnected source may
+// retain a report for authorized readers but must never enable writes.
+function createPrivateBillingRead({resolveSession, readReport, readJob, readSelection}) {
     return async function handle(request, target) {
         if (request.method !== 'GET') return json({error: 'Method not allowed.'}, 405, {Allow: 'GET'});
 
         try {
-            const tenant = (await resolveSession(request))?.tenantId;
+            const session = await resolveSession(request);
+            const tenant = session?.tenantId;
             if (!valid(ID, tenant)) return json({error: 'Sign-in required.'}, 401);
 
             if (target?.kind === 'report' && valid(ID, target.source) && valid(PERIOD, target.period)) {
                 const snapshot = await readReport({tenant, source: target.source, period: target.period});
                 if (snapshot == null) return notFound();
-                const {report, acceptedAt} = snapshot;
-                if (!report || report.sampleData !== false || !Number.isFinite(Date.parse(acceptedAt))) return unavailable();
-                return json({report, lastSuccessfulSync: acceptedAt});
+                return json(reportEnvelope(snapshot));
+            }
+            if (target?.kind === 'selection' && valid(ID, target.source) && valid(PERIOD, target.period)) {
+                if (!valid(ID, session.actor)) return json({error: 'Sign-in required.'}, 401);
+                const {source, period} = target;
+                const selection = await readSelection({tenant, actor: session.actor, source, period});
+                if (selection == null) return notFound();
+                const {generation, active, canManageBilling, snapshot} = selection;
+                if (selection.tenant !== tenant || selection.source !== source || selection.period !== period ||
+                    !Number.isSafeInteger(generation) || generation < 1 || typeof active !== 'boolean' ||
+                    typeof canManageBilling !== 'boolean' || (snapshot != null &&
+                    (snapshot.tenant !== tenant || snapshot.source !== source || snapshot.period !== period))) {
+                    return unavailable();
+                }
+                return json({scope: {source, period, generation},
+                    connectionStatus: active ? 'active' : 'disconnected',
+                    canManageBilling: active && canManageBilling,
+                    accepted: snapshot == null ? null : reportEnvelope(snapshot)});
             }
             if (target?.kind === 'job' && valid(ID, target.jobId)) {
                 const job = await readJob({tenant, jobId: target.jobId});
