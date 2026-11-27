@@ -5,6 +5,8 @@ import io
 import json
 import os
 from pathlib import Path
+from queue import Empty, Queue
+import subprocess
 import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
@@ -220,6 +222,68 @@ class BrowserImport(unittest.TestCase):
         self.page.evaluate('view.openUpload()')
         expect(state).to_have_text('upload:100')
         self.page.goto(self.origin + '/dashboard.html?source=import')
+        expect(self.page.locator('#kpi-total')).to_have_text('$100.00')
+
+    def test_connected_report_uses_the_private_http_handler_and_preserves_the_upload(self):
+        proc = subprocess.Popen(
+            ['node', str(ROOT / 'tests/fixtures/private_billing_browser.cjs')],
+            stdout=subprocess.PIPE, text=True,
+        )
+
+        def stop_fixture():
+            if proc.poll() is None:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait(timeout=5)
+            proc.stdout.close()
+
+        self.addCleanup(stop_fixture)
+        ready = Queue()
+        threading.Thread(target=lambda: ready.put(proc.stdout.readline()), daemon=True).start()
+        try:
+            port = int(ready.get(timeout=10))
+        except (Empty, ValueError):
+            self.fail(f'Private HTTP fixture could not start; process exit: {proc.poll()}')
+        origin = f'http://127.0.0.1:{port}'
+        self.context.unroute('**/*')
+        self.context.route('**/*', lambda route: route.continue_() if
+                           urlparse(route.request.url).netloc == urlparse(origin).netloc else route.abort())
+        self.page.goto(origin + '/import.html')
+        self.choose([ROOT / 'tests/fixtures/cur/synthetic.csv'])
+        self.validate()
+        self.accept()
+        expect(self.page.locator('#kpi-total')).to_have_text('$100.00')
+
+        self.page.goto(origin + '/__fixture/private-browser')
+        state = self.page.locator('#fixture-output')
+        connected = self.page.get_by_role('button', name='Open connected report')
+
+        def open_connected(token, status):
+            self.context.add_cookies([{
+                'name': 'atlas-fixture-session', 'value': token, 'url': origin, 'httpOnly': True,
+            }])
+            with self.page.expect_response(lambda response: urlparse(response.url).path ==
+                                           '/__fixture/private-browser/report') as pending:
+                connected.click()
+            response = pending.value
+            self.assertEqual(response.status, status)
+            self.assertEqual(response.header_value('cache-control'), 'private, no-store')
+            return response
+
+        accepted = open_connected('fx-965ed1', 200).json()
+        expect(state).to_have_text('connected:105')
+        self.assertEqual(accepted['lastSuccessfulSync'], '2026-02-02T02:00:00.000Z')
+        self.assertEqual(accepted['report']['allocation']['unallocatedProductCost'], 35)
+        self.assertNotIn('report', open_connected('fx-ab64d3', 404).json())
+        expect(state).to_have_text('unavailable')
+        self.assertNotIn('report', open_connected('fx-1186c0', 401).json())
+        expect(state).to_have_text('unavailable')
+        self.page.get_by_role('button', name='Open local report').click()
+        expect(state).to_have_text('upload:100')
+        self.page.goto(origin + '/dashboard.html?source=import')
         expect(self.page.locator('#kpi-total')).to_have_text('$100.00')
 
     def test_samples_save_reopen_download_demo_isolation_and_clear(self):
