@@ -11,6 +11,7 @@ import subprocess
 import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 import unittest
 import zipfile
 
@@ -225,11 +226,9 @@ class BrowserImport(unittest.TestCase):
         self.page.goto(self.origin + '/dashboard.html?source=import')
         expect(self.page.locator('#kpi-total')).to_have_text('$100.00')
 
-    def test_connected_report_uses_the_private_http_handler_and_preserves_the_upload(self):
-        faulthandler.dump_traceback_later(45)
-        self.addCleanup(faulthandler.cancel_dump_traceback_later)
+    def start_node_fixture(self, fixture):
         proc = subprocess.Popen(
-            ['node', str(ROOT / 'tests/fixtures/private_billing_browser.cjs')],
+            ['node', str(ROOT / 'tests/fixtures' / fixture)],
             stdout=subprocess.PIPE, text=True,
         )
 
@@ -250,7 +249,12 @@ class BrowserImport(unittest.TestCase):
             port = int(ready.get(timeout=10))
         except (Empty, ValueError):
             self.fail(f'Private HTTP fixture could not start; process exit: {proc.poll()}')
-        origin = f'http://127.0.0.1:{port}'
+        return f'http://127.0.0.1:{port}'
+
+    def test_connected_report_uses_the_private_http_handler_and_preserves_the_upload(self):
+        faulthandler.dump_traceback_later(45)
+        self.addCleanup(faulthandler.cancel_dump_traceback_later)
+        origin = self.start_node_fixture('private_billing_browser.cjs')
         # No request interception on this independent loopback-only page. Log
         # unexpected origins without holding network traffic during assertions.
         context = self.browser.new_context(locale='en-US')
@@ -297,6 +301,83 @@ class BrowserImport(unittest.TestCase):
         self.assertEqual(errors, [])
         self.assertEqual(external, [])
         print('private browser response and preserved upload verified', flush=True)
+
+    def test_private_refresh_and_disconnect_keep_the_accepted_browser_report(self):
+        origin = self.start_node_fixture('private_billing_actions_browser.cjs')
+        context = self.browser.new_context(locale='en-US')
+        self.addCleanup(context.close)
+        page = context.new_page()
+        page.set_default_timeout(10_000)
+        errors = []
+        page.on('pageerror', lambda error: errors.append(str(error)))
+
+        def login(value='fx-operator'):
+            context.add_cookies([{
+                'name': 'atlas-action-session', 'value': value, 'url': origin, 'httpOnly': True,
+            }])
+
+        def control(command):
+            request = Request(origin + '/__control?command=' + command, method='POST',
+                              headers={'X-Atlas-Fixture-Control': 'yes'})
+            with urlopen(request, timeout=8) as response:
+                return json.load(response)
+
+        def click(id):
+            page.locator('#' + id).click()
+
+        def expect_view(status, accepted=''):
+            expect(page.locator('#status')).to_have_text(status)
+            expect(page.locator('#accepted')).to_have_text(accepted)
+
+        t1 = '100 | 2026-02-02T01:00:00.000Z'
+        t2 = '105 | 2026-02-02T02:00:00.000Z'
+        login()
+        page.goto(origin)
+        click('load')
+        expect_view('idle', t1)
+
+        click('refresh')
+        expect_view('retry-submit', t1)
+        first = control('state')['queued']
+        self.assertTrue(first)
+        click('refresh')
+        expect_view('queued', t1)
+        self.assertEqual(control('state')['queued'], first)
+        self.assertEqual(control('state')['submits'], 2)
+        control('start')
+        click('check')
+        expect_view('running', t1)
+        self.assertEqual(control('finish')['status'], 'completed')
+        click('check')
+        expect_view('completed', t2)
+
+        control('viewer')
+        click('refresh')
+        expect_view('read-only', t2)
+        expect(page.locator('#refresh')).to_be_disabled()
+        expect(page.locator('#disconnect')).to_be_disabled()
+        control('manager')
+        click('load')
+        expect_view('idle', t2)
+        control('advance-generation')
+        click('disconnect')
+        expect_view('selection-reloaded', t2)
+        self.assertEqual(control('state')['disconnects'], 1)
+
+        click('refresh')
+        expect_view('queued', t2)
+        control('start')
+        click('check')
+        expect_view('running', t2)
+        click('disconnect')
+        expect_view('disconnected', t2)
+        self.assertEqual(control('finish')['status'], 'canceled')
+        expect_view('disconnected', t2)
+        login('fx-revoked')
+        click('load')
+        expect_view('hidden')
+        expect(page.locator('#check')).to_be_disabled()
+        self.assertEqual(errors, [])
 
     def test_samples_save_reopen_download_demo_isolation_and_clear(self):
         self.choose([ROOT / 'mock_aws_cur_iaas_heavy_named20251122.csv', ROOT / 'mock_gcp_billing.csv'])
