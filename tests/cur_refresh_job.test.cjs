@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const {randomUUID} = require('node:crypto');
 const {mkdtempSync, readFileSync, rmSync} = require('node:fs');
 const {tmpdir} = require('node:os');
 const {join} = require('node:path');
@@ -11,8 +12,9 @@ const {gzipSync} = require('node:zlib');
 const {bindKeptCurS3Reader} = require('../server/scoped_cur_s3.cjs');
 const {createCurRefreshJobRunner} = require('../server/cur_refresh_job.cjs');
 const {createPrivateBillingRead} = require('../server/private_billing_read.cjs');
+const {createPrivateBillingWrite} = require('../server/private_billing_write.cjs');
 
-const tenant = 'test-tenant', source = 'aws';
+const tenant = 'test-tenant', source = 'aws', origin = 'https://atlas.invalid';
 const manifestKey = 'fixture/export/20260101-20260201/atlas-Manifest.json';
 const csv = readFileSync(join(__dirname, 'fixtures', 'cur', 'synthetic.csv'), 'utf8');
 const manifestFor = hour => {
@@ -160,11 +162,15 @@ function openTestHost(file, h) {
         PRAGMA synchronous = FULL;
         CREATE TABLE IF NOT EXISTS job (
             tenant TEXT, id TEXT, source TEXT, period TEXT, generation INTEGER,
-            mapping INTEGER, outcome TEXT, PRIMARY KEY (tenant, id)
+            mapping INTEGER, outcome TEXT, request_id TEXT,
+            PRIMARY KEY (tenant, id), UNIQUE (tenant, request_id)
         );
         CREATE TABLE IF NOT EXISTS connection (
-            tenant TEXT, source TEXT, generation INTEGER, mapping INTEGER,
+            tenant TEXT, source TEXT, generation INTEGER, mapping INTEGER, active INTEGER,
             PRIMARY KEY (tenant, source)
+        );
+        CREATE TABLE IF NOT EXISTS grant_state (
+            tenant TEXT, actor TEXT, can_manage INTEGER, PRIMARY KEY (tenant, actor)
         );
         CREATE TABLE IF NOT EXISTS accepted (
             tenant TEXT, source TEXT, period TEXT, assembly TEXT, revision TEXT,
@@ -179,11 +185,11 @@ function openTestHost(file, h) {
     `);
     const getJob = findJob(writer);
     const getStatus = findJob(reader);
-    const readSource = writer.prepare('SELECT generation, mapping AS mappingVersion FROM connection WHERE tenant = ? AND source = ?');
+    const readSource = writer.prepare('SELECT generation, mapping AS mappingVersion FROM connection WHERE tenant = ? AND source = ? AND active = 1');
     const accept = writer.prepare(`
         INSERT INTO accepted
         SELECT tenant, source, ?, ?, ?, mapping, ?, ? FROM connection
-        WHERE tenant = ? AND source = ? AND generation = ? AND mapping = ?
+        WHERE tenant = ? AND source = ? AND generation = ? AND mapping = ? AND active = 1
         ON CONFLICT (tenant, source, period) DO UPDATE SET assembly = excluded.assembly,
             revision = excluded.revision, mapping = excluded.mapping, report = excluded.report,
             accepted_at = excluded.accepted_at
@@ -193,14 +199,81 @@ function openTestHost(file, h) {
     `);
     const getReport = reader.prepare('SELECT report, accepted_at FROM accepted WHERE tenant = ? AND source = ? AND period = ?');
     const readStreamObject = fixtureReader(h);
+    const canManage = writer.prepare('SELECT can_manage FROM grant_state WHERE tenant = ? AND actor = ?');
+    const resolveSession = request => {
+        const token = request.headers.get('Authorization');
+        const actor = token === 'Bearer fixture-a' ? 'fixture-a' : token === 'Bearer fixture-b' ? 'fixture-b' : null;
+        if (!actor) return null;
+        const scope = actor === 'fixture-a' ? tenant : 'other';
+        return {actor, tenantId: scope, canManageBilling: canManage.get(scope, actor)?.can_manage === 1};
+    };
+    function transact(operation) {
+        writer.exec('BEGIN IMMEDIATE');
+        try {
+            const result = operation();
+            writer.exec('COMMIT');
+            return result;
+        } catch (error) {
+            writer.exec('ROLLBACK');
+            throw error;
+        }
+    }
     return {
         close: () => { reader.close(); writer.close(); },
         backupTo: destination => backup(reader, destination),
-        seed() {
-            writer.prepare('INSERT INTO connection VALUES (?, ?, 1, 0)').run(tenant, source);
-            const insert = writer.prepare('INSERT INTO job VALUES (?, ?, ?, ?, 1, 0, NULL)');
+        seed({jobs = true} = {}) {
+            writer.prepare('INSERT INTO connection VALUES (?, ?, 1, 0, 1)').run(tenant, source);
+            const grant = writer.prepare('INSERT INTO grant_state VALUES (?, ?, 1)');
+            grant.run(tenant, 'fixture-a');
+            grant.run('other', 'fixture-b');
+            if (!jobs) return;
+            const insert = writer.prepare('INSERT INTO job VALUES (?, ?, ?, ?, 1, 0, NULL, NULL)');
             for (const id of ['first', 'correction', 'newer']) insert.run(tenant, id, source, '2026-01');
         },
+        write: createPrivateBillingWrite({
+            origin, resolveSession,
+            async verifyIntent(request, session) {
+                const matches = request.headers.get('X-CSRF-Token') === session.actor;
+                if (h.beforeWrite) await h.beforeWrite();
+                return matches;
+            },
+            enqueueRefresh({tenant, source, period, requestId}, session) {
+                return transact(() => {
+                    if (canManage.get(tenant, session.actor)?.can_manage !== 1) return {status: 'denied'};
+                    const active = readSource.get(tenant, source);
+                    if (!active || period !== '2026-01') return null;
+                    const previous = writer.prepare(`
+                        SELECT id AS jobId, source, period, generation, mapping
+                        FROM job WHERE tenant = ? AND request_id = ?
+                    `).get(tenant, requestId);
+                    if (previous && (previous.source !== source || previous.period !== period ||
+                        previous.generation !== active.generation || previous.mapping !== active.mappingVersion)) {
+                        return {status: 'conflict'};
+                    }
+                    const jobId = previous?.jobId ?? randomUUID();
+                    if (!previous) {
+                        writer.prepare('INSERT INTO job VALUES (?, ?, ?, ?, ?, ?, NULL, ?)')
+                            .run(tenant, jobId, source, period, active.generation, active.mappingVersion, requestId);
+                    }
+                    return {status: 'accepted', tenant, source, period, jobId};
+                });
+            },
+            disconnectSource({tenant, source, generation}, session) {
+                return transact(() => {
+                    if (canManage.get(tenant, session.actor)?.can_manage !== 1) return {status: 'denied'};
+                    const active = readSource.get(tenant, source);
+                    if (!active) return null;
+                    if (active.generation !== generation) return {status: 'conflict'};
+                    writer.prepare(`
+                        UPDATE connection SET generation = generation + 1, active = 0
+                        WHERE tenant = ? AND source = ? AND generation = ?
+                    `).run(tenant, source, generation);
+                    return {status: 'disconnected', tenant, source};
+                });
+            },
+        }),
+        setManage: enabled => writer.prepare('UPDATE grant_state SET can_manage = ? WHERE tenant = ? AND actor = ?')
+            .run(Number(enabled), tenant, 'fixture-a'),
         run: createCurRefreshJobRunner({
             now: () => new Date(Date.UTC(2026, 1, 2, h.hour)),
             loadJob({tenant, jobId}) {
@@ -212,37 +285,25 @@ function openTestHost(file, h) {
                 return config && {...config, manifestKey, readStreamObject};
             },
             commitJob({tenant, jobId, source, period, generation, mappingVersion, snapshot}) {
-                writer.exec('BEGIN IMMEDIATE');
-                let outcome;
-                try {
+                const outcome = transact(() => {
                     const job = getJob.get(tenant, jobId);
                     assert.deepEqual([job.source, job.period, job.generation, job.mappingVersion],
                         [source, period, generation, mappingVersion]);
-                    if (job.outcome) {
-                        outcome = JSON.parse(job.outcome);
-                    } else {
-                        const {assemblyId, revision, report, acceptedAt} = snapshot;
-                        const published = accept.run(period, assemblyId, revision, JSON.stringify(report), acceptedAt,
-                            tenant, source, generation, mappingVersion).changes;
-                        outcome = published ? {status: 'completed', publishedAt: acceptedAt} : {status: 'canceled'};
-                        writer.prepare('UPDATE job SET outcome = ? WHERE tenant = ? AND id = ?')
-                            .run(JSON.stringify(outcome), tenant, jobId);
-                    }
-                    writer.exec('COMMIT');
-                } catch (error) {
-                    writer.exec('ROLLBACK');
-                    throw error;
-                }
+                    if (job.outcome) return JSON.parse(job.outcome);
+                    const {assemblyId, revision, report, acceptedAt} = snapshot;
+                    const published = accept.run(period, assemblyId, revision, JSON.stringify(report), acceptedAt,
+                        tenant, source, generation, mappingVersion).changes;
+                    const result = published ? {status: 'completed', publishedAt: acceptedAt} : {status: 'canceled'};
+                    writer.prepare('UPDATE job SET outcome = ? WHERE tenant = ? AND id = ?')
+                        .run(JSON.stringify(result), tenant, jobId);
+                    return result;
+                });
                 if (h.loseAck) throw new Error('lost acknowledgement');
                 return outcome;
             },
         }),
         read: createPrivateBillingRead({
-            resolveSession(request) {
-                const token = request.headers.get('Authorization');
-                if (token === 'Bearer fixture-a') return {tenantId: tenant};
-                if (token === 'Bearer fixture-b') return {tenantId: 'other'};
-            },
+            resolveSession,
             readJob({tenant, jobId}) {
                 const job = getStatus.get(tenant, jobId);
                 return job && (JSON.parse(job.outcome) ?? {status: 'queued'});
@@ -359,6 +420,70 @@ test('a live SQLite backup restores the report and its job outcome at the same c
     } finally {
         restored?.close();
         active?.close();
+        rmSync(dir, {recursive: true, force: true});
+    }
+});
+
+test('authorized actions queue one durable job and disconnect fences an in-flight revision', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'atlas-actions-'));
+    const file = join(dir, 'billing.sqlite');
+    const h = {hour: 2, cloudCalls: 0};
+    let host;
+    const refresh = {kind: 'refresh', source, period: '2026-01'};
+    const report = {kind: 'report', source, period: refresh.period};
+    const disconnect = {kind: 'disconnect', source, generation: 1};
+    const read = (target, actor = 'fixture-a') => host.read(new Request(origin, {
+        headers: {Authorization: 'Bearer ' + actor},
+    }), target);
+    const write = (target, id, actor = 'fixture-a') => host.write(new Request(origin, {
+        method: 'POST', headers: {Origin: origin, Authorization: 'Bearer ' + actor,
+            'X-CSRF-Token': actor, 'Idempotency-Key': id},
+    }), target);
+    try {
+        host = openTestHost(file, h);
+        host.seed({jobs: false});
+        assert.equal((await write(refresh, 'foreign', 'fixture-b')).status, 404);
+        assert.equal((await write(refresh, 'revoked', 'revoked')).status, 401);
+        h.beforeWrite = () => host.setManage(false);
+        assert.equal((await write(refresh, 'correction')).status, 403);
+        host.setManage(true);
+        h.beforeWrite = null;
+
+        const queued = await write(refresh, 'correction');
+        assert.equal(queued.status, 202);
+        const job = await queued.json();
+        const readJob = id => ({kind: 'job', jobId: id});
+        assert.deepEqual(await (await read(readJob(job.jobId))).json(), {status: 'queued'});
+        assert.equal((await read(readJob(job.jobId), 'fixture-b')).status, 404);
+        assert.equal(h.cloudCalls, 0, 'queueing must not read S3');
+        host.close();
+        host = null;
+        host = openTestHost(file, h);
+        assert.deepEqual(await (await write(refresh, 'correction')).json(), job);
+        assert.equal(h.cloudCalls, 0);
+        const completed = await host.run({tenant, jobId: job.jobId});
+        assert.equal(completed.status, 'completed');
+        const reportBefore = await (await read(report)).json();
+        assert.equal(reportBefore.report.TotalBilledCost, 105);
+        assert.equal(reportBefore.lastSuccessfulSync, completed.publishedAt);
+
+        const next = await write(refresh, 'newer');
+        assert.equal(next.status, 202);
+        const {jobId} = await next.json();
+        h.hour = 3;
+        h.hook = async () => {
+            assert.equal((await write(disconnect, 'foreign-stop', 'fixture-b')).status, 404);
+            assert.equal((await write(disconnect, 'stop')).status, 200);
+        };
+        assert.deepEqual(await host.run({tenant, jobId}), {status: 'canceled'});
+        assert.deepEqual(await (await read(readJob(jobId))).json(), {status: 'canceled'});
+        assert.deepEqual(await (await read(report)).json(), reportBefore);
+        assert.equal((await write(refresh, 'closed')).status, 404);
+        const fetches = h.cloudCalls;
+        assert.deepEqual(await host.run({tenant, jobId: job.jobId}), completed);
+        assert.equal(h.cloudCalls, fetches);
+    } finally {
+        host?.close();
         rmSync(dir, {recursive: true, force: true});
     }
 });
