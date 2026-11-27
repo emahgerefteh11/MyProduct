@@ -17,17 +17,22 @@ class PublicationStore:
     def __init__(self, path):
         self.path = path
         self._run("""
-            CREATE TABLE connection (
+            CREATE TABLE IF NOT EXISTS connection (
                 tenant TEXT NOT NULL, source TEXT NOT NULL,
                 generation INTEGER NOT NULL, connected INTEGER NOT NULL,
                 mapping_version INTEGER NOT NULL,
                 PRIMARY KEY (tenant, source)
             );
-            CREATE TABLE accepted (
+            CREATE TABLE IF NOT EXISTS accepted (
                 tenant TEXT NOT NULL, source TEXT NOT NULL, period TEXT NOT NULL,
                 assembly TEXT NOT NULL, digest TEXT NOT NULL, mapping_version INTEGER NOT NULL,
                 report TEXT NOT NULL, accepted_at TEXT NOT NULL,
                 PRIMARY KEY (tenant, source, period)
+            );
+            CREATE TABLE IF NOT EXISTS job_result (
+                tenant TEXT NOT NULL, job_id TEXT NOT NULL, fingerprint TEXT NOT NULL,
+                status TEXT NOT NULL, published_at TEXT,
+                PRIMARY KEY (tenant, job_id)
             );
         """)
 
@@ -69,12 +74,37 @@ class PublicationStore:
         """, (tenant, source))
         return row[0] if row else None
 
-    def publish(self, tenant, source, period, job, assembly, digest, report, accepted_at):
+    def publish(self, *candidate):
+        with closing(sqlite3.connect(self.path)) as db, db:
+            return self._publish(db, *candidate)
+
+    def publish_job(self, job_id, tenant, source, period, job, assembly, digest, report, accepted_at):
+        # The stable job ID identifies the immutable input, not the retry time.
+        fingerprint = json.dumps([source, period, job, assembly, digest])
+        with closing(sqlite3.connect(self.path)) as db, db:
+            db.execute("BEGIN IMMEDIATE")
+            previous = db.execute("""
+                SELECT fingerprint, status, published_at FROM job_result
+                WHERE tenant = ? AND job_id = ?
+            """, (tenant, job_id)).fetchone()
+            if previous:
+                if previous[0] != fingerprint:
+                    raise ValueError("The job ID is already bound to a different candidate.")
+                return previous[1:]
+
+            published = self._publish(db, tenant, source, period, job, assembly, digest, report, accepted_at)
+            result = ("completed", accepted_at) if published else ("not_published", None)
+            db.execute("INSERT INTO job_result VALUES (?, ?, ?, ?, ?)",
+                       (tenant, job_id, fingerprint, *result))
+            return result
+
+    @staticmethod
+    def _publish(db, tenant, source, period, job, assembly, digest, report, accepted_at):
         # Jobs carry a validated kept-versions UTC assembly ID (sortable) and
         # fingerprint. Current connection state and monotonic report revision
         # must be checked in the same atomic write across workers.
         generation, mapping_version = job
-        return self._query("""
+        return db.execute("""
             INSERT INTO accepted (tenant, source, period, assembly, digest, mapping_version, report, accepted_at)
             SELECT tenant, source, ?, ?, ?, mapping_version, ?, ? FROM connection
             WHERE tenant = ? AND source = ? AND connected = 1
@@ -88,7 +118,7 @@ class PublicationStore:
                    AND excluded.mapping_version > accepted.mapping_version)
             RETURNING 1
         """, (period, assembly, digest, json.dumps(report), accepted_at,
-              tenant, source, generation, mapping_version)) is not None
+              tenant, source, generation, mapping_version)).fetchone() is not None
 
     def latest(self, tenant, source, period):
         row = self._query("""
@@ -175,3 +205,47 @@ class ConnectedPublishContractTest(unittest.TestCase):
         self.assertEqual(self.store.latest(*self.scope), (self.correction, self.later))
         self.assertTrue(self.store.publish(*self.scope, new_mapping, *self.v2, remapped, after_change))
         self.assertEqual(self.store.latest(*self.scope), (remapped, after_change))
+
+    def test_lost_success_response_replays_historical_job_without_regressing_latest(self):
+        self.store.connect(self.tenant, self.source)
+        job = self.store.capture(self.tenant, self.source)
+        self.assertTrue(self.store.publish(*self.scope, job, *self.v1, self.first, self.earlier))
+
+        def write_then_lose_response():
+            self.store.publish_job("correction", *self.scope, job, *self.v2, self.correction, self.later)
+            raise TimeoutError("worker lost the committed response")
+
+        with self.assertRaises(TimeoutError):
+            write_then_lose_response()
+        restarted = PublicationStore(self.store.path)
+        late = "2026-02-02T03:00:00Z"
+        self.assertEqual(restarted.publish_job("correction", *self.scope, job, *self.v2, self.correction, late),
+                         ("completed", self.later))
+        self.assertEqual(restarted.latest(*self.scope), (self.correction, self.later))
+
+        newer = {"total": 110, "currency": "USD"}
+        v3 = ("20260202T025500Z", "input-c")
+        self.assertEqual(restarted.publish_job("newer", *self.scope, job, *v3, newer, late), ("completed", late))
+        self.assertEqual(restarted.publish_job("correction", *self.scope, job, *self.v2, self.correction, late),
+                         ("completed", self.later))
+        self.assertEqual(restarted.publish_job("stale", *self.scope, job, *self.v2, self.correction, late),
+                         ("not_published", None))
+        with self.assertRaisesRegex(ValueError, "already bound"):
+            restarted.publish_job("correction", *self.scope, job, *v3, newer, late)
+        self.assertEqual(restarted.latest(*self.scope), (newer, late))
+
+    def test_job_result_write_failure_rolls_back_report_publication(self):
+        self.store.connect(self.tenant, self.source)
+        job = self.store.capture(self.tenant, self.source)
+        self.assertTrue(self.store.publish(*self.scope, job, *self.v1, self.first, self.earlier))
+        self.store._run("""
+            CREATE TRIGGER fail_result BEFORE INSERT ON job_result
+            BEGIN SELECT RAISE(ABORT, 'test write failure'); END;
+        """)
+        with self.assertRaisesRegex(sqlite3.IntegrityError, "test write failure"):
+            self.store.publish_job("correction", *self.scope, job, *self.v2, self.correction, self.later)
+        self.assertEqual(self.store.latest(*self.scope), (self.first, self.earlier))
+        self.store._run("DROP TRIGGER fail_result;")
+        self.assertEqual(self.store.publish_job("correction", *self.scope, job, *self.v2, self.correction, self.later),
+                         ("completed", self.later))
+        self.assertEqual(self.store.latest(*self.scope), (self.correction, self.later))
