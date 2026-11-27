@@ -162,6 +162,28 @@ class BrowserImport(unittest.TestCase):
         self.assertEqual(report['allocation']['unallocatedProductCost'], 30)
         self.assertEqual(next(p for p in report['products'] if p['Product'] == 'Payments')['BilledCost'], 70)
 
+    def test_demo_correction_replaces_the_original_import(self):
+        for file, total, unallocated in [
+            (ROOT / 'tests' / 'fixtures' / 'cur' / 'synthetic.csv', 100, 30),
+            (ROOT / 'docs' / 'demo' / 'aws-corrected.csv', 105, 35),
+        ]:
+            self.choose([file])
+            expect(self.page.locator('#format-0')).to_have_value('aws')
+            self.validate()
+            expect(self.page.locator('#preview-metrics')).to_contain_text(f'${total}.00')
+            self.accept()
+            expect(self.page.locator('#kpi-total')).to_have_text(f'${total}.00')
+            self.page.locator('.report-actions summary').click()
+            with self.page.expect_download() as download:
+                self.page.locator('#download-imported-report').click()
+            report = json.loads(Path(download.value.path()).read_text())
+            self.assertEqual(report['allocation']['unallocatedProductCost'], unallocated)
+            self.assertEqual(next(p for p in report['products'] if p['Product'] == 'Payments')['BilledCost'], 70)
+            if total == 100:
+                self.page.get_by_role('link', name='Import a new report').click()
+        self.page.reload()
+        expect(self.page.locator('#kpi-total')).to_have_text('$105.00')
+
     def test_connected_view_contract_keeps_private_and_uploaded_reports_separate(self):
         self.choose([ROOT / 'tests' / 'fixtures' / 'cur' / 'synthetic.csv'])
         self.validate()
