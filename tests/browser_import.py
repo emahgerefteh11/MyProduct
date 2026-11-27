@@ -1,5 +1,6 @@
 """Browser acceptance tests. Run separately after installing Playwright Chromium."""
 import csv
+import faulthandler
 import functools
 import io
 import json
@@ -48,7 +49,9 @@ class BrowserImport(unittest.TestCase):
     def setUp(self):
         self.context = self.browser.new_context(viewport={'width': 1440, 'height': 1000}, locale='en-US')
         # No third-party scripts or data requests are needed to import or view costs.
-        self.context.route('**/*', lambda route: route.continue_() if urlparse(route.request.url).netloc == urlparse(self.origin).netloc else route.abort())
+        self.allowed_origins = {urlparse(self.origin).netloc}
+        self.context.route('**/*', lambda route: route.continue_() if
+                           urlparse(route.request.url).netloc in self.allowed_origins else route.abort())
         self.page = self.context.new_page()
         self.js_errors = []
         self.page.on('pageerror', lambda error: self.js_errors.append(str(error)))
@@ -225,6 +228,8 @@ class BrowserImport(unittest.TestCase):
         expect(self.page.locator('#kpi-total')).to_have_text('$100.00')
 
     def test_connected_report_uses_the_private_http_handler_and_preserves_the_upload(self):
+        faulthandler.dump_traceback_later(45)
+        self.addCleanup(faulthandler.cancel_dump_traceback_later)
         proc = subprocess.Popen(
             ['node', str(ROOT / 'tests/fixtures/private_billing_browser.cjs')],
             stdout=subprocess.PIPE, text=True,
@@ -248,9 +253,8 @@ class BrowserImport(unittest.TestCase):
         except (Empty, ValueError):
             self.fail(f'Private HTTP fixture could not start; process exit: {proc.poll()}')
         origin = f'http://127.0.0.1:{port}'
-        self.context.unroute('**/*')
-        self.context.route('**/*', lambda route: route.continue_() if
-                           urlparse(route.request.url).netloc == urlparse(origin).netloc else route.abort())
+        self.allowed_origins.add(urlparse(origin).netloc)
+        self.page.set_default_timeout(10_000)
         self.page.goto(origin + '/import.html')
         self.choose([ROOT / 'tests/fixtures/cur/synthetic.csv'])
         self.validate()

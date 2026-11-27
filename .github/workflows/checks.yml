@@ -52,9 +52,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - run: python -m pip install playwright==1.56.0
       - run: python -m playwright install --with-deps chromium
-      - run: python tests/browser_import.py
+      - run: python -u tests/browser_import.py
+        timeout-minutes: 3
       - run: python tests/browser_dashboard.py
         env:
           ATLAS_REVIEW_SCREENSHOTS: ${{ startsWith(github.ref, 'refs/heads/codex/modern-workspace-') && '1' || '0' }}
