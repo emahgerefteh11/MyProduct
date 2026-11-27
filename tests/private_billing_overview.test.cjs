@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {parseCSV, detect, validate} = require('../billing_import.js');
-const {projectPrivateBillingOverview, MAX_OVERVIEW_BYTES} = require('../server/private_billing_overview.cjs');
+const {projectPrivateBillingOverview, projectPrivateBillingDetail, MAX_OVERVIEW_BYTES} = require('../server/private_billing_overview.cjs');
 const acceptedAt = '2026-02-02T02:00:00.000Z';
 
 const csvCell = value => '"' + value.replaceAll('"', '""') + '"';
@@ -61,4 +61,16 @@ test('projection does not truncate signed net, missing allocation, or oversized 
     assert.equal(actual.groups.products.groupCount, 2);
     assert.ok(actual.groups.products.preview.every(entry => !entry.label.includes('💸')));
     assert.throws(() => projectPrivateBillingOverview({report: {...report, sampleData: true}, acceptedAt}));
+});
+
+test('detail pages keep the canonical group order and do not return long raw labels', () => {
+    const report = reportFor(9, i => i === 4 ? '💸'.repeat(110) : 'Product ' + i);
+    const one = projectPrivateBillingDetail(report, 'products', 0);
+    const two = projectPrivateBillingDetail(report, 'products', one.nextOffset);
+    assert.equal(one.totalGroups, 9);
+    assert.equal(one.nextOffset, 5);
+    assert.equal(two.nextOffset, null);
+    assert.deepEqual([...one.entries, ...two.entries], report.products.map(({Product, BilledCost}) =>
+        ({label: Product.includes('💸') ? null : Product, amount: BilledCost})));
+    assert.equal(projectPrivateBillingDetail(report, 'products', 10), null);
 });

@@ -290,3 +290,54 @@ test('authorized actions queue one durable job and disconnect fences an in-fligh
         rmSync(dir, {recursive: true, force: true});
     }
 });
+
+test('accepted overview and detail stay on the same scoped revision even at the same clock time', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'atlas-revision-detail-'));
+    const h = {hour: 2, cloudCalls: 0, acceptanceHour: 2};
+    let host;
+    try {
+        host = openTestHost(join(dir, 'reports.sqlite'), h, {acceptedTokenKey: Buffer.alloc(32, 18)});
+        host.seed();
+        assert.equal((await host.run({tenant, jobId: 'correction'})).status, 'completed');
+        const read = async (target, actor = 'fixture-a') => {
+            const request = new Request(origin + '/private', {headers: {Authorization: 'Bearer ' + actor}});
+            const result = await host.read(request, {source, period: '2026-01', ...target});
+            assert.equal(result.headers.get('Cache-Control'), 'private, no-store');
+            return {status: result.status, body: await result.json()};
+        };
+        const current = {kind: 'overview'};
+        const first = await read(current);
+        assert.equal(first.status, 200);
+        assert.equal(first.body.overview.totals.amount, 105);
+        assert.doesNotMatch(JSON.stringify(first.body), /20260202T020000Z|fixture\/export/);
+        const requestDetail = acceptedRevision => ({kind: 'detail', dimension: 'products', offset: 0, acceptedRevision});
+        const olderDetail = requestDetail(first.body.acceptedRevision);
+        const old = await read(olderDetail);
+        assert.equal(old.status, 200);
+        assert.ok(old.body.detail.entries.some(row => row.amount === 35));
+        h.hour = 3;
+        assert.equal((await host.run({tenant, jobId: 'newer'})).status, 'completed');
+        const stale = await read(olderDetail);
+        assert.deepEqual(stale, {status: 409, body: {error: 'Billing report changed. Reload the overview.'}});
+        const fresh = await read(current);
+        assert.equal(fresh.body.overview.totals.amount, 110);
+        assert.equal(fresh.body.overview.lastSuccessfulSync, first.body.overview.lastSuccessfulSync);
+        assert.notEqual(fresh.body.acceptedRevision, first.body.acceptedRevision);
+        const freshDetail = requestDetail(fresh.body.acceptedRevision);
+        assert.ok((await read(freshDetail)).body.detail.entries.some(row => row.amount === 40));
+        assert.equal((await read({...freshDetail, offset: -1})).status, 400);
+        assert.equal((await read({...freshDetail, dimension: 'constructor'})).status, 400);
+        assert.equal((await read({...freshDetail, offset: 100_000})).status, 404);
+        for (const query of [olderDetail, freshDetail]) {
+            assert.equal((await read(query, 'fixture-b')).status, 404);
+            assert.equal((await read(query, 'revoked')).status, 401);
+        }
+        host.revokeRead();
+        assert.equal((await read(current)).status, 404);
+        assert.equal((await read(olderDetail)).status, 404);
+        assert.equal((await read(freshDetail)).status, 404);
+    } finally {
+        host?.close();
+        rmSync(dir, {recursive: true, force: true});
+    }
+});

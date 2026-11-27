@@ -43,7 +43,7 @@ function fixtureReader(h, session) {
 
 // A test-only host: no HTTP routes, real sessions, AWS credentials or implied
 // production database choice. Independent connections model the reader/worker split.
-function openTestHost(file, h, {hostOrigin = origin} = {}) {
+function openTestHost(file, h, {hostOrigin = origin, acceptedTokenKey} = {}) {
     const writer = new DatabaseSync(file);
     writer.exec(`
         PRAGMA journal_mode = WAL;
@@ -88,7 +88,8 @@ function openTestHost(file, h, {hostOrigin = origin} = {}) {
     const getReport = reader.prepare('SELECT report, accepted_at FROM accepted WHERE tenant = ? AND source = ? AND period = ?');
     const getSelection = reader.prepare(`
         SELECT c.tenant, c.source, ? AS period, c.generation, c.active, g.can_manage, a.report, a.accepted_at,
-               a.tenant AS report_tenant, a.source AS report_source, a.period AS report_period
+               a.tenant AS report_tenant, a.source AS report_source, a.period AS report_period,
+               a.assembly, a.revision, a.mapping AS report_mapping
         FROM connection c
         JOIN grant_state g ON g.tenant = c.tenant AND g.actor = ?
         LEFT JOIN accepted a ON a.tenant = c.tenant AND a.source = c.source AND a.period = ?
@@ -175,10 +176,12 @@ function openTestHost(file, h, {hostOrigin = origin} = {}) {
                 });
             },
         }),
+        revokeRead: () => writer.prepare('DELETE FROM grant_state WHERE tenant = ? AND actor = ?')
+            .run(tenant, 'fixture-a'),
         setManage: enabled => writer.prepare('UPDATE grant_state SET can_manage = ? WHERE tenant = ? AND actor = ?')
             .run(Number(enabled), tenant, 'fixture-a'),
         run: createCurRefreshJobRunner({
-            now: () => new Date(Date.UTC(2026, 1, 2, h.hour)),
+            now: () => new Date(Date.UTC(2026, 1, 2, h.acceptanceHour ?? h.hour)),
             loadJob({tenant, jobId}) {
                 const job = getJob.get(tenant, jobId);
                 return job && {...job, outcome: JSON.parse(job.outcome)};
@@ -206,7 +209,7 @@ function openTestHost(file, h, {hostOrigin = origin} = {}) {
             },
         }),
         read: createPrivateBillingRead({
-            resolveSession,
+            resolveSession, acceptedTokenKey,
             readJob({tenant, jobId}) {
                 const job = getStatus.get(tenant, jobId);
                 return job && (JSON.parse(job.outcome) ?? {status: h.running === jobId ? 'running' : 'queued'});
@@ -218,7 +221,8 @@ function openTestHost(file, h, {hostOrigin = origin} = {}) {
                 return {tenant: row.tenant, source: row.source, period: row.period, generation: row.generation,
                     active: row.active === 1, canManageBilling: row.can_manage === 1,
                     snapshot: row.report == null ? null : {tenant: row.report_tenant, source: row.report_source,
-                        period: row.report_period, report: JSON.parse(row.report), acceptedAt: row.accepted_at}};
+                        period: row.report_period, report: JSON.parse(row.report), acceptedAt: row.accepted_at,
+                        assembly: row.assembly, revision: row.revision, mappingVersion: row.report_mapping}};
             },
             readReport({tenant, source, period}) {
                 const row = getReport.get(tenant, source, period);

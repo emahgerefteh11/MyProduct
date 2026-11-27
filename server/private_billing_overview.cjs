@@ -26,17 +26,21 @@ function coverage(value) {
     return {start: timestamp(value.start, true), end: timestamp(value.end, true), complete: value.complete};
 }
 
+function groupRow(row, key) {
+    const label = row?.[key];
+    if (typeof label !== 'string') throw new Error('Invalid billing overview label.');
+    const fits = label.length <= MAX_LABEL_JSON_BYTES && Buffer.byteLength(JSON.stringify(label)) <= MAX_LABEL_JSON_BYTES;
+    return {label: fits ? label : null, amount: finite(row.BilledCost)};
+}
+
 function groups(rows, key) {
     if (!Array.isArray(rows)) throw new Error('Invalid billing overview grouping.');
     const preview = [];
     // The importer already orders these groups by billed amount. Project only
     // its leading rows and don't shorten a name into a misleading identifier.
     for (const row of rows.slice(0, PREVIEW_LIMIT)) {
-        const label = row?.[key];
-        if (typeof label !== 'string') throw new Error('Invalid billing overview label.');
-        if (label.length <= MAX_LABEL_JSON_BYTES && Buffer.byteLength(JSON.stringify(label)) <= MAX_LABEL_JSON_BYTES) {
-            preview.push({label, amount: finite(row.BilledCost)});
-        }
+        const projected = groupRow(row, key);
+        if (projected.label !== null) preview.push(projected);
     }
     return {groupCount: rows.length, preview, incomplete: preview.length < rows.length};
 }
@@ -67,4 +71,16 @@ function projectPrivateBillingOverview({report, acceptedAt}) {
     return overview;
 }
 
-module.exports = {projectPrivateBillingOverview, MAX_OVERVIEW_BYTES};
+const validDetail = (dimension, offset) => typeof dimension === 'string' && Object.hasOwn(DIMENSIONS, dimension) &&
+    Number.isSafeInteger(offset) && offset >= 0;
+
+function projectPrivateBillingDetail(report, dimension, offset) {
+    if (!validDetail(dimension, offset)) throw new Error('Invalid billing detail selection.');
+    const rows = report[dimension];
+    if (!Array.isArray(rows) || !Number.isSafeInteger(offset) || offset > rows.length) return null;
+    const entries = rows.slice(offset, offset + PREVIEW_LIMIT).map(row => groupRow(row, DIMENSIONS[dimension]));
+    const next = offset + entries.length;
+    return {dimension, totalGroups: rows.length, offset, entries, nextOffset: next < rows.length ? next : null};
+}
+
+module.exports = {projectPrivateBillingOverview, projectPrivateBillingDetail, validDetail, MAX_OVERVIEW_BYTES};
