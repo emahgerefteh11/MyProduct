@@ -18,6 +18,7 @@
     <header class="site-header"><a class="brand" href="index.html" aria-label="Cloud Atlas home"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m12 3 9 5v8l-9 5-9-5V8zM3 8l9 5 9-5M12 13v8"/></svg></span><span class="brand-wordmark">Cloud<span>Atlas</span></span></a><a href="dashboard.html">Back to dashboard <span aria-hidden="true">↗</span></a></header>
     <main id="flow-content" tabindex="-1">
         <div class="intro"><p class="eyebrow">YOUR DATA, YOUR BROWSER</p><h1>From billing files<br>to a clearer picture.</h1><p>Bring your cloud costs together. Review the data before making it your report.</p></div>
+        <p><a href="#invoice-history">Compare saved Google Cloud invoices ↓</a></p>
         <ol class="steps" aria-label="Import progress">
             <li id="step-label-1" aria-current="step"><span>1</span> Choose files</li>
             <li id="step-label-2"><span>2</span> Review mappings</li>
@@ -62,7 +63,33 @@
             <div id="warning-panel" class="warning" hidden><h3>Review before opening</h3><ul id="warning-list"></ul></div>
             <label id="acknowledge-label" class="acknowledge" hidden><input type="checkbox" id="acknowledge">I have reviewed these warnings and any currency assumptions.</label>
             <p id="storage-note" class="muted small" hidden>Opening this report replaces the previously imported report in this browser. Your source CSV files are not saved.</p>
+            <section id="save-invoice" class="privacy" aria-labelledby="save-invoice-title" hidden>
+                <h3 id="save-invoice-title">Save this invoice month for comparison</h3>
+                <p id="invoice-save-help"></p>
+                <div id="invoice-save-fields" class="mapping-grid" hidden>
+                    <label class="field" for="invoice-series">Billing account or export scope<input id="invoice-series" type="text" list="invoice-series-names" maxlength="80" placeholder="e.g. Main GCP billing account" autocomplete="off"></label>
+                    <datalist id="invoice-series-names"></datalist>
+                    <label id="invoice-credit-field" class="field" for="invoice-credits" hidden>Does the mapped cost include credits?
+                        <select id="invoice-credits"><option value="">Not sure</option><option value="net_with_credits">Yes, after credits</option><option value="before_credits">No, before credits</option></select>
+                    </label>
+                    <div class="field"><button id="save-invoice-button" type="button" class="secondary" disabled>Save invoice month</button></div>
+                </div>
+                <p id="invoice-save-status" role="status" class="small" hidden></p>
+            </section>
             <div class="actions"><button id="back-mappings" class="secondary">← Edit mappings</button><div class="action-group"><button id="download-report" class="secondary" disabled>Download report JSON</button><button id="open-report" class="primary" disabled>Open dashboard →</button></div></div>
+        </section>
+        <section id="invoice-history" class="panel invoice-history" aria-labelledby="invoice-history-title">
+            <h2 id="invoice-history-title">Compare Google Cloud invoices</h2>
+            <p class="muted">Import one invoice month at a time. Save each under the same account or export scope if it covers the same billing data. Atlas saves only summary totals in this browser, separate from your current dashboard report.</p>
+            <p id="invoice-history-status" role="status" class="muted">Loading saved months…</p>
+            <div id="invoice-compare" hidden>
+                <div class="mapping-grid">
+                    <label class="field" for="invoice-earlier">Earlier invoice<select id="invoice-earlier"></select></label>
+                    <label class="field" for="invoice-later">Later invoice<select id="invoice-later"></select></label>
+                </div>
+                <p id="invoice-delta" role="status"></p>
+                <div class="table-scroll"><table><thead><tr><th scope="col">Billing scope</th><th scope="col">Invoice month</th><th scope="col">Total</th><th scope="col">Cost treatment</th><th scope="col">Storage</th></tr></thead><tbody id="invoice-rows"></tbody></table></div>
+            </div>
         </section>
         <noscript><p class="error">Enable JavaScript to import billing files in your browser.</p></noscript>
         <footer>Cloud Cost Atlas · No cloud credentials required</footer>

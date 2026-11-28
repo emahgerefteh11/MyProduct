@@ -51,7 +51,9 @@ function createLocalGcpConnector({readExport, now = () => new Date()} = {}) {
             }
             const result = billing.validate([file], [billing.detect(file.headers, 'gcp')]);
             if (!result.ok) throw new Error(result.errors[0]?.message ?? 'GCP export validation failed.');
-            if (result.report.analysis.invoiceMonth !== invoiceMonth) throw new Error('GCP invoice month could not be verified.');
+            if (result.report.analysis.invoiceMonth !== invoiceMonth || result.report.analysis.gcpCreditTreatment !== 'net_with_credits') {
+                throw new Error('GCP invoice month or credit treatment could not be verified.');
+            }
             const acceptedAt = now().toISOString();
             Object.assign(result.report.analysis, {importMethod: 'local-gcp-connector', generatedAt: acceptedAt});
             const snapshot = {revision, sha256, acceptedAt, report: result.report};

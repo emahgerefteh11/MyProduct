@@ -14,6 +14,15 @@ The local adapter expects one UTF-8 CSV projection with headers `invoice.month, 
 - Exact retry stays at $100 with the original acceptance time. A newer revision replaces it at $105 with $35 unallocated.
 - Wrong month, mixed currencies and non-net inputs are rejected; a changed or older revision cannot replace the accepted result.
 
+## Compare saved CSV invoice months
+
+1. On the [Import billing page](https://emahgerefteh11.github.io/MyProduct/import.html), upload one invoice month at a time. You may select multiple non-overlapping parts of that month. Every row needs the same valid `invoice.month` and an explicit billing currency. Earlier usage dates do not change the invoice month.
+2. In the validated preview, review warnings and select **Save invoice month**. Use a consistent label for the same billing account or export scope; Atlas does not verify that manually entered scopes are equivalent. For an unmarked cost column, say whether it includes credits only if you know. Do not call a source “after credits” if the mapped amount is gross and credits are in a separate column.
+3. In **Compare Google Cloud invoices**, choose two months. The difference is only shown for the same named scope, currency, cost basis, and known credit treatment. Unknown or conflicting credit treatment still allows viewing totals, but not a delta.
+4. Re-import a correction under the same scope and confirm the replacement. A same-total retry changes nothing. A correction never adds to the previous total or changes another month. Remove an incorrect saved summary before replacing it with an incompatible currency or cost treatment.
+
+Only invoice totals and comparison labels are saved, in this browser on this site. Original CSVs and report details are not kept in history. Opening or clearing the current dashboard report does not change your saved months. The design preview keeps separate history.
+
 ## Next
 
-Test the net projection itself against Standard export fields (including late-monetized usage and no-credit rows), then add two independently keyed invoice-month snapshots and a like-for-like comparison. The current browser upload can combine multiple CSVs into one aggregate and keeps one selected report, not separate historical periods. Keep usage dates and billing dates distinct and never sum cumulative revisions of the same period. Live BigQuery access, query spend and deployment require approval.
+Test the net projection itself with synthetic Standard export rows, including late-monetized usage, multiple signed credits and charges with no credits. Then validate a real approved export and authenticated BigQuery reader. This browser-local history does not sync between devices or accept connector revisions automatically. Live BigQuery access, query spend and deployment require approval.

@@ -3,6 +3,14 @@
     const $ = id => document.getElementById(id);
     let selected = [], prepared = [], configs = [], validation = null, worker = null, sequence = 0, busy = false;
     const pending = new Map();
+    let history = [];
+    const invoiceMonthLabel = month => month.slice(0, 4) + '-' + month.slice(4);
+    const formatInvoice = (total, currency, signDisplay = 'auto') =>
+        new Intl.NumberFormat(undefined, {style: 'currency', currency, signDisplay}).format(total);
+    function invoiceEligible(report) {
+        const a = report?.analysis;
+        return Boolean(a?.invoiceMonth && a.currency && !a.sources.some(s => s.assumedCurrencyRows));
+    }
     function node(tag, text, className) { const el = document.createElement(tag); if (text != null) el.textContent = text; if (className) el.className = className; return el; }
     function showError(message) { $('error').textContent = message; $('error').hidden = false; $('error').focus(); }
     function resetError() { $('error').hidden = true; $('error').textContent = ''; }
@@ -12,6 +20,8 @@
         $('read-files').disabled = busy || !selected.length;
         $('download-report').disabled = busy || !canAccept();
         $('open-report').disabled = busy || !canAccept();
+        $('save-invoice-button').disabled = busy || !canAccept() || !invoiceEligible(validation.report)
+            || !InvoiceHistory.declaredScope($('invoice-series').value);
     }
     function showStep(step) {
         for (let n = 1; n <= 3; n++) {
@@ -94,6 +104,64 @@
         });
     }
     function tableRows(id, rows) { $(id).replaceChildren(); rows.forEach(values => { const tr = node('tr'); values.forEach(value => tr.append(node('td', String(value)))); $(id).append(tr); }); }
+    function renderInvoiceSave(report) {
+        const a = report?.analysis;
+        $('save-invoice').hidden = !a?.sources.some(s => s.schema === 'gcp');
+        $('invoice-save-fields').hidden = !invoiceEligible(report);
+        $('invoice-credit-field').hidden = a?.gcpCreditTreatment !== 'not_declared';
+        $('invoice-credits').value = '';
+        $('invoice-save-status').hidden = true;
+        const month = a?.invoiceMonth;
+        const treatment = InvoiceHistory.treatments[a?.gcpCreditTreatment];
+        $('invoice-save-help').textContent = !month ? 'This upload is not one verified invoice month. Separate exports by the invoice.month field before saving.'
+            : !invoiceEligible(report) ? 'History needs an explicit billing currency on every row.'
+            : `Invoice ${invoiceMonthLabel(month)}${treatment ? ' · ' + treatment : ''}. Use the same scope for corrections or comparable months.`
+                + (a.gcpCreditTreatment === 'unverified' ? ' Credit treatment is unverified, so no change will be calculated.' : '');
+    }
+    function renderInvoiceDelta() {
+        const earlier = history.find(s => s.id === $('invoice-earlier').value);
+        const later = history.find(s => s.id === $('invoice-later').value);
+        const delta = InvoiceHistory.compare(earlier, later);
+        $('invoice-delta').textContent = history.length < 2 ? 'Save another invoice month to compare.'
+            : delta === null ? 'Choose two months in order with the same billing scope, currency, cost basis, and known credit treatment.'
+            : `Change from ${invoiceMonthLabel(earlier.month)} (${formatInvoice(earlier.total, earlier.currency)}) to ${invoiceMonthLabel(later.month)} (${formatInvoice(later.total, later.currency)}): ${formatInvoice(delta, later.currency, 'exceptZero')}`;
+    }
+    function renderInvoiceHistory(summaries) {
+        history = [...summaries].sort((a, b) => a.month.localeCompare(b.month) || a.series.localeCompare(b.series));
+        $('invoice-series-names').replaceChildren(...[...new Set(history.map(s => s.series))].map(series => {
+            const option = node('option'); option.value = series; return option;
+        }));
+        $('invoice-history-status').textContent = history.length ? `${history.length} saved invoice month${history.length === 1 ? '' : 's'}.` : 'No invoice months saved in this browser yet.';
+        $('invoice-compare').hidden = !history.length;
+        const compareIds = ['invoice-earlier', 'invoice-later'];
+        const later = history.at(-1), earlier = later && history.findLast(s => InvoiceHistory.compare(s, later) !== null);
+        compareIds.forEach((id, index) => {
+            const select = $(id), previous = select.value;
+            select.replaceChildren(...history.map(s => {
+                const option = node('option', `${invoiceMonthLabel(s.month)} · ${s.series} · ${s.currency} · ${InvoiceHistory.treatments[s.credits]}`);
+                option.value = s.id; return option;
+            }));
+            if (history.some(s => s.id === previous)) select.value = previous;
+            else if (index ? later : earlier || history[0]) select.value = (index ? later : earlier || history[0]).id;
+        });
+        $('invoice-rows').replaceChildren(...history.slice().reverse().map(s => {
+            const row = node('tr');
+            [s.series, invoiceMonthLabel(s.month), formatInvoice(s.total, s.currency), `${s.basis} · ${InvoiceHistory.treatments[s.credits]}`]
+                .forEach(text => row.append(node('td', text)));
+            const cell = node('td'), remove = node('button', 'Remove', 'secondary');
+            remove.type = 'button';
+            remove.setAttribute('aria-label', `Remove ${invoiceMonthLabel(s.month)} for ${s.series}`);
+            remove.onclick = () => action('Updating local invoice history…', async () => {
+                if (!confirm(`Remove ${invoiceMonthLabel(s.month)} for ${s.series} from this browser? Your current dashboard report will not change.`)) return;
+                const result = await ReportStore.deleteMonth(s.id);
+                renderInvoiceHistory(result.summaries);
+                if (result.outcome === 'changed') $('invoice-history-status').textContent = 'That month changed in another tab. Check it and try again.';
+            });
+            cell.append(remove); row.append(cell);
+            return row;
+        }));
+        renderInvoiceDelta();
+    }
     function renderPreview() {
         const result = validation, report = result.report;
         $('acknowledge').checked = false;
@@ -105,6 +173,7 @@
         $('error-limit').textContent = result.errorCount > result.errors.length ? `Showing the first ${result.errors.length} issues.` : '';
         $('warning-list').replaceChildren(...result.warnings.map(w => node('li', w)));
         $('warning-panel').hidden = !result.warnings.length; $('acknowledge-label').hidden = !result.ok || !result.warnings.length;
+        renderInvoiceSave(report);
         if (report) {
             const fmt = amount => new Intl.NumberFormat(undefined, report.analysis.currency ? {style: 'currency', currency: report.analysis.currency} : {minimumFractionDigits: 2, maximumFractionDigits: 2}).format(amount);
             $('preview-metrics').replaceChildren();
@@ -137,6 +206,33 @@
     $('back-files').onclick = () => { resetError(); validation = null; showStep(1); buttons(); };
     $('back-mappings').onclick = () => { resetError(); validation = null; showStep(2); buttons(); };
     $('acknowledge').onchange = buttons;
+    $('invoice-series').oninput = buttons;
+    $('invoice-earlier').onchange = $('invoice-later').onchange = renderInvoiceDelta;
+    $('save-invoice-button').onclick = () => action('Saving the invoice summary in this browser…', async () => {
+        if (!canAccept() || !invoiceEligible(validation.report)) return;
+        const report = validation.report, series = $('invoice-series').value, credits = $('invoice-credits').value;
+        let result = await ReportStore.saveMonth(report, series, credits);
+        const snapshot = InvoiceHistory.snapshotFor(report, series, credits);
+        if (result.outcome === 'confirm') {
+            const older = result.summaries.find(s => InvoiceHistory.slot(s) === InvoiceHistory.slot(snapshot));
+            if (confirm(`Replace ${invoiceMonthLabel(snapshot.month)} for ${snapshot.series}: ${formatInvoice(older.total, older.currency)} → ${formatInvoice(snapshot.total, snapshot.currency)}? Other months will not change.`)) {
+                result = await ReportStore.saveMonth(report, series, credits, older.id);
+            } else result.outcome = 'cancelled';
+        }
+        renderInvoiceHistory(result.summaries);
+        const message = {
+            saved: 'Invoice month saved. Your current dashboard report did not change.',
+            replaced: 'Invoice month replaced. Other months and your current dashboard report did not change.',
+            unchanged: 'This summary is already saved. Nothing was added.',
+            cancelled: 'Replacement cancelled. The saved invoice did not change.',
+            incompatible: 'That scope and month already has a different currency, cost basis, or credit treatment. Nothing changed. Use a distinct scope for different reports or remove an incorrect saved month first.',
+            full: 'History is full (120 months). Remove a saved month before adding another.',
+            confirm: 'The saved month changed in another tab. Review it before replacing it.',
+            changed: 'The saved month changed in another tab. Review it before replacing it.',
+        };
+        $('invoice-save-status').textContent = message[result.outcome];
+        $('invoice-save-status').hidden = false;
+    });
     $('download-report').onclick = () => {
         if (!canAccept()) return;
         const url = URL.createObjectURL(new Blob([JSON.stringify(validation.report, null, 2)], {type: 'application/json'}));
@@ -146,6 +242,7 @@
         if (!canAccept()) return;
         await ReportStore.save(validation.report); location.href = 'dashboard.html?source=import';
     });
+    ReportStore.getHistory().then(renderInvoiceHistory, error => { $('invoice-history-status').textContent = error.message; });
     if (!window.Worker || !window.crypto?.subtle) showError('Use a current browser over HTTPS (or localhost) to import billing files.');
     buttons();
 })();

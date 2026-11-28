@@ -186,6 +186,8 @@
         if (!files.length || files.length > LIMITS.files) fail('', null, '', `Choose between 1 and ${LIMITS.files} files.`);
         const hashes = new Set(), currencies = new Set(), bases = new Set();
         const invoiceMonths = new Set();
+        const creditMarkers = new Set();
+        let sawCreditMarker = false;
         let sawInvoiceMonthColumn = false, missingInvoiceMonths = 0, invalidInvoiceMonths = 0;
         const total = zero(), unProduct = zero(), unPlatform = zero(), unEnvironment = zero();
         const products = new Map(), services = new Map(), environments = new Map(), platforms = new Map(), providers = new Map(), resources = new Map();
@@ -202,6 +204,8 @@
             const indices = Object.fromEntries(Object.keys(FIELDS).map(k => [k, file.headers.indexOf(mapping[k])]));
             const invoiceMonthIndex = config.format === 'gcp' ? file.headers.findIndex(h => h.toLowerCase() === 'invoice.month') : -1;
             if (invoiceMonthIndex >= 0) sawInvoiceMonthColumn = true;
+            const creditIndex = config.format === 'gcp' ? file.headers.findIndex(h => h.toLowerCase() === 'atlasgcpcostbasis') : -1;
+            if (creditIndex >= 0) sawCreditMarker = true;
             const source = {file: file.name, sha256: file.sha256, schema: config.format, costColumn: mapping.cost, costBasis: config.costBasis,
                 rows: 0, currencies: new Set(), missingCurrencyRows: 0, assumedCurrencyRows: 0, invalidDateFields: 0, invalidTagRows: 0, ambiguousAllocationTagRows: 0,
                 usagePeriod: {start: null, end: null}, billingPeriod: {start: null, end: null}, incompleteUsage: false, incompleteBilling: false,
@@ -220,6 +224,8 @@
                 if (currency) { currencies.add(currency); source.currencies.add(currency); }
                 else source.missingCurrencyRows++;
                 if (!explicitCurrency && assumed) source.assumedCurrencyRows++;
+                const creditMarker = /^cost$/i.test(mapping.cost) ? record.cells[creditIndex]?.trim() : '';
+                creditMarkers.add(creditMarker === 'net_with_credits' || creditMarker === 'before_credits' ? creditMarker : null);
                 const invoiceMonth = record.cells[invoiceMonthIndex]?.trim() || '';
                 if (!invoiceMonth) missingInvoiceMonths++;
                 else if (/^[1-9]\d{3}(?:0[1-9]|1[0-2])$/.test(invoiceMonth)) invoiceMonths.add(invoiceMonth);
@@ -285,6 +291,12 @@
         if (files.length > 1) warnings.add('Only identical whole files are detected as duplicates. Check that exports do not contain overlapping billing rows.');
         const invoiceMonth = sawInvoiceMonthColumn && invoiceMonths.size === 1 && !missingInvoiceMonths && !invalidInvoiceMonths
             ? [...invoiceMonths][0] : null;
+        const gcpCreditTreatment = sawCreditMarker
+            ? creditMarkers.size === 1 ? [...creditMarkers][0] ?? 'unverified' : 'unverified'
+            : 'not_declared';
+        if (sawCreditMarker && gcpCreditTreatment === 'unverified') {
+            warnings.add('The GCP credit marker is missing, inconsistent, or applies to a different cost column. Credit treatment could not be verified.');
+        }
         if (sawInvoiceMonthColumn && !invoiceMonth) {
             warnings.add('A single GCP invoice month could not be verified. This is an aggregate, not a billing-month snapshot.');
         }
@@ -319,7 +331,7 @@
             report = {sampleData: false, TotalBilledCost: reportTotal,
                 analysis: {schemaVersion: 1, generatedAt: new Date().toISOString(), importMethod: 'browser', currency,
                     costBasis: [...bases][0], sourceCount: sources.length, rowCount, sources, ...periods,
-                    ...(sawInvoiceMonthColumn ? {invoiceMonth} : {}),
+                    ...(sawInvoiceMonthColumn ? {invoiceMonth, gcpCreditTreatment, invoiceTotal: decimalText(roundedTotal).replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1')} : {}),
                     reconciliation: {sourceTotal: totalNumber, reportTotal, difference: Number(Number(exactDifference).toFixed(8)) || 0, exactDifference}, warnings: [...warnings]},
                 allocation: {unallocatedProductCost: money(unProduct), unallocatedPlatformCost: money(unPlatform), unallocatedEnvironmentCost: money(unEnvironment)},
                 products: productList(products, totalNumber), services: list(services, 'ServiceCategory', totalNumber), environments: list(environments, 'Environment', totalNumber), providers: list(providers, 'ProviderName', totalNumber),

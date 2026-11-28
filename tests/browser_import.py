@@ -177,6 +177,56 @@ class BrowserImport(unittest.TestCase):
         self.assertEqual(analysis['invoiceMonth'], '202610')
         self.assertEqual(analysis['usagePeriod']['start'], '2026-09-29T00:00:00.000Z')
 
+    def test_gcp_invoice_history_retains_separate_months_and_requires_correction_confirmation(self):
+        def upload(month, total, marker='net_with_credits'):
+            self.page.goto(self.origin + '/import.html')
+            self.choose([{'name': 'invoice.csv', 'mimeType': 'text/csv', 'buffer':
+                          ("invoice.month,Cost,currency,service.description,AtlasGcpCostBasis,usage_start_time,usage_end_time\n"
+                           f"{month},{total},USD,Compute Engine,{marker},2026-09-29,2026-09-30\n").encode()}])
+            self.validate()
+            self.page.locator('#invoice-series').fill('Main account')
+            expect(self.page.locator('#save-invoice-button')).to_be_disabled()
+            self.page.locator('#acknowledge').check()
+
+        def save(expected):
+            self.page.locator('#save-invoice-button').click()
+            expect(self.page.locator('#invoice-save-status')).to_contain_text(expected)
+
+        upload('202610', 100)
+        save('Invoice month saved')
+        save('already saved')
+        upload('202611', 130)
+        save('Invoice month saved')
+        self.page.reload()
+        expect(self.page.locator('#invoice-delta')).to_contain_text('+$30.00')
+        expect(self.page.locator('#invoice-rows tr')).to_have_count(2)
+        upload('202610', 105)
+        self.page.once('dialog', lambda dialog: dialog.dismiss())
+        save('Replacement cancelled')
+        expect(self.page.locator('#invoice-delta')).to_contain_text('+$30.00')
+        self.page.once('dialog', lambda dialog: dialog.accept())
+        save('Invoice month replaced')
+        expect(self.page.locator('#invoice-rows tr')).to_have_count(2)
+        self.page.reload()
+        expect(self.page.locator('#invoice-delta')).to_contain_text('+$25.00')
+        expect(self.page.locator('#invoice-rows')).to_contain_text('$105.00')
+        expect(self.page.locator('#invoice-rows')).to_contain_text('$130.00')
+        self.assertIsNone(self.page.evaluate('ReportStore.get()'))
+
+        upload('202610', 130, 'before_credits')
+        save('different currency, cost basis, or credit treatment')
+        expect(self.page.locator('#invoice-rows')).to_contain_text('$105.00')
+        upload('202612', 130, 'before_credits')
+        save('Invoice month saved')
+        later = self.page.locator('#invoice-later')
+        later.select_option(label='2026-12 · Main account · USD · Before credits')
+        expect(self.page.locator('#invoice-delta')).to_contain_text('same billing scope, currency, cost basis')
+        self.page.once('dialog', lambda dialog: dialog.accept())
+        self.page.get_by_role('button', name='Remove 2026-12 for Main account').click()
+        expect(self.page.locator('#invoice-rows tr')).to_have_count(2)
+        self.page.goto(self.origin + '/preview/import.html')
+        expect(self.page.locator('#invoice-history-status')).to_have_text('No invoice months saved in this browser yet.')
+
     def test_preview_explains_rounded_cost_without_negative_zero(self):
         for currency, raw, delta in [
             ('KWD', '1.2344', '−0.0004 KWD'),

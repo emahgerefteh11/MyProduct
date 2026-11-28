@@ -88,3 +88,8 @@ footer { text-align: center; font-size: 11px; color: var(--muted); margin-top: 2
 }
 @media (max-width: 400px) { .mapping-grid { grid-template-columns: 1fr; } .steps li { flex-direction: column; text-align: center; flex: 1; } }
 @media (max-width: 400px) { .site-header { gap: 10px; } .site-header .brand { font-size: 20px; gap: 8px; } .site-header > a:last-child { font-size: 11px; } }
+
+.invoice-history { margin-top: 24px; }
+#save-invoice h3 { margin-top: 0; }
+#invoice-delta { font-weight: 650; }
+#invoice-rows button { padding: 4px 10px; font-size: 12px; }

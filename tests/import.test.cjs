@@ -271,3 +271,33 @@ test('case-folded ownership conflicts do not depend on key order or override exp
         assert.match(result.warnings.join(' '), /ownership tags have conflicting/);
     }
 });
+
+test('GCP invoice history distinguishes before-credit, net, unknown, and inconsistently marked totals', () => {
+    const history = require('../report_store.js');
+    const indexed = month => `invoice.month,Cost,currency,service.description\n${month},130,USD,Compute Engine`;
+    const projected = (month, total, marker = 'net_with_credits') =>
+        `invoice.month,Cost,currency,service.description,AtlasGcpCostBasis\n${month},${total},USD,Compute Engine,${marker}`;
+    const make = (csvText, declaration) => history.snapshotFor(check(csvText).report, '  Production  ', declaration);
+    const raw = make(indexed('202610'), 'before_credits'), net = make(projected('202611', 100));
+    assert.equal(raw.total, '130');
+    assert.equal(raw.credits, 'before_credits');
+    assert.equal(net.credits, 'net_with_credits');
+    assert.equal(history.compare(raw, net), null);
+    assert.equal(history.compare(make(indexed('202610')), net), null);
+    assert.equal(history.compare(make(projected('202610', 105)), net), '-5');
+    assert.equal(history.compare(make(projected('202610', -0.15)), make(projected('202611', .1))), '0.25');
+    assert.equal(history.compare({...raw, series: 'Other account'}, {...raw, month: '202611'}), null);
+    assert.equal(history.compare({...raw, currency: 'EUR'}, {...raw, month: '202611'}), null);
+    assert.equal(history.compare({...raw, basis: 'effective'}, {...raw, month: '202611'}), null);
+    assert.equal(history.compare(net, net), null);
+    const conflict = make(projected('202610', 100) + '\n202610,30,USD,Cloud Storage,before_credits', 'net_with_credits');
+    assert.equal(conflict.credits, 'unknown');
+    const otherColumn = source('invoice.month,Cost,currency,service.description,AtlasGcpCostBasis,Other\n202610,100,USD,Compute Engine,net_with_credits,130');
+    const mapping = B.detect(otherColumn.headers);
+    mapping.mapping.cost = 'Other';
+    const remapped = B.validate([otherColumn], [mapping]).report;
+    assert.equal(remapped.analysis.gcpCreditTreatment, 'unverified');
+    assert.equal(history.snapshotFor(remapped, 'Production', 'net_with_credits').credits, 'unknown');
+    const assumed = check(projected('202610', 100).replace(',USD,', ',,'), {currency: 'USD'}).report;
+    assert.throws(() => history.snapshotFor(assumed, 'Production'), /every row/);
+});
