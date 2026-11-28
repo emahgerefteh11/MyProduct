@@ -103,15 +103,19 @@
         const sign = a.n < 0n ? '-' : '', digits = (a.n < 0n ? -a.n : a.n).toString().padStart(a.s + 1, '0');
         return sign + (a.s ? digits.slice(0, -a.s) + '.' + digits.slice(-a.s) : digits);
     }
-    function amount(a) {
+    function amount(a, digits = 2) {
         const n = Number(decimalText(a));
-        if (!Number.isFinite(n) || Math.abs(n) > Number.MAX_SAFE_INTEGER / 100) throw new Error('The cost total is too large to display accurately. Split this export into smaller reports.');
+        if (!Number.isFinite(n) || Math.abs(n) > Number.MAX_SAFE_INTEGER / 10 ** Math.max(2, digits)) throw new Error('The cost total is too large to display accurately. Split this export into smaller reports.');
         return n;
     }
-    function rounded(a) {
-        if (a.s <= 2) return amount(a);
-        const divisor = 10n ** BigInt(a.s - 2), sign = a.n < 0n ? -1n : 1n, absolute = a.n * sign;
-        return amount({n: sign * ((absolute + divisor / 2n) / divisor), s: 2});
+    function rounded(a, digits) {
+        if (a.s <= digits) return amount(a, digits);
+        const divisor = 10n ** BigInt(a.s - digits), sign = a.n < 0n ? -1n : 1n, absolute = a.n * sign;
+        return amount({n: sign * ((absolute + divisor / 2n) / divisor), s: digits}, digits);
+    }
+    // Match the default Intl currency display; unspecified and unknown codes keep two digits.
+    function currencyDigits(currency) {
+        return currency ? new Intl.NumberFormat('en-US', {style: 'currency', currency}).resolvedOptions().maximumFractionDigits : 2;
     }
     function providerName(value) {
         const p = String(value || '').trim().toLowerCase();
@@ -171,10 +175,6 @@
     function group(map, name, cost) {
         if (!map.has(name)) map.set(name, {cost: zero(), rows: 0});
         const value = map.get(name); add(value.cost, cost); value.rows++; return value;
-    }
-    function list(map, key, total) {
-        return [...map].map(([name, v]) => ({[key]: name, BilledCost: rounded(v.cost), rows: v.rows, pctOfTotal: total ? amount(v.cost) / total * 100 : 0}))
-            .sort((a, b) => b.BilledCost - a.BilledCost);
     }
 
     function validate(files, configs, assumedCurrency = '') {
@@ -276,31 +276,40 @@
         warnings.add('Browser import summarizes cost and explicit tags. Hardware sizing, resource-name inference, and utilization are not analyzed.');
         if (files.length > 1) warnings.add('Only identical whole files are detected as duplicates. Check that exports do not contain overlapping billing rows.');
         if (!rowCount) fail('', null, '', 'No billing rows were available for validation.');
-        let totalNumber = 0, reportTotal = 0;
-        try { totalNumber = amount(total); reportTotal = rounded(total); } catch (e) { fail('', null, 'Cost', e.message); }
         if (errorCount) return {ok: false, errors, errorCount, warnings: [...warnings], report: null, rowCount};
+        const currency = [...currencies][0] || null, digits = currencyDigits(currency);
+        const money = cost => rounded(cost, digits);
+        const numericCost = cost => amount(cost, digits);
         const pct = (part, whole) => whole ? part / whole * 100 : 0;
+        function list(map, key, total) {
+            return [...map].map(([name, v]) => ({[key]: name, BilledCost: money(v.cost), rows: v.rows, pctOfTotal: pct(numericCost(v.cost), total)}))
+                .sort((a, b) => b.BilledCost - a.BilledCost);
+        }
         function productList(map, whole) {
-            return list(map, 'Product', whole).map(p => { const g = map.get(p.Product); return {...p, pctOfPlatform: pct(p.BilledCost, whole),
-                services: list(g.services, 'ServiceCategory', p.BilledCost), environments: list(g.environments, 'Environment', p.BilledCost),
-                providers: list(g.providers, 'ProviderName', p.BilledCost), serviceCount: g.services.size, vmSkus: [], ec2Skus: []}; });
+            return list(map, 'Product', whole).map(p => {
+                const group = map.get(p.Product), cost = numericCost(group.cost);
+                return {...p, pctOfPlatform: p.pctOfTotal, services: list(group.services, 'ServiceCategory', cost),
+                    environments: list(group.environments, 'Environment', cost), providers: list(group.providers, 'ProviderName', cost),
+                    serviceCount: group.services.size, vmSkus: [], ec2Skus: []};
+            });
         }
         let report;
         try {
+            const totalNumber = numericCost(total), reportTotal = money(total);
             const periods = Object.fromEntries(['usagePeriod', 'billingPeriod'].map(key => {
                 const starts = sources.map(s => s[key].start).filter(Boolean).sort(), ends = sources.map(s => s[key].end).filter(Boolean).sort();
                 return [key, {start: starts[0] || null, end: ends.at(-1) || null, complete: starts.length === sources.length && ends.length === sources.length && !sources.some(s => s[key === 'usagePeriod' ? 'incompleteUsage' : 'incompleteBilling'])}];
             }));
             report = {sampleData: false, TotalBilledCost: reportTotal,
-                analysis: {schemaVersion: 1, generatedAt: new Date().toISOString(), importMethod: 'browser', currency: [...currencies][0] || null,
+                analysis: {schemaVersion: 1, generatedAt: new Date().toISOString(), importMethod: 'browser', currency,
                     costBasis: [...bases][0], sourceCount: sources.length, rowCount, sources, ...periods,
                     reconciliation: {sourceTotal: totalNumber, reportTotal, difference: Number((reportTotal - totalNumber).toFixed(8))}, warnings: [...warnings]},
-                allocation: {unallocatedProductCost: rounded(unProduct), unallocatedPlatformCost: rounded(unPlatform), unallocatedEnvironmentCost: rounded(unEnvironment)},
+                allocation: {unallocatedProductCost: money(unProduct), unallocatedPlatformCost: money(unPlatform), unallocatedEnvironmentCost: money(unEnvironment)},
                 products: productList(products, totalNumber), services: list(services, 'ServiceCategory', totalNumber), environments: list(environments, 'Environment', totalNumber), providers: list(providers, 'ProviderName', totalNumber),
-                platforms: list(platforms, 'Platform', totalNumber).map(p => { const g = platforms.get(p.Platform); return {...p, products: productList(g.products, p.BilledCost), services: list(g.services, 'ServiceCategory', p.BilledCost), vmSkus: [], ec2Skus: []}; }),
+                platforms: list(platforms, 'Platform', totalNumber).map(p => { const g = platforms.get(p.Platform), cost = numericCost(g.cost); return {...p, products: productList(g.products, cost), services: list(g.services, 'ServiceCategory', cost), vmSkus: [], ec2Skus: []}; }),
                 resourceNames: list(resources, 'ResourceName', totalNumber), namingConvention: {source: 'Resource identifiers as supplied; no naming inference', mode: 'explicit allocation only', pattern: []},
-                resourceInventory: [...inventory.values()].map(({cost, services, sourceHashes, ...item}) => ({...item, cost: rounded(cost), services: [...services], sourceHashes: [...sourceHashes]})),
-                resourceInventorySummary: {unidentifiedCost: rounded(unidentified.cost), unidentifiedRows: unidentified.rows},
+                resourceInventory: [...inventory.values()].map(({cost, services, sourceHashes, ...item}) => ({...item, cost: money(cost), services: [...services], sourceHashes: [...sourceHashes]})),
+                resourceInventorySummary: {unidentifiedCost: money(unidentified.cost), unidentifiedRows: unidentified.rows},
             };
         } catch (e) { fail('', null, 'Cost', e.message); return {ok: false, errors, errorCount, report: null, warnings: [...warnings], rowCount}; }
         return {ok: true, errors: [], errorCount: 0, warnings: [...warnings], report, rowCount};

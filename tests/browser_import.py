@@ -162,6 +162,30 @@ class BrowserImport(unittest.TestCase):
         self.assertEqual(report['allocation']['unallocatedProductCost'], 30)
         self.assertEqual(next(p for p in report['products'] if p['Product'] == 'Payments')['BilledCost'], 70)
 
+    def test_currency_specific_precision_reaches_the_dashboard(self):
+        for currency, raw, total, display in [
+            ('KWD', '1.2344', 1.234, '1.234'),
+            ('JPY', '10.49', 10, '10'),
+        ]:
+            self.choose([{'name': 'focus.csv', 'mimeType': 'text/csv', 'buffer':
+                          f'BilledCost,BillingCurrency,Product\n{raw},{currency},Payments\n'.encode()}])
+            self.validate()
+            expect(self.page.locator('#preview-metrics')).to_contain_text(display)
+            self.accept()
+            expected = self.page.evaluate(
+                '([currency, total]) => new Intl.NumberFormat("en-US", {style: "currency", currency}).format(total)',
+                [currency, total])
+            expect(self.page.locator('#kpi-total')).to_have_text(expected)
+            menu = self.page.locator('.report-actions')
+            if menu.get_attribute('open') is None:
+                menu.locator('summary').click()
+            with self.page.expect_download() as download:
+                self.page.locator('#download-imported-report').click()
+            report = json.loads(Path(download.value.path()).read_text())
+            self.assertEqual(report['TotalBilledCost'], total)
+            self.assertEqual(report['products'][0]['BilledCost'], total)
+            self.page.goto(self.origin + '/import.html')
+
     def test_demo_correction_replaces_the_original_import(self):
         for file, total, unallocated in [
             (ROOT / 'tests' / 'fixtures' / 'cur' / 'synthetic.csv', 100, 30),

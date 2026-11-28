@@ -104,6 +104,19 @@ test('real upload and local manifest reconcile through retries, revisions and a 
     assert.equal(connector.get({...scope, tenant: 'another-tenant'}), null);
 });
 
+test('upload worker and CUR connector agree on three-decimal monetary amounts', async () => {
+    const bytes = Buffer.from(raw.toString().replaceAll(',USD,', ',KWD,').replace(',30,KWD,', ',30.0024,KWD,'));
+    const connector = createLocalCurConnector({readObject: () => gzipSync(bytes)});
+    const connected = connector.refresh({tenant, source, manifest}).report;
+    const uploaded = await upload(bytes);
+    for (const report of [connected, uploaded]) {
+        assert.equal(report.analysis.currency, 'KWD');
+        assert.equal(report.TotalBilledCost, 100.002);
+        assert.equal(report.allocation.unallocatedProductCost, 30.002);
+        assert.equal(report.analysis.reconciliation.difference, -0.0004);
+    }
+});
+
 test('part order is immaterial and incomplete or incompatible refreshes cannot publish', async () => {
     const [header, ...rows] = raw.toString().trimEnd().split('\n');
     const part = (...lines) => gzipSync([header, ...lines, ''].join('\n'));

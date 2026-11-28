@@ -129,6 +129,29 @@ test('missing or invalid dates warn; observed periods never claim missing covera
     assert.equal(complete.report.analysis.usagePeriod.complete, true);
     assert.equal(complete.report.analysis.billingPeriod.complete, false);
 });
+test('currency precision applies consistently to totals, allocations, inventory and unrounded shares', () => {
+    const report = check('BilledCost,BillingCurrency,Product,Platform,ServiceName,ResourceId\n' +
+        '1.2344,KWD,Payments,core,S3,bucket\n' +
+        '-0.0005,KWD,,core,EC2,').report;
+    assert.equal(report.TotalBilledCost, 1.234);
+    assert.equal(report.analysis.sources[0].sourceCostTotal, '1.2339');
+    assert.equal(report.analysis.reconciliation.difference, 0.0001);
+    assert.equal(report.allocation.unallocatedProductCost, -0.001);
+    assert.equal(report.resourceInventory[0].cost, 1.234);
+    assert.equal(report.resourceInventorySummary.unidentifiedCost, -0.001);
+    assert.equal(report.platforms[0].products.find(p => p.Product === 'Payments').BilledCost, 1.234);
+
+    const yen = check('BilledCost,BillingCurrency,Product,Platform,ServiceName\n0.49,JPY,Payments,core,S3').report;
+    assert.equal(yen.TotalBilledCost, 0);
+    assert.equal(yen.products[0].services[0].pctOfTotal, 100);
+    assert.equal(yen.platforms[0].products[0].pctOfPlatform, 100);
+    assert.equal(check('Cost\n1.2344', {currency: 'KWD'}).report.TotalBilledCost, 1.234);
+    for (const currency of ['', 'USD', 'ZZZ']) {
+        assert.equal(check('Cost\n1.2344', {currency}).report.TotalBilledCost, 1.23);
+    }
+    assert.equal(check('Cost,Currency\n9007199254741,KWD').ok, false);
+});
+
 test('sub-cent decimals accumulate before rounding and negative credits remain intact', () => {
     const result = check('Cost\n0.004\n0.004\n0.004\n-0.001');
     assert.equal(result.report.analysis.reconciliation.sourceTotal, .011);
