@@ -547,3 +547,55 @@ test('GCP query rehearsal publishes only all pages of one successful job with a 
     assert.equal(corrected.report.TotalBilledCost, 105);
     assert.equal(connector.get(gcpScope).revision, 2);
 });
+
+test('GCP REST rehearsal decodes nested credits and fails closed on schema drift', async () => {
+    const {makeGcpRestPageReader} = require('../local_gcp_rest_rows.cjs');
+    const {collectGcpQueryProjection} = require('../local_gcp_query_results.cjs');
+    const account = 'synthetic-account', invoiceMonth = '202610';
+    const jobReference = {projectId: 'fixture-project', jobId: 'fixture-job', location: 'US'};
+    const job = {jobReference, status: {state: 'DONE'}};
+    const str = name => ({name, type: 'STRING'});
+    const rec = (name, inner, mode = 'NULLABLE') => ({name, type: 'RECORD', mode, fields: [str(inner)]});
+    const schema = {fields: [str('billing_account_id'), rec('invoice', 'month'), str('currency'),
+        rec('service', 'description'), str('cost'), rec('credits', 'amount', 'REPEATED'), str('cost_type'),
+        str('usage_start_time'), str('usage_end_time')]};
+    const row = (...values) => ({f: values.map(v => ({v}))});
+    const bill = (cost, credits = []) => row(account, row(invoiceMonth), 'USD', row('Cloud Storage'), cost,
+        credits.map(amount => ({v: row(amount)})), 'regular', '2026-09-29T01:00:00.123456Z', null);
+    const head = {jobReference, jobComplete: true, totalRows: '2', pageToken: 'second', schema,
+        rows: [bill('80.00', ['-6.25', '-3.75'])]};
+    const tail = {jobReference, jobComplete: true, rows: [bill('30')]};
+    const collect = (first, second = tail) => collectGcpQueryProjection({job, billingAccount: account, invoiceMonth,
+        readPage: makeGcpRestPageReader(async ({pageToken}) => pageToken ? second : first)});
+    const report = await upload(await collect(head));
+    assert.equal(report.TotalBilledCost, 100);
+    assert.equal(report.analysis.invoiceMonth, invoiceMonth);
+    assert.equal(report.analysis.usagePeriod.start, '2026-09-29T01:00:00.123Z');
+    const drift = structuredClone(schema);
+    [drift.fields[4], drift.fields[2]] = [drift.fields[2], drift.fields[4]];
+    await assert.rejects(collect({...head, schema: drift}), /result schema/);
+    await assert.rejects(collect(head, {...tail, schema: drift}), /result schema/);
+    await assert.rejects(collect({...head, schema: undefined}), /result schema/);
+    const missingCredits = bill('80');
+    missingCredits.f[5].v = null;
+    await assert.rejects(collect({...head, rows: [missingCredits]}), /repeated field/);
+    await assert.rejects(collect({...head, rows: [row('not-enough-columns')]}), /result row/);
+    const wrongCostType = bill(80);
+    await assert.rejects(collect({...head, rows: [wrongCostType]}), /scalar field/);
+});
+
+test('GCP net invoice includes unallocated account-level tax and adjustments', async () => {
+    const {projectGcpStandardRows} = require('../local_gcp_projection.cjs');
+    const billingAccount = 'synthetic-bill', invoiceMonth = '202610';
+    const row = (cost, cost_type, atlasProduct) => ({
+        billing_account_id: billingAccount, invoice: {month: invoiceMonth}, currency: 'USD', cost,
+        credits: [], cost_type, atlasProduct,
+    });
+    const bytes = projectGcpStandardRows([
+        row('100', 'regular', 'Payments'), row('8', 'tax'), row('-3', 'adjustment'),
+    ], {billingAccount, invoiceMonth});
+    const report = await upload(bytes);
+    assert.equal(report.TotalBilledCost, 105);
+    assert.equal(report.products.find(x => x.Product === 'Payments').BilledCost, 100);
+    assert.equal(report.allocation.unallocatedProductCost, 5);
+});

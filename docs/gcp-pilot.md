@@ -46,7 +46,7 @@ A real reader needs allowlisted account/table scope, authenticated job status, b
 
 ### Candidate GoogleSQL for the dry run
 
-Use an allowlisted Standard table or an approved view that exposes these fields. Replace the illustrative table name under review, not from user-entered UI text; bind the account and month as named `STRING` parameters. Preserve original cost and individual signed credits because the Atlas projection applies credits once. No usage-month filter, cost-type filter, aggregation, or `LIMIT`. This query has not been executed against BigQuery.
+Use an allowlisted Standard table or an approved view that exposes these fields. Replace the illustrative table name under review, not from user-entered UI text; bind the account and month as named `STRING` parameters. Preserve original cost and individual signed credits because the Atlas projection applies credits once. No usage-month filter, cost-type filter, aggregation, or `LIMIT`. Inspect the actual partition configuration independently and dry-run the exact query. Add a partition predicate only if its coverage is independently known to include the complete approved invoice. Do not require a project label or drop account-level charges. [BigQuery partition guidance](https://docs.cloud.google.com/bigquery/docs/querying-partitioned-tables) This query has not been executed against BigQuery.
 
 ```sql
 SELECT
@@ -66,6 +66,8 @@ FROM `approved-project.approved_dataset.gcp_billing_export_v1_approved` AS src
 WHERE src.billing_account_id = @billing_account
   AND src.invoice.month = @invoice_month
 ```
+
+The offline `makeGcpRestPageReader` rehearsal accepts the matching BigQuery result schema and decodes the API's positional, nested cells before paging and projection. A missing schema on the first page, a change to field order or type, or a null/malformed repeated-credit array stops the refresh. This runs on synthetic response pages only; an authenticated transport and raw-response limits are still required.
 
 ## Next
 
