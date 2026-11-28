@@ -40,7 +40,9 @@ Use a current browser over **HTTPS or localhost**. Opening `import.html` directl
 
 ## Direct cloud account connections (planned)
 
-Direct hyperscaler account connections are **planned, not yet implemented**. The target flow is to connect AWS or GCP, select the billing source and period, and generate or refresh the same dashboard automatically; Azure follows. This requires an authenticated backend for cloud access and ingestion. AWS CUR exports in S3 and GCP Cloud Billing exports in BigQuery are the initial connected sources. See the [connection requirements](ROADMAP.md#connect-a-hyperscaler-account-and-generate-results).
+The public app does not connect directly to cloud accounts yet. The private AWS prototype refreshes supported Legacy CUR exports in local tests with sample data. An authenticated hosted connection and live AWS pilot are still pending. See the [AWS pilot runbook](docs/aws-pilot.md).
+
+Connected GCP and Azure ingestion are planned. The target flow is to select a billing source and period, then generate or refresh the same dashboard automatically. See the [connection requirements](ROADMAP.md#connect-a-hyperscaler-account-and-generate-results).
 
 ## Report trust and data quality
 
