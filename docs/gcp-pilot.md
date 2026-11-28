@@ -36,6 +36,37 @@ The local `collectGcpQueryProjection` rehearsal expects a successful terminal Bi
 
 A real reader needs allowlisted account/table scope, authenticated job status, bounded retries and raw-response byte limits before decoding. Estimates should come from a [BigQuery dry run](https://docs.cloud.google.com/bigquery/docs/running-queries#dry-run); a live on-demand query also needs an expressly approved byte ceiling. [BigQuery result paging](https://docs.cloud.google.com/bigquery/docs/reference/rest/v2/jobs/getQueryResults) is tied to the original job, not a fresh query per page. A job ID or a result's page count does not order billing corrections; keep accepted revision order separate. Do not treat [BigQuery time travel](https://docs.cloud.google.com/bigquery/docs/access-historical-data) as permanent invoice history or use it by default for an identity restricted by row-level policy.
 
+## One-invoice live pilot checklist (not yet run)
+
+1. **Confirm scope before requesting credentials or changing access.** Record a pilot alias, one existing Standard export table, its dataset location, the billing account scope, one finalized invoice month (`YYYYMM`), and the project that would pay for the query. Keep actual identifiers and invoice evidence in the approved private workspace, never in this repository or the public demo. Use a read-only identity scoped to the approved table or authorized view and grant job execution only in the approved query project, if separately authorized. A SQL account filter does not grant or enforce access control.
+2. **Verify source coverage.** Check when export was enabled and last delivered, whether the location is single-region or multi-region, and whether the table or dataset was switched. Google documents that a first US/EU multi-region export can backfill to the start of the previous month and take up to five days to catch up; a regional export starts at enablement. Do not assume a re-enabled or moved export backfills a gap. If the selected invoice began before available coverage, or delivery is still catching up, mark the pilot blocked or provisional rather than reporting a reconciliation failure. [Cloud Billing export timing and limits](https://docs.cloud.google.com/billing/docs/how-to/export-data-bigquery-setup#limitations)
+3. **Estimate the exact query, then get approval for live execution.** Once scoped access is approved, use a dry run for the same SQL, table, account, month, project and location intended for the real query. Record the estimated bytes and estimate uncertainty. A `LIMIT` isn't a billing cap, and a zero-byte estimate from a target protected by row-level access policies is not evidence that the scan is free. For an on-demand run get approval for a precise `maximumBytesBilled` and use that setting; stop if the estimate cannot be verified or exceeds the ceiling. No dataset creation, permanent result storage, capacity reservation, or scheduled refresh as part of this pilot. [BigQuery estimate and cost controls](https://docs.cloud.google.com/bigquery/docs/best-practices-costs#restrict_the_number_of_bytes_billed_per_query)
+4. **Reconcile one completed job.** Read all result pages from the same job reference, verify the reported row count, and project the retrieved rows once. Use those exact CSV bytes in upload and connector parity and compare source SHA-256, total and allocation. Separately compare the selected invoice's finalized net amounts on the same currency, account/scope and cost treatment. Record each disposition separately: source coverage, query and pages complete, upload/connector agree, approved invoice reconciles. Neither a successful job nor matched upload bytes proves the source includes the finalized invoice.
+5. **Test failures without changing accepted data.** A denied scope or incomplete read must leave the prior accepted report untouched. Replay only the already accepted immutable result for an exact retry; a refreshed query is a new observation and not a revision number by itself. Keep hosted authorization, revocation and tenant isolation as separate live release checks.
+
+### Candidate GoogleSQL for the dry run
+
+Use an allowlisted Standard table or an approved view that exposes these fields. Replace the illustrative table name under review, not from user-entered UI text; bind the account and month as named `STRING` parameters. Preserve original cost and individual signed credits because the Atlas projection applies credits once. No usage-month filter, cost-type filter, aggregation, or `LIMIT`. This query has not been executed against BigQuery.
+
+```sql
+SELECT
+  src.billing_account_id,
+  STRUCT(src.invoice.month AS month) AS invoice,
+  src.currency,
+  STRUCT(src.service.description AS description) AS service,
+  CAST(src.cost AS STRING) AS cost,
+  ARRAY(
+    SELECT AS STRUCT CAST(credit.amount AS STRING) AS amount
+    FROM UNNEST(src.credits) AS credit
+  ) AS credits,
+  src.cost_type,
+  FORMAT_TIMESTAMP('%Y-%m-%dT%H:%M:%E6SZ', src.usage_start_time, 'UTC') AS usage_start_time,
+  FORMAT_TIMESTAMP('%Y-%m-%dT%H:%M:%E6SZ', src.usage_end_time, 'UTC') AS usage_end_time
+FROM `approved-project.approved_dataset.gcp_billing_export_v1_approved` AS src
+WHERE src.billing_account_id = @billing_account
+  AND src.invoice.month = @invoice_month
+```
+
 ## Next
 
-Before validating a real approved export with an authenticated BigQuery reader, define how it will produce and identify one complete, stable invoice-month result and estimate the query cost. Keep the finance reconciliation and live authorization tests separate from this local parity check. This browser-local history does not sync between devices or accept connector revisions automatically. Live BigQuery access, query spend and deployment require approval.
+An owner must identify the existing export and approve scoped read access before attempting the dry run. Keep finance reconciliation and live authorization separate from the local parity checks. Browser-local history does not sync between devices or accept connector revisions automatically. Live BigQuery execution, cloud spend, and hosted deployment require approval.
