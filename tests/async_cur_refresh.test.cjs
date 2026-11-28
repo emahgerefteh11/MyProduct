@@ -75,6 +75,20 @@ test('bounded multipart refresh stages parts, checks current manifest, and accep
     assert.notEqual(corrected.revision, first.revision);
 });
 
+test('a readable assembly manifest copy is not the period refresh pointer', async () => {
+    const h = setup();
+    const first = await h.refresh();
+    h.current = h.revised;
+    const copyKey = `${dir}/${h.initial.assemblyId}/synthetic-cur-Manifest.json`;
+    h.hook = ({key}) => key === copyKey ? {Body: Readable.from([Buffer.from(JSON.stringify(h.initial))])} : null;
+    h.log.length = 0;
+    await assert.rejects(h.connector.refreshLatestAsync({...credentialsScope, manifestKey: copyKey}),
+        /match the configured report and billing period/);
+    assert.deepEqual(h.log, [[copyKey, undefined]]);
+    assert.deepEqual(h.get(), first);
+    assert.equal((await h.refresh()).report.TotalBilledCost, 105);
+});
+
 test('moved, canceled, over-budget and out-of-scope reads cannot replace the accepted report', async () => {
     const h = setup();
     const first = await h.refresh();
