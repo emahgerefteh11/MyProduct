@@ -343,7 +343,17 @@
         } catch (e) { fail('', null, 'Cost', e.message); return {ok: false, errors, errorCount, report: null, warnings: [...warnings], rowCount}; }
         return {ok: true, errors: [], errorCount: 0, warnings: [...warnings], report, rowCount};
     }
-    const api = {LIMITS, FIELDS, FORMATS, parseCSV, detect, validate, dateOf};
+    function sumDecimalAmounts(values) {
+        const sum = zero();
+        for (const value of values) {
+            const parsed = decimal(value);
+            amount(parsed);
+            add(sum, parsed);
+        }
+        amount(sum);
+        return decimalText(sum).replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1');
+    }
+    const api = {LIMITS, FIELDS, FORMATS, parseCSV, detect, validate, dateOf, sumDecimalAmounts};
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     else root.BillingImport = api;
 })(globalThis);

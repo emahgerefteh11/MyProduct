@@ -17,7 +17,7 @@ The longer-term phases below remain directional. Partial FOCUS input handling an
 
 ### Active track: GCP billing parity and period comparison
 
-1. **GCP fixture parity:** the first [local acceptance slice](docs/gcp-pilot.md) feeds the same net-cost Standard export projection into manual upload and a scoped local connector. It tests credits, exact retries, corrected revisions and failed-input preservation without cloud access.
+1. **GCP fixture parity:** the first [local acceptance slice](docs/gcp-pilot.md) feeds the same net-cost Standard export projection into manual upload and a scoped local connector. It tests credits, exact retries, corrected revisions and failed-input preservation without cloud access. A native-shaped offline fixture now exercises the projection itself, including late usage, multiple signed credits, tax, adjustments and rounding.
 2. **Point-in-time history:** browser-local GCP CSV totals can be saved by explicit invoice month and named billing scope. Matching currency, billed/effective basis and credit treatment are required for a comparison. Confirmed corrections update only their month. Connector-driven history, additional provider formats and details beyond totals are not included yet.
 3. **Live validation:** test the native BigQuery projection and authenticated reader only with approved account access, query spend and hosting. Existing AWS fixture evidence is retained; the live AWS pilot remains pending account access.
 

@@ -429,3 +429,68 @@ test('GCP projected net costs agree through upload, retries, corrections and fai
     assert.equal(connector.get({...jan, invoiceMonth: '202602'}), null);
     assert.equal(connector.get({...jan, tenant: 'other-tenant'}), null);
 });
+
+test('GCP native-shaped rows preserve signed credits, billing scope and cost types through both import paths', async () => {
+    const {projectGcpStandardRows} = require('../local_gcp_projection.cjs');
+    const {createLocalGcpConnector} = require('../local_gcp_connector.cjs');
+    const B = require('../billing_import.js');
+    const billingAccount = 'synthetic-gcp-billing';
+    const invoiceMonth = '202610';
+    const gcpScope = {tenant, source, invoiceMonth};
+    const gcpRow = (cost, extra = {}) => ({
+        billing_account_id: billingAccount, invoice: {month: invoiceMonth}, currency: 'USD',
+        service: {description: 'Compute Engine'}, cost, credits: [], cost_type: 'regular',
+        usage_start_time: '2026-10-01T00:00:00Z', usage_end_time: '2026-10-02T00:00:00Z', ...extra,
+    });
+    const rows = [
+        gcpRow('80.00', {credits: [{amount: '-6.25'}, {amount: '-3.75'}], service: {description: 'Cloud Storage'},
+            atlasProduct: 'Payments', usage_start_time: '2026-09-29T00:00:00Z', usage_end_time: '2026-09-30T00:00:00Z'}),
+        gcpRow('27.97'),
+        gcpRow('2.05', {cost_type: 'tax'}),
+        gcpRow('-0.01', {cost_type: 'adjustment'}),
+        gcpRow('-0.01', {cost_type: 'rounding error'}),
+    ];
+    const project = input => projectGcpStandardRows(input, {billingAccount, invoiceMonth});
+    let input = {revision: 1, rows};
+    const connector = createLocalGcpConnector({readExport: async scope => {
+        assert.deepEqual(scope, gcpScope);
+        return {revision: input.revision, bytes: project(input.rows)};
+    }});
+    const firstBytes = project(rows);
+    assert.deepEqual(firstBytes, project(rows.slice().reverse()));
+    const parsed = B.parseCSV(firstBytes.toString());
+    assert.equal(parsed.records.length, 5);
+    assert.deepEqual(parsed.records.map(r => r.cells[4]).sort(), ['adjustment', 'regular', 'regular', 'rounding error', 'tax']);
+    assert.equal(B.parseCSV(project([gcpRow('0.1', {credits: [{amount: '0.2'}]})]).toString()).records[0].cells[1], '0.3');
+    assert.equal(B.parseCSV(project([rows[1], rows[1]]).toString()).records.length, 2);
+    const check = async (expected, unallocated) => {
+        const manual = await upload(project(input.rows));
+        const connected = await connector.refresh(gcpScope);
+        for (const report of [manual, connected.report]) {
+            assert.equal(report.TotalBilledCost, expected);
+            assert.equal(report.analysis.gcpCreditTreatment, 'net_with_credits');
+            assert.equal(report.analysis.invoiceMonth, invoiceMonth);
+            assert.equal(report.analysis.usagePeriod.start, '2026-09-29T00:00:00.000Z');
+            assert.equal(report.products.find(p => p.Product === 'Payments').BilledCost, 70);
+            assert.equal(report.allocation.unallocatedProductCost, unallocated);
+        }
+        assert.equal(manual.analysis.sources[0].sha256, connected.sha256);
+        return connected;
+    };
+    const first = await check(100, 30);
+    input.rows = rows.slice().reverse();
+    assert.deepEqual(await connector.refresh(gcpScope), first);
+    input = {revision: 2, rows: rows.map((r, i) => i === 1 ? {...r, cost: '32.97'} : r)};
+    const corrected = await check(105, 35);
+    for (const [bad, reason] of [
+        [{billing_account_id: 'different-account'}, /outside the selected/],
+        [{invoice: {month: '202609'}}, /outside the selected/],
+        [{currency: 'EUR'}, /explicit billing currency/],
+        [{credits: undefined}, /credits array/],
+        [{credits: [{amount: null}]}, /cost or credit amount/],
+    ]) {
+        input = {revision: 3, rows: [...rows, {...rows[0], ...bad}]};
+        await assert.rejects(connector.refresh(gcpScope), reason);
+        assert.deepEqual(connector.get(gcpScope), corrected);
+    }
+});
