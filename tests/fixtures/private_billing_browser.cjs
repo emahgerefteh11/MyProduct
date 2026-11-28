@@ -67,7 +67,7 @@ addEventListener('pageshow', event => { if (event.persisted) view.clear(); });
 
 const publicFiles = new Set([
     '/import.html', '/dashboard.html', '/atlas.css', '/dashboard.css', '/import.css', '/motion.css',
-    '/import.js', '/billing_worker.js', '/billing_import.js', '/report_store.js',
+    '/import.js', '/billing_worker.js', '/billing_import.js', '/billing_format.js', '/report_store.js',
     '/report_view_session.js', '/dashboard_ui.js',
 ]);
 const types = {html: 'text/html', css: 'text/css', js: 'text/javascript'};

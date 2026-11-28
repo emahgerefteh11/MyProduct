@@ -115,15 +115,7 @@
             $('preview-period').textContent = `Observed usage: ${period.start || 'Unknown start'} → ${period.end || 'Unknown end'}${period.complete ? '' : ' (incomplete)'}.`;
             tableRows('source-rows', report.analysis.sources.map(s => [s.file, BillingImport.FORMATS[s.schema], s.rows.toLocaleString(), fmt(Number(s.sourceCostTotal)), s.costBasis]));
             const r = report.analysis.reconciliation;
-            const delta = r.exactDifference ?? String(r.difference);
-            const unit = report.analysis.currency ? ` ${report.analysis.currency}` : '';
-            const sign = delta.startsWith('-') ? '−' : '';
-            const magnitude = sign ? delta.slice(1) : delta;
-            const rounding = magnitude === '0' ? 'none' : Number(magnitude) < 0.00000001
-                ? `less than 0.00000001${unit} (report is ${sign ? 'lower' : 'higher'})`
-                : magnitude.length > 20
-                    ? `about ${sign}${Number(magnitude).toFixed(8)}${unit}`
-                    : `${sign}${magnitude}${unit}`;
+            const rounding = BillingFormat.roundingDifference(r, report.analysis.currency);
             $('reconciliation').textContent = `Source sum: ${fmt(r.sourceTotal)} · Report sum: ${fmt(r.reportTotal)} · Rounding difference: ${rounding}. This checks imported amounts, not completeness against your cloud invoice.`;
             tableRows('service-rows', report.services.slice(0, 8).map(s => [s.ServiceCategory, fmt(s.BilledCost)]));
             tableRows('allocation-rows', [['Product', fmt(report.allocation.unallocatedProductCost)], ['Platform / team', fmt(report.allocation.unallocatedPlatformCost)], ['Environment', fmt(report.allocation.unallocatedEnvironmentCost)]]);

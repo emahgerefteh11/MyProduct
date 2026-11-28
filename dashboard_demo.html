@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="dashboard.css">
     <link rel="stylesheet" href="motion.css">
     <script src="report_store.js"></script>
+    <script src="billing_format.js"></script>
     <script src="dashboard_ui.js" defer></script>
 </head>
 <body>
@@ -18623,7 +18624,7 @@
         document.getElementById('report-provenance').textContent = `${analysis.sourceCount} source(s), ${analysis.rowCount} rows. Currency: ${analysis.currency || 'unspecified'}. Cost basis: ${analysis.costBasis}. Observed usage: ${periodText}. Sources: ${sources}`;
         const reconciliation = analysis.reconciliation;
         document.getElementById('report-quality').textContent = reconciliation
-            ? `Source sum: ${fmtCurrency(reconciliation.sourceTotal)} · Report sum: ${fmtCurrency(reconciliation.reportTotal)} · Difference: ${fmtCurrency(reconciliation.difference)}. Reconciliation checks imported amounts, not completeness against your cloud invoice.`
+            ? `Source sum: ${fmtCurrency(reconciliation.sourceTotal)} · Report sum: ${fmtCurrency(reconciliation.reportTotal)} · Rounding difference: ${BillingFormat.roundingDifference(reconciliation, analysis.currency)}. Reconciliation checks imported amounts, not completeness against your cloud invoice.`
             : 'Source reconciliation unavailable.';
         if (reportData.allocation) {
             document.getElementById('report-quality').textContent += ` Unallocated product spend: ${fmtCurrency(reportData.allocation.unallocatedProductCost)}; unallocated platform spend: ${fmtCurrency(reportData.allocation.unallocatedPlatformCost)}.`;
