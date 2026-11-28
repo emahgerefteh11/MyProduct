@@ -381,3 +381,50 @@ test('an exact server-owned product alias matches the manual upload and can rema
     await assert.rejects(refresh(), /not present in every populated/);
     assert.deepEqual(connector.get(scope), updated);
 });
+
+test('GCP projected net costs agree through upload, retries, corrections and failed refreshes', async () => {
+    const {createLocalGcpConnector} = require('../local_gcp_connector.cjs');
+    const jan = {...scope, invoiceMonth: '202601'};
+    const csv = (month, untagged) => Buffer.from(
+        'invoice.month,Cost,currency,service.description,Product,Platform,AtlasGcpCostBasis\n' +
+        `${month},80,USD,Cloud Storage,Payments,Core,net_with_credits\n${month},-10,USD,Cloud Storage,Payments,Core,net_with_credits\n` +
+        `${month},${untagged},USD,Compute Engine,,Core,net_with_credits\n`);
+    let input = {revision: 1, bytes: csv('202601', 30)};
+    let time = new Date('2026-02-02T01:00:00Z');
+    const connector = createLocalGcpConnector({
+        now: () => time, readExport: async req => {
+            assert.deepEqual(req, {tenant, source, invoiceMonth: '202601'});
+            return input;
+        },
+    });
+    const check = async (snapshot, total, untagged) => {
+        const manual = await upload(input.bytes);
+        for (const report of [manual, snapshot.report]) {
+            assert.equal(report.TotalBilledCost, total);
+            assert.equal(report.products.find(p => p.Product === 'Payments').BilledCost, 70);
+            assert.equal(report.allocation.unallocatedProductCost, untagged);
+        }
+        assert.equal(manual.analysis.sources[0].sha256, snapshot.sha256);
+    };
+    const first = await connector.refresh(jan);
+    await check(first, 100, 30);
+    time = new Date('2026-02-03T01:00:00Z');
+    assert.deepEqual(await connector.refresh(jan), first);
+    input = {revision: 2, bytes: csv('202601', 35)};
+    const corrected = await connector.refresh(jan);
+    await check(corrected, 105, 35);
+    assert.notEqual(corrected.acceptedAt, first.acceptedAt);
+    input = {revision: 3, bytes: csv('202602', 50)};
+    await assert.rejects(connector.refresh(jan), /selected invoice month/);
+    input = {revision: 3, bytes: Buffer.from(csv('202601', 50).toString().replace('50,USD', '50,EUR'))};
+    await assert.rejects(connector.refresh(jan), /Cannot combine/);
+    input = {revision: 3, bytes: Buffer.from(csv('202601', 50).toString().replaceAll('net_with_credits', 'gross'))};
+    await assert.rejects(connector.refresh(jan), /already include credits/);
+    input = {revision: 2, bytes: csv('202601', 50)};
+    await assert.rejects(connector.refresh(jan), /cannot change/);
+    input = {revision: 1, bytes: csv('202601', 30)};
+    assert.deepEqual(await connector.refresh(jan), corrected);
+    assert.deepEqual(connector.get(jan), corrected);
+    assert.equal(connector.get({...jan, invoiceMonth: '202602'}), null);
+    assert.equal(connector.get({...jan, tenant: 'other-tenant'}), null);
+});

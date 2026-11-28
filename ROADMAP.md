@@ -15,6 +15,12 @@ The longer-term phases below remain directional. Partial FOCUS input handling an
 
 ## Billing reports and direct cloud connections
 
+### Active track: GCP billing parity and period comparison
+
+1. **GCP fixture parity:** the first [local acceptance slice](docs/gcp-pilot.md) feeds the same net-cost Standard export projection into manual upload and a scoped local connector. It tests credits, exact retries, corrected revisions and failed-input preservation without cloud access.
+2. **Point-in-time history:** next keep one snapshot per explicit billing period/source, with separately identified revisions. Compare like-for-like periods side by side without summing overlapping snapshots or silently converting currencies.
+3. **Live validation:** test the native BigQuery projection and authenticated reader only with approved account access, query spend and hosting. Existing AWS fixture evidence is retained; the live AWS pilot remains pending account access.
+
 ### AWS MVP delivery checkpoint
 
 [Operator preflight and live release checks](docs/aws-pilot.md)
