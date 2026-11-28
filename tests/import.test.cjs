@@ -63,6 +63,26 @@ test('FOCUS reads provider values and preserves effective-only cost basis', () =
     assert.equal(result.report.analysis.currency, 'EUR');
     assert.equal(result.report.analysis.sources[0].costColumn, 'EffectiveCost');
 });
+test('GCP invoice month is explicit, never inferred from earlier usage', () => {
+    const header = 'invoice.month,Cost,currency,service.description,usage_start_time,usage_end_time\n';
+    const late = '202610,30,USD,Cloud Storage,2026-09-29,2026-09-30';
+    const regular = '202610,70,USD,Compute Engine,2026-10-01,2026-10-02';
+    const result = check(header + [late, regular].join('\n'));
+    assert.equal(result.report.analysis.invoiceMonth, '202610');
+    assert.equal(result.report.analysis.usagePeriod.start, '2026-09-29T00:00:00.000Z');
+    assert.equal(result.report.TotalBilledCost, 100);
+    for (const notOctober of ['202611', '', '202613']) {
+        const aggregate = check(header + late + '\n' + regular.replace('202610', notOctober));
+        assert.equal(aggregate.report.analysis.invoiceMonth, null);
+        assert.match(aggregate.warnings.join(' '), /not a billing-month snapshot/);
+    }
+    const native = source(header + late, 'oct.csv');
+    const noMonth = source('Cost,currency,service.description\n70,USD,Compute Engine', 'other.csv');
+    const combined = B.validate([native, noMonth], [B.detect(native.headers), B.detect(noMonth.headers)]);
+    assert.equal(combined.report.analysis.invoiceMonth, null);
+    assert.equal(combined.report.TotalBilledCost, 100);
+});
+
 test('custom mappings change the amount and allocation used in the preview', () => {
     const file = source('Charge,Owner,Group,Money\n19.95,orders,retail,GBP');
     const config = B.detect(file.headers);

@@ -185,6 +185,8 @@
         if (assumed && !/^[A-Z]{3}$/.test(assumed)) fail('', null, 'Currency assumption', 'Use a three-letter currency code such as USD.');
         if (!files.length || files.length > LIMITS.files) fail('', null, '', `Choose between 1 and ${LIMITS.files} files.`);
         const hashes = new Set(), currencies = new Set(), bases = new Set();
+        const invoiceMonths = new Set();
+        let sawInvoiceMonthColumn = false, missingInvoiceMonths = 0, invalidInvoiceMonths = 0;
         const total = zero(), unProduct = zero(), unPlatform = zero(), unEnvironment = zero();
         const products = new Map(), services = new Map(), environments = new Map(), platforms = new Map(), providers = new Map(), resources = new Map();
         const inventory = new Map(), unidentified = {cost: zero(), rows: 0};
@@ -198,6 +200,8 @@
             const invalidMapping = Object.entries(mapping).filter(([, value]) => value && !file.headers.includes(value));
             if (invalidMapping.length) { fail(file.name, null, '', 'A mapped column no longer exists. Review the mappings.'); continue; }
             const indices = Object.fromEntries(Object.keys(FIELDS).map(k => [k, file.headers.indexOf(mapping[k])]));
+            const invoiceMonthIndex = config.format === 'gcp' ? file.headers.findIndex(h => h.toLowerCase() === 'invoice.month') : -1;
+            if (invoiceMonthIndex >= 0) sawInvoiceMonthColumn = true;
             const source = {file: file.name, sha256: file.sha256, schema: config.format, costColumn: mapping.cost, costBasis: config.costBasis,
                 rows: 0, currencies: new Set(), missingCurrencyRows: 0, assumedCurrencyRows: 0, invalidDateFields: 0, invalidTagRows: 0, ambiguousAllocationTagRows: 0,
                 usagePeriod: {start: null, end: null}, billingPeriod: {start: null, end: null}, incompleteUsage: false, incompleteBilling: false,
@@ -216,6 +220,10 @@
                 if (currency) { currencies.add(currency); source.currencies.add(currency); }
                 else source.missingCurrencyRows++;
                 if (!explicitCurrency && assumed) source.assumedCurrencyRows++;
+                const invoiceMonth = record.cells[invoiceMonthIndex]?.trim() || '';
+                if (!invoiceMonth) missingInvoiceMonths++;
+                else if (/^[1-9]\d{3}(?:0[1-9]|1[0-2])$/.test(invoiceMonth)) invoiceMonths.add(invoiceMonth);
+                else invalidInvoiceMonths++;
                 let tags = {};
                 try {
                     const parsed = tagsOf(get('tags'));
@@ -275,6 +283,11 @@
         if (unknownProviders) warnings.add(`${unknownProviders} rows have an unknown provider. Review provider mapping before generating infrastructure templates.`);
         warnings.add('Browser import summarizes cost and explicit tags. Hardware sizing, resource-name inference, and utilization are not analyzed.');
         if (files.length > 1) warnings.add('Only identical whole files are detected as duplicates. Check that exports do not contain overlapping billing rows.');
+        const invoiceMonth = sawInvoiceMonthColumn && invoiceMonths.size === 1 && !missingInvoiceMonths && !invalidInvoiceMonths
+            ? [...invoiceMonths][0] : null;
+        if (sawInvoiceMonthColumn && !invoiceMonth) {
+            warnings.add('A single GCP invoice month could not be verified. This is an aggregate, not a billing-month snapshot.');
+        }
         if (!rowCount) fail('', null, '', 'No billing rows were available for validation.');
         if (errorCount) return {ok: false, errors, errorCount, warnings: [...warnings], report: null, rowCount};
         const currency = [...currencies][0] || null, digits = currencyDigits(currency);
@@ -306,6 +319,7 @@
             report = {sampleData: false, TotalBilledCost: reportTotal,
                 analysis: {schemaVersion: 1, generatedAt: new Date().toISOString(), importMethod: 'browser', currency,
                     costBasis: [...bases][0], sourceCount: sources.length, rowCount, sources, ...periods,
+                    ...(sawInvoiceMonthColumn ? {invoiceMonth} : {}),
                     reconciliation: {sourceTotal: totalNumber, reportTotal, difference: Number(Number(exactDifference).toFixed(8)) || 0, exactDifference}, warnings: [...warnings]},
                 allocation: {unallocatedProductCost: money(unProduct), unallocatedPlatformCost: money(unPlatform), unallocatedEnvironmentCost: money(unEnvironment)},
                 products: productList(products, totalNumber), services: list(services, 'ServiceCategory', totalNumber), environments: list(environments, 'Environment', totalNumber), providers: list(providers, 'ProviderName', totalNumber),

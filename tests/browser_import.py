@@ -162,6 +162,21 @@ class BrowserImport(unittest.TestCase):
         self.assertEqual(report['allocation']['unallocatedProductCost'], 30)
         self.assertEqual(next(p for p in report['products'] if p['Product'] == 'Payments')['BilledCost'], 70)
 
+    def test_gcp_upload_keeps_invoice_month_separate_from_usage_dates(self):
+        self.choose([{'name': 'gcp-october.csv', 'mimeType': 'text/csv', 'buffer':
+                      b'invoice.month,Cost,currency,service.description,usage_start_time,usage_end_time\n'
+                      b'202610,30,USD,Cloud Storage,2026-09-29,2026-09-30\n'
+                      b'202610,70,USD,Compute Engine,2026-10-01,2026-10-02\n'}])
+        self.validate()
+        self.accept()
+        expect(self.page.locator('#kpi-total')).to_have_text('$100.00')
+        self.page.locator('.report-actions summary').click()
+        with self.page.expect_download() as download:
+            self.page.locator('#download-imported-report').click()
+        analysis = json.loads(Path(download.value.path()).read_text())['analysis']
+        self.assertEqual(analysis['invoiceMonth'], '202610')
+        self.assertEqual(analysis['usagePeriod']['start'], '2026-09-29T00:00:00.000Z')
+
     def test_preview_explains_rounded_cost_without_negative_zero(self):
         for currency, raw, delta in [
             ('KWD', '1.2344', '−0.0004 KWD'),

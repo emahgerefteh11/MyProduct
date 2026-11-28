@@ -401,6 +401,7 @@ test('GCP projected net costs agree through upload, retries, corrections and fai
         const manual = await upload(input.bytes);
         for (const report of [manual, snapshot.report]) {
             assert.equal(report.TotalBilledCost, total);
+            assert.equal(report.analysis.invoiceMonth, '202601');
             assert.equal(report.products.find(p => p.Product === 'Payments').BilledCost, 70);
             assert.equal(report.allocation.unallocatedProductCost, untagged);
         }

@@ -10,7 +10,7 @@ function createLocalGcpConnector({readExport, now = () => new Date()} = {}) {
     const accepted = new Map();
     function keyFor({tenant, source, invoiceMonth}) {
         if (typeof tenant !== 'string' || !tenant || typeof source !== 'string' || !source ||
-            typeof invoiceMonth !== 'string' || !/^\d{4}(?:0[1-9]|1[0-2])$/.test(invoiceMonth)) {
+            typeof invoiceMonth !== 'string' || !/^[1-9]\d{3}(?:0[1-9]|1[0-2])$/.test(invoiceMonth)) {
             throw new Error('A tenant, source and invoice month (YYYYMM) are required.');
         }
         return JSON.stringify([tenant, source, invoiceMonth]);
@@ -51,8 +51,9 @@ function createLocalGcpConnector({readExport, now = () => new Date()} = {}) {
             }
             const result = billing.validate([file], [billing.detect(file.headers, 'gcp')]);
             if (!result.ok) throw new Error(result.errors[0]?.message ?? 'GCP export validation failed.');
+            if (result.report.analysis.invoiceMonth !== invoiceMonth) throw new Error('GCP invoice month could not be verified.');
             const acceptedAt = now().toISOString();
-            Object.assign(result.report.analysis, {importMethod: 'local-gcp-connector', generatedAt: acceptedAt, invoiceMonth});
+            Object.assign(result.report.analysis, {importMethod: 'local-gcp-connector', generatedAt: acceptedAt});
             const snapshot = {revision, sha256, acceptedAt, report: result.report};
             accepted.set(key, snapshot);
             return structuredClone(snapshot);
