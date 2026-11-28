@@ -494,3 +494,56 @@ test('GCP native-shaped rows preserve signed credits, billing scope and cost typ
         assert.deepEqual(connector.get(gcpScope), corrected);
     }
 });
+
+test('GCP query rehearsal publishes only all pages of one successful job with a stable count', async () => {
+    const {collectGcpQueryProjection} = require('../local_gcp_query_results.cjs');
+    const {createLocalGcpConnector} = require('../local_gcp_connector.cjs');
+    const jobReference = {projectId: 'fixture-query-project', jobId: 'fixture-job', location: 'US'};
+    const job = {jobReference, status: {state: 'DONE'}};
+    const billingAccount = 'synthetic-account', invoiceMonth = '202610';
+    const gcpScope = {tenant, source, invoiceMonth};
+    const row = cost => ({billing_account_id: billingAccount, invoice: {month: invoiceMonth}, currency: 'USD',
+        service: {description: 'Compute Engine'}, cost, credits: []});
+    const first = {jobReference, jobComplete: true, totalRows: '2', rows: [row('60')], pageToken: 'next'};
+    const next = {jobReference, jobComplete: true, rows: [row('40')]};
+    let pages = [first, next], activeJob = job, revision = 1;
+    const connector = createLocalGcpConnector({readExport: async () => {
+        const requests = [];
+        const bytes = await collectGcpQueryProjection({job: activeJob, billingAccount, invoiceMonth,
+            readPage: async params => {
+                assert.deepEqual(params.jobReference, jobReference);
+                requests.push(params.pageToken);
+                if (requests.length === 1) assert.equal(params.pageToken, undefined);
+                if (requests.length === 2) assert.equal(params.pageToken, 'next');
+                return pages[requests.length - 1];
+            },
+        });
+        return {revision, bytes};
+    }});
+    const accepted = await connector.refresh(gcpScope);
+    assert.equal(accepted.report.TotalBilledCost, 100);
+    revision = 2;
+    for (const [badPages, reason] of [
+        [[{...first, pageToken: ''}], /before all rows/],
+        [[first, {...next, totalRows: '3'}], /stays constant/],
+        [[first, {...next, jobReference: {...jobReference, location: 'EU'}}], /completed query/],
+        [[first, {...next, jobComplete: false}], /completed query/],
+        [[first, {...next, rows: [row('41'), row('2')]}], /row count/],
+        [[first, {...next, pageToken: 'next'}], /continuation/],
+        [[{...first, totalRows: '100001'}], /bounded GCP result row count/],
+        [[{...first, totalRows: '0', rows: []}], /bounded GCP result row count/],
+        [[first, undefined], /completed query/],
+    ]) {
+        pages = badPages;
+        await assert.rejects(connector.refresh(gcpScope), reason);
+        assert.deepEqual(connector.get(gcpScope), accepted);
+    }
+    pages = [first, {...next, rows: [row('45')]}];
+    activeJob = {...job, status: {state: 'DONE', errorResult: {reason: 'accessDenied'}}};
+    await assert.rejects(connector.refresh(gcpScope), /successful completed/);
+    assert.deepEqual(connector.get(gcpScope), accepted);
+    activeJob = job;
+    const corrected = await connector.refresh(gcpScope);
+    assert.equal(corrected.report.TotalBilledCost, 105);
+    assert.equal(connector.get(gcpScope).revision, 2);
+});

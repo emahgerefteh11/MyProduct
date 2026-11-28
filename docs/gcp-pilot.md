@@ -30,6 +30,12 @@ The browser accepts this flattened projection, not raw nested BigQuery result JS
 
 Only invoice totals and comparison labels are saved, in this browser on this site. Original CSVs and report details are not kept in history. Opening or clearing the current dashboard report does not change your saved months. The design preview keeps separate history.
 
+## Verify a completed result before accepting a revision
+
+The local `collectGcpQueryProjection` rehearsal expects a successful terminal BigQuery job, then pages from the same job project, ID and location. It follows the returned continuation chain exactly once and checks that the retrieved row count matches the declared total before handing any bytes to the connector. A truncated, empty, failed, oversized or inconsistent result leaves the prior accepted report unchanged. A later valid, complete result can still replace it. This validates result delivery, not financial completeness of the source: use the scoped query and reconcile to the approved invoice separately.
+
+A real reader needs allowlisted account/table scope, authenticated job status, bounded retries and raw-response byte limits before decoding. Estimates should come from a [BigQuery dry run](https://docs.cloud.google.com/bigquery/docs/running-queries#dry-run); a live on-demand query also needs an expressly approved byte ceiling. [BigQuery result paging](https://docs.cloud.google.com/bigquery/docs/reference/rest/v2/jobs/getQueryResults) is tied to the original job, not a fresh query per page. A job ID or a result's page count does not order billing corrections; keep accepted revision order separate. Do not treat [BigQuery time travel](https://docs.cloud.google.com/bigquery/docs/access-historical-data) as permanent invoice history or use it by default for an identity restricted by row-level policy.
+
 ## Next
 
 Before validating a real approved export with an authenticated BigQuery reader, define how it will produce and identify one complete, stable invoice-month result and estimate the query cost. Keep the finance reconciliation and live authorization tests separate from this local parity check. This browser-local history does not sync between devices or accept connector revisions automatically. Live BigQuery access, query spend and deployment require approval.
