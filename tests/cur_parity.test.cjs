@@ -36,12 +36,16 @@ async function upload(bytes, costColumn = null, productColumn = null) {
         if (response.error) throw new Error(response.error);
         return response.result;
     }
-    const [file] = await run({type: 'prepare', delimiter: ',', files: [
-        {name: 'synthetic.csv', size: bytes.length, arrayBuffer: async () => bytes},
-    ]});
-    if (costColumn) file.detected.mapping.cost = costColumn;
-    if (productColumn) file.detected.mapping.product = productColumn;
-    const result = await run({type: 'validate', configs: [file.detected], currency: ''});
+    const parts = Array.isArray(bytes) ? bytes : [bytes];
+    const files = await run({type: 'prepare', delimiter: ',', files: parts.map((part, i) => (
+        {name: parts.length === 1 ? 'synthetic.csv' : `upload-${i + 1}.csv`, size: part.length, arrayBuffer: async () => part}
+    ))});
+    const configs = files.map(({detected}) => {
+        if (costColumn) detected.mapping.cost = costColumn;
+        if (productColumn) detected.mapping.product = productColumn;
+        return detected;
+    });
+    const result = await run({type: 'validate', configs, currency: ''});
     assert.equal(result.ok, true, JSON.stringify(result.errors));
     return result.report;
 }
@@ -206,6 +210,36 @@ test('a kept CUR assembly cannot be rolled back or published after its pointer a
     current = {...later, reportKeys: original.reportKeys};
     assert.throws(refresh, /outside its expected report assembly/);
     assert.deepEqual(connector.get(scope), accepted);
+});
+
+test('multipart pilot parity stays anchored to the accepted bytes after a new AWS delivery', async () => {
+    const dir = 'billing/synthetic-cur/20260101-20260201';
+    const manifestKey = dir + '/synthetic-cur-Manifest.json';
+    const version = assemblyId => ({...manifest, assemblyId, reportKeys: [1, 2].map(i =>
+        `${dir}/${assemblyId}/synthetic-cur-0000${i}.csv.gz`)});
+    const [header, ...rows] = raw.toString().trimEnd().split('\n');
+    const part = (...lines) => Buffer.from([header, ...lines, ''].join('\n'));
+    const tagged = part(...rows.slice(0, 2)), untagged = part(rows[2]);
+    const correctedUntagged = part(rows[2].replace(',30,USD,', ',35,USD,'));
+    const first = version('20260202T010000Z'), next = version('20260202T020000Z');
+    const objects = new Map([[first.reportKeys[0], gzipSync(tagged)], [first.reportKeys[1], gzipSync(untagged)],
+        [next.reportKeys[0], gzipSync(tagged)], [next.reportKeys[1], gzipSync(correctedUntagged)]]);
+    let pointer = first;
+    const connector = createLocalCurConnector({readManifest: () => pointer, readObject: ({key}) => objects.get(key)});
+    const refresh = () => connector.refreshLatest({tenant, source, manifestKey});
+    const fingerprints = report => Array.from(report.analysis.sources, s => s.sha256).sort();
+
+    const accepted = refresh();
+    pointer = next;
+    const manual = await upload([untagged, tagged]); // The accepted files, renamed and in reverse order.
+    assert.deepEqual(fingerprints(manual), fingerprints(accepted.report));
+    assertReport(manual, 100, 30);
+    assertReport(accepted.report, 100, 30);
+    const wrongRevision = await upload([correctedUntagged, tagged]);
+    assert.notDeepEqual(fingerprints(wrongRevision), fingerprints(accepted.report));
+    const corrected = refresh();
+    assert.deepEqual(fingerprints(wrongRevision), fingerprints(corrected.report));
+    assertReport(corrected.report, 105, 35);
 });
 
 test('a matching header-only CUR part adds no spend, but unavailable or invalid parts prevent publication', async () => {
