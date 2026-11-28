@@ -57,6 +57,7 @@ async function dashboard({data = fixture, demo = false, available = true, stored
         ReportStore: {get: async () => structuredClone(stored)},
     });
     context.window = context;
+    vm.runInContext(fs.readFileSync(path.join(root, 'billing_format.js'), 'utf8'), context);
     const prefix = demo ? `const embeddedReportData = ${JSON.stringify(data)};\n` : '';
     await vm.runInContext(prefix + script, context);
     assert.doesNotMatch(main.innerHTML, /Error Loading Data/);

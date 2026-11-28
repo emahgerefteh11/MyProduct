@@ -178,6 +178,25 @@ class BrowserImport(unittest.TestCase):
             expect(evidence).to_contain_text(f'Rounding difference: {delta}.')
             expect(evidence).to_contain_text('not completeness against your cloud invoice')
 
+    def test_saved_report_keeps_rounding_evidence_after_reload(self):
+        self.choose([{'name': 'focus.csv', 'mimeType': 'text/csv', 'buffer':
+                      b'BilledCost,BillingCurrency,Product\n1.2344,KWD,Payments\n'}])
+        self.validate()
+        expect(self.page.locator('#reconciliation')).to_contain_text('Rounding difference: −0.0004 KWD.')
+        self.accept()
+        for _ in range(2):
+            self.page.locator('.quality-panel summary').click()
+            expect(self.page.locator('#report-quality')).to_contain_text('Rounding difference: −0.0004 KWD.')
+            self.page.reload()
+        self.page.evaluate('''async () => {
+            const report = await ReportStore.get();
+            delete report.analysis.reconciliation.exactDifference;
+            await ReportStore.save(report);
+        }''')
+        self.page.reload()
+        self.page.locator('.quality-panel summary').click()
+        expect(self.page.locator('#report-quality')).to_contain_text('Rounding difference: −0.0004 KWD.')
+
     def test_currency_specific_precision_reaches_the_dashboard(self):
         for currency, raw, total, display in [
             ('KWD', '1.2344', 1.234, '1.234'),

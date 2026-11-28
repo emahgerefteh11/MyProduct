@@ -21,7 +21,7 @@ def replace_once(text, old, new):
 
 def shared_page(name, page_class):
     text = (ROOT / name).read_text()
-    for asset in ('atlas.css', 'dashboard.css', 'import.css', 'adoption.css', 'motion.css', 'dashboard_ui.js', 'billing_import.js', 'adoption.js'):
+    for asset in ('atlas.css', 'dashboard.css', 'import.css', 'adoption.css', 'motion.css', 'dashboard_ui.js', 'billing_import.js', 'billing_format.js', 'adoption.js'):
         text = text.replace(f'="{asset}"', f'="../{asset}"')
     text = text.replace('</head>', '<meta name="robots" content="noindex,nofollow"><link rel="stylesheet" href="preview.css"><script src="preview.js" defer></script></head>')
     text = text.replace('<body>', f'<body class="design-preview {page_class}">{BANNER}')
