@@ -162,6 +162,22 @@ class BrowserImport(unittest.TestCase):
         self.assertEqual(report['allocation']['unallocatedProductCost'], 30)
         self.assertEqual(next(p for p in report['products'] if p['Product'] == 'Payments')['BilledCost'], 70)
 
+    def test_preview_explains_rounded_cost_without_negative_zero(self):
+        for currency, raw, delta in [
+            ('KWD', '1.2344', '−0.0004 KWD'),
+            ('JPY', '10.49', '−0.49 JPY'),
+            ('USD', '1.2344', '−0.0044 USD'),
+            ('USD', '1.2300', 'none'),
+            ('USD', '1.2299999999', 'less than 0.00000001 USD (report is higher)'),
+        ]:
+            self.page.goto(self.origin + '/import.html')
+            self.choose([{'name': 'focus.csv', 'mimeType': 'text/csv', 'buffer':
+                          f'BilledCost,BillingCurrency,Product\n{raw},{currency},Payments\n'.encode()}])
+            self.validate()
+            evidence = self.page.locator('#reconciliation')
+            expect(evidence).to_contain_text(f'Rounding difference: {delta}.')
+            expect(evidence).to_contain_text('not completeness against your cloud invoice')
+
     def test_currency_specific_precision_reaches_the_dashboard(self):
         for currency, raw, total, display in [
             ('KWD', '1.2344', 1.234, '1.234'),
