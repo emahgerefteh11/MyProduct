@@ -181,3 +181,35 @@ test('worker reads original bytes, fingerprints sources, and rejects corrupt or 
     await context.self.onmessage({data:{id:5,type:'prepare',files:[{...file,arrayBuffer:async()=>Buffer.from([0xff])}],delimiter:','}});
     assert.match(messages[4].error,/a.csv/);
 });
+
+test('nullable FOCUS tags preserve other ownership fields and never infer an owner', () => {
+    const result = check('BilledCost,BillingCurrency,ProviderName,Tags\n' + [
+        csv([20, 'USD', 'AWS', 'null']),
+        csv([30, 'USD', 'AWS', JSON.stringify({Product: 'Payments', Platform: null, Environment: 'prod'})]),
+    ].join('\n'));
+    assert.equal(result.report.TotalBilledCost, 50);
+    assert.equal(result.report.products.find(p => p.Product === 'Payments').BilledCost, 30);
+    assert.equal(result.report.allocation.unallocatedProductCost, 20);
+    assert.equal(result.report.allocation.unallocatedPlatformCost, 50);
+    assert.equal(result.report.analysis.sources[0].invalidTagRows, 0);
+    assert.doesNotMatch(result.warnings.join(' '), /tags could not be parsed|ownership tags have conflicting/);
+});
+
+test('case-folded ownership conflicts do not depend on key order or override explicit ownership', () => {
+    for (const tags of [
+        {Product: 'First', product: 'Second', Platform: 'core', platform: 'core', Environment: null},
+        {product: 'Second', Product: 'First', platform: 'core', Platform: 'core', Environment: null},
+    ]) {
+        const result = check('BilledCost,BillingCurrency,ProviderName,Product,Tags\n' + [
+            csv([10, 'USD', 'AWS', '', JSON.stringify(tags)]),
+            csv([-3, 'USD', 'AWS', 'Reviewed', JSON.stringify(tags)]),
+        ].join('\n'));
+        assert.equal(result.report.TotalBilledCost, 7);
+        assert.equal(result.report.allocation.unallocatedProductCost, 10);
+        assert.equal(result.report.allocation.unallocatedPlatformCost, 0);
+        assert.equal(result.report.products.find(p => p.Product === 'Reviewed').BilledCost, -3);
+        assert.equal(result.report.analysis.sources[0].ambiguousAllocationTagRows, 2);
+        assert.equal(result.report.analysis.sources[0].invalidTagRows, 0);
+        assert.match(result.warnings.join(' '), /ownership tags have conflicting/);
+    }
+});

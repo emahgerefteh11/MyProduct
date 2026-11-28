@@ -124,12 +124,27 @@
         const text = String(value ?? '').trim();
         return ['', 'unknown', 'untagged', 'unallocated', 'null', 'none', 'n/a', 'nan'].includes(text.toLowerCase()) ? '' : text;
     }
+    const allocationTags = new Set(['product', 'platform', 'environment']);
     function tagsOf(value) {
-        if (!value.trim()) return {};
+        if (!value.trim()) return {tags: {}, ambiguous: false};
         const data = JSON.parse(value.replace(/^project:labels:/, ''));
-        const entries = Array.isArray(data) ? data.map(x => [x.key, x.value]) : data && typeof data === 'object' ? Object.entries(data) : null;
-        if (!entries || entries.some(([k, v]) => typeof k !== 'string' || !['string', 'number', 'boolean'].includes(typeof v))) throw new Error('Tags must be a JSON object or an array of key/value objects.');
-        return Object.fromEntries(entries.map(([k, v]) => [k.toLowerCase(), clean(v)]));
+        if (data === null) return {tags: {}, ambiguous: false};
+        const entries = Array.isArray(data) ? data.map(x => [x?.key, x?.value]) :
+            typeof data === 'object' ? Object.entries(data) : null;
+        if (!entries || entries.some(([k, v]) => typeof k !== 'string' ||
+            (v !== null && !['string', 'number', 'boolean'].includes(typeof v)))) {
+            throw new Error('Tags must be a JSON object or an array of key/value objects.');
+        }
+        const values = new Map(), conflicts = new Set();
+        for (const [key, value] of entries) {
+            const field = key.toLowerCase();
+            if (!allocationTags.has(field)) continue;
+            const label = clean(value);
+            if (values.has(field) && values.get(field) !== label) conflicts.add(field);
+            values.set(field, label);
+        }
+        for (const field of conflicts) values.delete(field);
+        return {tags: Object.fromEntries(values), ambiguous: conflicts.size > 0};
     }
     function dateOf(raw) {
         if (!raw) return null;
@@ -184,7 +199,7 @@
             if (invalidMapping.length) { fail(file.name, null, '', 'A mapped column no longer exists. Review the mappings.'); continue; }
             const indices = Object.fromEntries(Object.keys(FIELDS).map(k => [k, file.headers.indexOf(mapping[k])]));
             const source = {file: file.name, sha256: file.sha256, schema: config.format, costColumn: mapping.cost, costBasis: config.costBasis,
-                rows: 0, currencies: new Set(), missingCurrencyRows: 0, assumedCurrencyRows: 0, invalidDateFields: 0, invalidTagRows: 0,
+                rows: 0, currencies: new Set(), missingCurrencyRows: 0, assumedCurrencyRows: 0, invalidDateFields: 0, invalidTagRows: 0, ambiguousAllocationTagRows: 0,
                 usagePeriod: {start: null, end: null}, billingPeriod: {start: null, end: null}, incompleteUsage: false, incompleteBilling: false,
                 columnMapping: {...mapping}, providerFallback: config.provider, delimiter: file.delimiter};
             const sourceTotal = zero(); bases.add(config.costBasis);
@@ -202,7 +217,11 @@
                 else source.missingCurrencyRows++;
                 if (!explicitCurrency && assumed) source.assumedCurrencyRows++;
                 let tags = {};
-                try { tags = tagsOf(get('tags')); } catch { source.invalidTagRows++; }
+                try {
+                    const parsed = tagsOf(get('tags'));
+                    tags = parsed.tags;
+                    if (parsed.ambiguous) source.ambiguousAllocationTagRows++;
+                } catch { source.invalidTagRows++; }
                 const product = clean(get('product')) || tags.product || 'UnTagged';
                 const platform = clean(get('platform')) || tags.platform || 'unknown';
                 const envRaw = clean(get('environment')) || tags.environment || '';
@@ -251,6 +270,7 @@
         if (missing) warnings.add('Currency is unspecified. Amounts have no currency symbol; cross-file monetary comparability has not been verified.');
         if (sources.some(s => s.assumedCurrencyRows)) warnings.add(`Missing currencies were filled using your ${assumed} assumption. Explicit currencies were preserved.`);
         if (sources.some(s => s.invalidTagRows)) warnings.add('Some tags could not be parsed. Review the unallocated spend and map product/platform columns where available.');
+        if (sources.some(s => s.ambiguousAllocationTagRows)) warnings.add('Some ownership tags have conflicting values for the same name. Atlas ignored those tags; explicit mapped columns still take precedence. Review unallocated spend.');
         if (sources.some(s => s.invalidDateFields)) warnings.add('Some period fields are missing or invalid. Observed date ranges are incomplete.');
         if (unknownProviders) warnings.add(`${unknownProviders} rows have an unknown provider. Review provider mapping before generating infrastructure templates.`);
         warnings.add('Browser import summarizes cost and explicit tags. Hardware sizing, resource-name inference, and utilization are not analyzed.');

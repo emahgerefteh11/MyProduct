@@ -188,6 +188,25 @@ class BrowserImport(unittest.TestCase):
         self.page.reload()
         expect(self.page.locator('#kpi-total')).to_have_text('$105.00')
 
+    def test_focus_nullable_and_conflicting_ownership_tags(self):
+        rows = 'BilledCost,BillingCurrency,ProviderName,Tags\n'
+        rows += '20,USD,AWS,"{""Product"":""Payments"",""Platform"":null}"\n'
+        rows += '10,USD,AWS,"{""Product"":""First"",""product"":""Second""}"\n'
+        self.choose([{'name': 'focus.csv', 'mimeType': 'text/csv', 'buffer': rows.encode()}])
+        expect(self.page.locator('#format-0')).to_have_value('focus')
+        self.validate()
+        warnings = self.page.locator('#warning-list')
+        expect(warnings).to_contain_text('ownership tags have conflicting values')
+        expect(warnings).not_to_contain_text('tags could not be parsed')
+        self.accept()
+        expect(self.page.locator('#kpi-total')).to_have_text('$30.00')
+        self.page.locator('.report-actions summary').click()
+        with self.page.expect_download() as download:
+            self.page.locator('#download-imported-report').click()
+        report = json.loads(Path(download.value.path()).read_text())
+        self.assertEqual(report['allocation']['unallocatedProductCost'], 10)
+        self.assertEqual(next(p for p in report['products'] if p['Product'] == 'Payments')['BilledCost'], 20)
+
     def test_connected_view_contract_keeps_private_and_uploaded_reports_separate(self):
         self.choose([ROOT / 'tests' / 'fixtures' / 'cur' / 'synthetic.csv'])
         self.validate()
