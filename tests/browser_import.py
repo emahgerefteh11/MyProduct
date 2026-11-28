@@ -178,11 +178,15 @@ class BrowserImport(unittest.TestCase):
         self.assertEqual(analysis['usagePeriod']['start'], '2026-09-29T00:00:00.000Z')
 
     def test_gcp_invoice_history_retains_separate_months_and_requires_correction_confirmation(self):
-        def upload(month, total, marker='net_with_credits'):
+        def upload(month, total, marker='net_with_credits', example=None):
             self.page.goto(self.origin + '/import.html')
-            self.choose([{'name': 'invoice.csv', 'mimeType': 'text/csv', 'buffer':
+            if example:
+                files = [str(ROOT / 'docs' / 'demo' / example)]
+            else:
+                files = [{'name': 'invoice.csv', 'mimeType': 'text/csv', 'buffer':
                           ("invoice.month,Cost,currency,service.description,AtlasGcpCostBasis,usage_start_time,usage_end_time\n"
-                           f"{month},{total},USD,Compute Engine,{marker},2026-09-29,2026-09-30\n").encode()}])
+                           f"{month},{total},USD,Compute Engine,{marker},2026-09-29,2026-09-30\n").encode()}]
+            self.choose(files)
             self.validate()
             self.page.locator('#invoice-series').fill('Main account')
             expect(self.page.locator('#save-invoice-button')).to_be_disabled()
@@ -192,15 +196,15 @@ class BrowserImport(unittest.TestCase):
             self.page.locator('#save-invoice-button').click()
             expect(self.page.locator('#invoice-save-status')).to_contain_text(expected)
 
-        upload('202610', 100)
+        upload('202610', 100, example='gcp-october.csv')
         save('Invoice month saved')
         save('already saved')
-        upload('202611', 130)
+        upload('202611', 130, example='gcp-november.csv')
         save('Invoice month saved')
         self.page.reload()
         expect(self.page.locator('#invoice-delta')).to_contain_text('+$30.00')
         expect(self.page.locator('#invoice-rows tr')).to_have_count(2)
-        upload('202610', 105)
+        upload('202610', 105, example='gcp-october-corrected.csv')
         self.page.once('dialog', lambda dialog: dialog.dismiss())
         save('Replacement cancelled')
         expect(self.page.locator('#invoice-delta')).to_contain_text('+$30.00')

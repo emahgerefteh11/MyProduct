@@ -1,0 +1,3 @@
+invoice.month,Cost,currency,service.description,AtlasGcpCostBasis,Product,usage_start_time,usage_end_time
+202610,70,USD,Cloud Storage,net_with_credits,Payments,2026-09-29,2026-09-30
+202610,30,USD,Compute Engine,net_with_credits,,2026-10-01,2026-10-02

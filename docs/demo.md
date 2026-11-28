@@ -16,3 +16,12 @@ Before presenting, download the [original synthetic AWS CSV](../tests/fixtures/c
 4. After the demo, clear the sample import via **Report actions → Clear imported report**, or close the disposable browser profile.
 
 **What isn't live yet:** These steps show sample and manual upload. The AWS connector retry, revision and disconnect behavior has passed synthetic checks, but the public demo is not connected to AWS. A private deployment with an approved AWS export is a separate pilot.
+
+## Optional GCP walkthrough: compare two months without a cloud account
+
+Download [October](demo/gcp-october.csv), [November](demo/gcp-november.csv), and the [October correction](demo/gcp-october-corrected.csv). Use synthetic CSVs and a separate browser profile for this demo.
+
+1. [Import billing](https://emahgerefteh11.github.io/MyProduct/import.html) and choose October alone. Validate, acknowledge the warnings, and **Save invoice month** under `Atlas demo`. October stays October even though one usage row is from September.
+2. Reload the import page and repeat for November under `Atlas demo`. In **Compare Google Cloud invoices**, show **$100 in October** next to **$130 in November**, a **+$30** difference.
+3. Repeat with the October correction and confirm that it replaces October. The comparison now shows **$105 versus $130**, or **+$25**. Refresh to show both totals are still there; the current dashboard report was not changed by saving the history.
+4. Remove the two demo months afterward, or close the separate temporary browser profile. This walkthrough does not connect to BigQuery.
