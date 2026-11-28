@@ -152,6 +152,21 @@ test('currency precision applies consistently to totals, allocations, inventory 
     assert.equal(check('Cost,Currency\n9007199254741,KWD').ok, false);
 });
 
+test('reconciliation retains an exact signed delta even beyond numeric display precision', () => {
+    for (const [cost, currency, exact, numeric] of [
+        ['1.2344', 'KWD', '-0.0004', -0.0004],
+        ['10.49', 'JPY', '-0.49', -0.49],
+        ['1.2344', 'USD', '-0.0044', -0.0044],
+        ['1.2300', 'USD', '0', 0],
+        ['1.2299999999', 'USD', '0.0000000001', 0],
+        ['1e-324', 'USD', '-0.' + '0'.repeat(323) + '1', 0],
+    ]) {
+        const {reconciliation} = check(`BilledCost,BillingCurrency\n${cost},${currency}`).report.analysis;
+        assert.equal(reconciliation.exactDifference, exact);
+        assert.equal(reconciliation.difference, numeric);
+    }
+});
+
 test('sub-cent decimals accumulate before rounding and negative credits remain intact', () => {
     const result = check('Cost\n0.004\n0.004\n0.004\n-0.001');
     assert.equal(result.report.analysis.reconciliation.sourceTotal, .011);

@@ -109,9 +109,9 @@
         return n;
     }
     function rounded(a, digits) {
-        if (a.s <= digits) return amount(a, digits);
+        if (a.s <= digits) return a;
         const divisor = 10n ** BigInt(a.s - digits), sign = a.n < 0n ? -1n : 1n, absolute = a.n * sign;
-        return amount({n: sign * ((absolute + divisor / 2n) / divisor), s: digits}, digits);
+        return {n: sign * ((absolute + divisor / 2n) / divisor), s: digits};
     }
     // Match the default Intl currency display; unspecified and unknown codes keep two digits.
     function currencyDigits(currency) {
@@ -278,7 +278,7 @@
         if (!rowCount) fail('', null, '', 'No billing rows were available for validation.');
         if (errorCount) return {ok: false, errors, errorCount, warnings: [...warnings], report: null, rowCount};
         const currency = [...currencies][0] || null, digits = currencyDigits(currency);
-        const money = cost => rounded(cost, digits);
+        const money = cost => amount(rounded(cost, digits), digits);
         const numericCost = cost => amount(cost, digits);
         const pct = (part, whole) => whole ? part / whole * 100 : 0;
         function list(map, key, total) {
@@ -295,7 +295,10 @@
         }
         let report;
         try {
-            const totalNumber = numericCost(total), reportTotal = money(total);
+            const roundedTotal = rounded(total, digits);
+            const totalNumber = numericCost(total), reportTotal = numericCost(roundedTotal);
+            const delta = add({...roundedTotal}, {n: -total.n, s: total.s});
+            const exactDifference = delta.n === 0n ? '0' : decimalText(delta).replace(/(\.\d*?[1-9])0+$/, '$1');
             const periods = Object.fromEntries(['usagePeriod', 'billingPeriod'].map(key => {
                 const starts = sources.map(s => s[key].start).filter(Boolean).sort(), ends = sources.map(s => s[key].end).filter(Boolean).sort();
                 return [key, {start: starts[0] || null, end: ends.at(-1) || null, complete: starts.length === sources.length && ends.length === sources.length && !sources.some(s => s[key === 'usagePeriod' ? 'incompleteUsage' : 'incompleteBilling'])}];
@@ -303,7 +306,7 @@
             report = {sampleData: false, TotalBilledCost: reportTotal,
                 analysis: {schemaVersion: 1, generatedAt: new Date().toISOString(), importMethod: 'browser', currency,
                     costBasis: [...bases][0], sourceCount: sources.length, rowCount, sources, ...periods,
-                    reconciliation: {sourceTotal: totalNumber, reportTotal, difference: Number((reportTotal - totalNumber).toFixed(8))}, warnings: [...warnings]},
+                    reconciliation: {sourceTotal: totalNumber, reportTotal, difference: Number(Number(exactDifference).toFixed(8)) || 0, exactDifference}, warnings: [...warnings]},
                 allocation: {unallocatedProductCost: money(unProduct), unallocatedPlatformCost: money(unPlatform), unallocatedEnvironmentCost: money(unEnvironment)},
                 products: productList(products, totalNumber), services: list(services, 'ServiceCategory', totalNumber), environments: list(environments, 'Environment', totalNumber), providers: list(providers, 'ProviderName', totalNumber),
                 platforms: list(platforms, 'Platform', totalNumber).map(p => { const g = platforms.get(p.Platform), cost = numericCost(g.cost); return {...p, products: productList(g.products, cost), services: list(g.services, 'ServiceCategory', cost), vmSkus: [], ec2Skus: []}; }),
